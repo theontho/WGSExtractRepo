@@ -1,0 +1,13 @@
+{ 
+  "release": { 
+    "track": "Dev", 
+    "__comment0": "WGS Extract Installer release track control", 
+    "__comment1": "Set release.track above to choose the URL below to find the latest release json file.", 
+    "__comment2": "Edit to change the track before (re)running the installer.", 
+    "baseURL":"https://get.wgse.io/", 
+    "DevURL": "https://get.wgse.io/latest-release-Dev.json", 
+    "AlphaURL": "https://get.wgse.io/latest-release-Alpha.json", 
+    "BetaURL": "https://get.wgse.io/latest-release-Beta.json", 
+    "__comment3": "Developers, you can replace URLs above with file:///path to test before release." 
+   } 
+} 
