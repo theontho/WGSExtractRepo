@@ -1,5 +1,12 @@
-WGS Extract Beta v4
-https://WGSE.bio/
+# WGS Extract
+
+Version: v4 DEV - https://WGSE.bio/
+
+This git repo is for development of WGS Extract, if you would just like to install it, go to https://WGSE.bio/ and follow the instructions there.
+
+
+
+## Installer README
 
 Congratulations on downloading the WGS Extract v4 Installer.
 
@@ -7,10 +14,11 @@ There is more detailed information in the user manual available at
 https://WGSE.bio/. As well as the Release_Notes.txt file here.
 
 Click on the appropriate installer script for your computer :
+
     Microsoft Win10/11      	Install_windows.bat
     Apple MacOS X/11/12     	Install_macos.command
-    Ubuntu Linux (18/20/22)	  Install_ubuntu.sh
-    Generic Linux             Install_linux.sh
+    Ubuntu Linux (18/20/22)	    Install_ubuntu.sh
+    Generic Linux               Install_linux.sh
 
 Right-Click (Windows) or CTRL-Click (MacOS) the first time to go
  though their approval process for your OS. After that, you can simply
