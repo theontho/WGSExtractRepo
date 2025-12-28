@@ -1,8 +1,11 @@
 # WGS Extract
 
+**Currently a WIP setup of the git repo for development**
+
 Version: v4 DEV - https://WGSE.bio/
 
 This git repo is for development of WGS Extract, if you would just like to install it, go to https://WGSE.bio/ and follow the instructions there.
+
 
 
 
