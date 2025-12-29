@@ -275,14 +275,30 @@ def run_dev_scripts_test(platform):
              print("[+] Cache transferred.")
 
         print("[*] Installing uv...")
-        vm.exec("curl -LsSf https://astral.sh/uv/install.sh | sh")
-        # Add cargo/bin to path for the session or symlink it
-        # The install script usually puts it in ~/.cargo/bin
-        # We can just update PATH for the following command or link it to /usr/local/bin
-        vm.exec("sudo cp /home/admin/.cargo/bin/uv /usr/local/bin/uv")
+        res = vm.exec("curl -LsSf https://astral.sh/uv/install.sh | sh", capture_output=True)
+        if res.returncode != 0:
+            print(f"[!] UV Install Failed: {res.stderr}")
+            return False
+        
+        # Verify and link (it installs to ~/.local/bin often)
+        # Check standard locations
+        uv_bin = "/home/admin/.local/bin/uv"
+        
+        res = vm.exec(f"ls {uv_bin}")
+        if res.returncode != 0:
+             # Fallback check
+             uv_bin = "/home/admin/.cargo/bin/uv"
+             res = vm.exec(f"ls {uv_bin}")
+             if res.returncode != 0:
+                 print("[!] uv binary not found in .local/bin or .cargo/bin.")
+                 return False
+             
+        # Symlink to global path so direct subprocess calls find it easily without PATH dancing
+        vm.exec(f"sudo ln -sf {uv_bin} /usr/local/bin/uv")
         
         print("[*] Running dev_init.py...")
         
+        # Reset init_cmd to simple invocation now that we have global link
         init_cmd = f"cd {target_dir} && python3 dev_init.py"
         
         res = vm.exec(init_cmd, capture_output=False)
