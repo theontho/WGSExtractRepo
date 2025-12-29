@@ -31,6 +31,89 @@ fi
 echo
 export _os_vers     # Normally local as only used in routine below but treated like global in case not sourced
 
+#------------------- MacOS Homebrew (un)Install  ------------------------
+
+# Shared Homebrew package lists
+# Todo pbmm2, a PacBio Minimap2 front-end  https://github.com/PacificBiosciences/pbmm2
+export HOMEBREW_PKGS="bash grep gnu-sed coreutils zip unzip p7zip md5sha1sum jq python@3.11 python-tk@3.11 zulu@8 zulu@11 samtools bcftools htslib bwa minimap2 fastp bowtie2"
+export HOMEBREW_BIO_PKGS="brewsci/bio/bwa-mem2 brewsci/bio/hisat2"
+
+install_homebrew() {
+  # Check if Homebrew is installed
+  if ! command -v brew &> /dev/null; then
+      echo "Installing Homebrew..."
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      
+      local HOMEBREW_PREFIX
+      # Determine where Homebrew was installed
+      if [ -d "/opt/homebrew" ]; then
+          HOMEBREW_PREFIX="/opt/homebrew"
+      else
+          HOMEBREW_PREFIX="/usr/local/Homebrew"
+      fi
+      
+      # Add Homebrew to PATH if needed
+      if [[ "$SHELL" == "/bin/zsh" ]]; then
+          echo 'eval "$('${HOMEBREW_PREFIX}/bin/brew' shellenv)"' >> ~/.zshrc
+          eval "$(${HOMEBREW_PREFIX}/bin/brew shellenv)"
+      else
+          echo 'eval "$('${HOMEBREW_PREFIX}/bin/brew' shellenv)"' >> ~/.bash_profile
+          eval "$(${HOMEBREW_PREFIX}/bin/brew shellenv)"
+      fi
+  fi
+
+  echo "Updating Homebrew and packages..."
+  brew update
+
+  echo "Installing required Unix utilities & bioinformatics tools..."
+  brew install $HOMEBREW_PKGS
+  brew install $HOMEBREW_BIO_PKGS
+
+  echo "Homebrew setup completed successfully!"
+}
+export -f install_homebrew
+
+uninstall_homebrew_packages() {
+  # If $1 == "ask", then query the user whether to remove or not
+  local ask remove
+  [[ $1 == "ask" ]] && ask=true || ask=false
+
+  remove=true
+  if $ask ; then
+    readq 'Do you want to uninstall Homebrew packages? [y/N]'
+    [[ $REPLY =~ ^[Yy]$ ]] && remove=true || remove=false
+  fi
+
+  if $remove ; then
+    $ask && echo " ... uninstalling Homebrew packages."
+    brew uninstall $HOMEBREW_PKGS $HOMEBREW_BIO_PKGS
+  elif $ask ; then
+    echo ' ... Leaving Homebrew packages installed.'
+  fi
+}
+
+export -f uninstall_homebrew_packages
+
+uninstall_homebrew() {
+  # If $1 == "ask", then query the user whether to remove or not
+  local ask remove
+  [[ $1 == "ask" ]] && ask=true || ask=false
+
+  remove=true
+  if $ask ; then
+    readq 'Do you want to uninstall Homebrew? [y/N]'
+    [[ $REPLY =~ ^[Yy]$ ]] && remove=true || remove=false
+  fi
+
+  if $remove ; then
+    $ask && echo " ... uninstalling Homebrew."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+  elif $ask ; then
+    echo ' ... Leaving Homebrew installed.'
+  fi
+}
+export -f uninstall_homebrew
+
 #------------------- MacOS Command Line Interface (language compilation) tools  (un)Install  ------------------------
 
 _cli_old_version() {
@@ -94,6 +177,7 @@ apple_cli_uninstall() {
 }
 export -f apple_cli_uninstall
 
+# Homebrew installs xcode cli tools, but just incase...
 apple_cli_install() {
   (( ${_os_vers[0]} > 14 )) && cli_min="^version: 16" || cli_min="^version: 15"
 
@@ -120,6 +204,7 @@ apple_cli_install() {
 }
 export -f apple_cli_install
 
+#------------------------------------ OLD METHODS (un)INSTALLERS  --------------------------------------------
 
 #------------------------------------ MacOS MacPorts (un)Install  --------------------------------------------
 #  Needed here as Installer may have to uninstall and then do a fresh install
@@ -133,6 +218,33 @@ _macports_wrong_OS() {
   # If _localport is for the wrong OS; exit / return code is true (0)
   "$_localport" info samtools 2>&1 >/dev/null | head -1 | grep -q "Error: Current platform"
 }
+
+# Function to uninstall MacPorts packages
+uninstall_macports_packages() {
+  # If not installed, simply return true (0) as successful
+  [ ! -f "$_localport" ] && return 0
+  echo 'Starting MacPorts packages uninstallation...'
+  
+  # Remove 7z symlink if it exists
+  if [ -L /opt/local/bin/7z ]; then
+    echo 'Removing 7z symlink...'
+    sudo rm -f /opt/local/bin/7z
+  fi
+
+  # Uninstall bioinformatic packages
+  if [ -f /opt/local/bin/samtools ]; then
+    echo 'Uninstalling bioinformatic packages...'
+    sudo "$_localport" -N uninstall samtools bcftools htslib
+  fi
+
+  # Uninstall Unix utilities
+  if [ -f /opt/local/bin/7zz ] || [ -f /opt/local/bin/gsed ] || [ -f /opt/local/bin/jq ]; then
+    echo 'Uninstalling Unix utilities...'
+    sudo "$_localport" -N uninstall bash grep gsed coreutils zip unzip 7zip md5sha1sum jq
+  fi
+}
+
+export -f uninstall_macports_packages
 
 macports_uninstall() {
   # If $1 == "ask", then query the user whether to remove or not
@@ -296,7 +408,7 @@ python_uninstall() {
 
   remove=true
   if $ask ; then
-    readq "Do you want to remove Python v$1 [y/N]?"
+    readq "Do you want to remove Python that we potentially installed? v$1 [y/N]?"
     [[ $REPLY =~ ^[Yy]$ ]] && remove=true || remove=false
 
   fi
@@ -360,7 +472,7 @@ java_uninstall() {
 
   remove=true
   if $ask ; then
-    readq "Do you want to remove Java JRE $2 [y/N]?"
+    readq "Do you want to remove Java JRE that we potentially installed? $2 [y/N]?"
     [[ $REPLY =~ ^[Yy]$ ]] && remove=true || remove=false
   fi
 

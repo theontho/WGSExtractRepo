@@ -58,16 +58,25 @@ pip_install() {
 
   # Any command line options needed ; setup pip command for the particular OS / Architecture
   opts=( --no-warn-script-location )
+  pip=()
 
-  if [ "${OSTYPE}" = "darwin" ]; then
+  # Check for /usr/local/bin/pip3 first, otherwise use platform-specific paths
+  if [[ "${OSTYPE}" == darwin* ]]; then
     libs+=( tkmacosx ) # MacOS extra package for tkinter colored buttons
-    custom_pip_path="/usr/local/bin/pip3" # the old method of installing python
+    opts=()
+    custom_pip_path="/usr/local/bin/pip3"
     arch_arg=$([ "${cpu_arch}" = "arm64" ] && echo "-arm64" || echo "-x86_64")
     homebrew_pip_path=$([ "${cpu_arch}" = "arm64" ] && echo "/opt/homebrew/bin/pip3.11" || echo "/usr/local/Homebrew/bin/pip3.11")
     chosen_pip_path=$([ -x "${custom_pip_path}" ] && echo "${custom_pip_path}" || echo "${homebrew_pip_path}")
-    pip=( arch "${arch_arg}" "${chosen_pip_path}" )
+    
+    if [ -x "${custom_pip_path}" ] ; then
+      pip=( arch "${arch_arg}" "${chosen_pip_path}" )
+    else
+      pip=( "${homebrew_pip_path}" )
+    fi
   else
     case "${OSTYPE}:${cpu_arch}:${osver}" in    # MacOS passes arch as first arg; major/min version as 2nd; Ubuntu major as first
+      darwin*) ;; # Do nothing since we dealt with MacOS above
       linux*:x86_64:18*)        pip=( sudo -H python3 -m pip )      # 18.x Ubuntu pip errors; cannot use sudox function call
                                   opts=()  ;;                       # no-warn... not recognized in 18.x Ubuntu pip
       linux*:x86_64:20* | \

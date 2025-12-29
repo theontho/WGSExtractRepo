@@ -37,6 +37,10 @@ echo 'This script will require a password to remove them from the system area.'
 echo 'You will be asked to confirm each tool before uninstalling.'
 echo
 
+echo '===================== Removing Homebrew Installations ============================'
+uninstall_homebrew_packages
+uninstall_homebrew ask
+
 echo '===================== Removing Python Installations ============================'
 vers=( 3.8 3.9 3.10 3.11 )    # Versions from WGSE v2 through v4
 

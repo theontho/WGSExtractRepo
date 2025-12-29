@@ -691,13 +691,24 @@ def init(interactive=False):
         exit()
 
     elif os_plat == "Darwin":  # Apple MacOS
-        python3_FP    = '/usr/local/bin/'
-        python3x_qFN  = f'"{python3_FP}python3"'
+        new_homebrew_root = '/opt/homebrew'
+        homebrew_root = new_homebrew_root if os.path.exists(new_homebrew_root) else '/usr/local/Homebrew'
+        macports_root = "/opt/local/bin"
+        custom_python_root = "/usr/local/bin"
+        has_macports = os.path.exists(macports_root)
+        has_custom_python = os.path.exists(custom_python_root)
 
-        samtools_oFP  = '/opt/local/bin/'
-        samtools_FP   = '/opt/local/bin/'
+        bash_samtools_root = macports_root if has_macports else homebrew_root
+        python_root = custom_python_root if has_custom_python else homebrew_root
+        python_executable = "python3" if has_custom_python else "python3.11"
 
-        bashx_oFN  = '/opt/local/bin/bash'       # default MacOS Bash is v3 and too old
+        python3_FP    = f'{python_root}/bin/'
+        python3x_qFN  = f'"{python3_FP}{python_executable}"'
+
+        samtools_oFP  = f'{bash_samtools_root}/bin/'
+        samtools_FP   = f'{bash_samtools_root}/bin/'
+
+        bashx_oFN  = f'{bash_samtools_root}/bin/bash'       # default MacOS Bash is v3 and too old
         headx_qFN  = '"/usr/bin/head"'
         tailx_qFN  = '"/usr/bin/tail"'
         awkx_qFN   = '"/usr/bin/awk"'

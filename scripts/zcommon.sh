@@ -86,9 +86,22 @@ case $OSTYPE in
     ;;
 
   darwin*)
-    declare -rx bashx="/opt/local/bin/bash"
-    [[ ":$PATH:" != *":/opt/local/bin:"* ]] && PATH="/opt/local/bin:/opt/local/sbin:${PATH}"
+    # Use system bash and include Homebrew paths
+    declare -rx bashx="/bin/bash"
+    # Add Homebrew paths if they exist
+    if [ -d "/opt/homebrew/bin" ]; then
+      # Apple Silicon Homebrew location
+      [[ ":$PATH:" != *":/opt/homebrew/bin:"* ]] && PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${PATH}"
+    elif [ -d "/usr/local/Homebrew/bin" ]; then
+      # Intel Homebrew location
+      [[ ":$PATH:" != *":/usr/local/Homebrew/bin:"* ]] && PATH="/usr/local/Homebrew/bin:${PATH}"
+    elif [ -d "/opt/local/bin" ]; then
+      # MacPorts location
+      declare -rx bashx="/opt/local/bin/bash"
+      [[ ":$PATH:" != *":/opt/local/bin:"* ]] && PATH="/opt/local/bin:/opt/local/sbin:${PATH}"
+    fi
     ;;
+
 
   linux*)
     # If the micromamba env has been activated, then the bash bin from that env will get priority on $PATH
@@ -177,7 +190,15 @@ case $OSTYPE in
     owgse_FP=$(cygpath -m "$wgse_FP")
     ;;
   darwin*)
-    pythonx="/usr/local/bin/python3"
+    if [ -x "/opt/homebrew/bin/python3.11" ]; then
+        pythonx="/opt/homebrew/bin/python3.11"
+    elif [ -x "/usr/local/Homebrew/bin/python3.11" ]; then
+        pythonx="/usr/local/Homebrew/bin/python3.11"
+    elif [ -x "/usr/local/bin/python3.11" ]; then
+        pythonx="/usr/local/bin/python3"
+    else
+        pythonx="python3"
+    fi
     owgse_FP="$wgse_FP"
     ;;
   linux*)
