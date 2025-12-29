@@ -7,7 +7,7 @@ from datetime import datetime
 def create_release():
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     build_dir = os.path.join(repo_root, "build")
-    manifest_path = os.path.join(repo_root, "release_manifest.json")
+    manifest_path = os.path.join(repo_root, "installer_scripts", "release.json")
 
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
@@ -21,13 +21,14 @@ def create_release():
 
     platforms = {
         "macos": {"install": "Install_macos.command", "uninstall": "Uninstall_macos.command"},
+        "macos_brew": {"install": "Install_macos_brew.command", "uninstall": "Uninstall_macos_brew.command"},
         "linux": {"install": "Install_linux.sh", "uninstall": "Uninstall_linux.sh"},
         "ubuntu": {"install": "Install_ubuntu.sh", "uninstall": "Uninstall_ubuntu.sh"},
         "windows": {"install": "Install_windows.bat", "uninstall": "Uninstall_windows.bat"}
     }
 
     # Directories to include
-    include_dirs = ["program", "scripts", "docs", "reference", "installer_scripts"]
+    include_dirs = ["program", "scripts", "docs", "installer_scripts"]
     
     # Files to be moved into docs/ inside the ZIP
     docs_files = ["LICENSE.txt", "CHANGELOG.md"]
@@ -42,7 +43,7 @@ def create_release():
 
         # 1. Copy directories
         def ignore_patterns(path, names):
-            ignored = [n for n in names if n.startswith('.') or n in ["tmp", "build", "__pycache__", ".git"]]
+            ignored = [n for n in names if n.startswith('.') or n in ["tmp", "build", "__pycache__", ".git", "dev-init.sh", "dev-launch.sh", "dev-launch-library.sh", "reference"]]
             return ignored
 
         for d in include_dirs:
@@ -50,18 +51,20 @@ def create_release():
             if os.path.exists(src):
                 shutil.copytree(src, os.path.join(temp_dir, d), dirs_exist_ok=True, ignore=ignore_patterns)
 
-        # 2. Copy manifest to installer_scripts
-        zip_inst_scripts_dir = os.path.join(temp_dir, "installer_scripts")
-        if not os.path.exists(zip_inst_scripts_dir):
-            os.makedirs(zip_inst_scripts_dir)
-        shutil.copy2(os.path.join(repo_root, "release_manifest.json"), os.path.join(zip_inst_scripts_dir, "release_manifest.json"))
+        # 2. Rename base_reference to reference in the package
+        base_ref_src = os.path.join(repo_root, "base_reference")
+        if os.path.exists(base_ref_src):
+            shutil.copytree(base_ref_src, os.path.join(temp_dir, "reference"), dirs_exist_ok=True, ignore=ignore_patterns)
 
         # 3. Handle documentation files
         zip_docs_dir = os.path.join(temp_dir, "docs")
         if not os.path.exists(zip_docs_dir):
             os.makedirs(zip_docs_dir)
             
-        # Move LICENSE, CHANGELOG into docs/
+        # Copy release.json to root if it exists in installer_scripts/
+        release_json_src = os.path.join(temp_dir, "installer_scripts", "release.json")
+        if os.path.exists(release_json_src):
+            shutil.copy2(release_json_src, os.path.join(temp_dir, "release.json"))
         for f in docs_files:
             src = os.path.join(repo_root, f)
             if os.path.exists(src):

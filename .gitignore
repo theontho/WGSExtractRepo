@@ -1,3 +1,15 @@
 .DS_Store
 tmp/
 build/
+
+# windows dependencies
+cygwin64/
+bioinfo/
+msys2/
+bioinfo-msys2/
+
+# binary data dependencies
+reference/
+FastQC/
+jartools/
+yleaf/
