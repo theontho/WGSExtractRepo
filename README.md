@@ -4,77 +4,45 @@
 
 Version: v4 DEV - https://WGSE.bio/
 
-This git repo is for development of WGS Extract, if you would just like to install it, go to https://WGSE.bio/ and follow the instructions there.
+This git repo is for development of WGS Extract, if you would just like to install it, go to https://WGSE.bio/ and follow the instructions there.  The rest of this readme is for developers.
 
+## Current Development System
 
+Since this toolkit app has a bunch of bundled packages, programs, libraries, etc that isn't a good idea to put in a git repo, it used a json manifest file system to help downloading these and composing these packages together.  This is refrenced in release_manifest.json. 
 
+There is the main cross platform set of packages:
 
-## Installer README
+- installer : this contained the install scripts made by the release process, which downloaded and set up the packages for each platform refrencing release.json
+- program : this is the main python program code that put all of this stuff together, shows the user interface, etc.
+- reflib : this contains a whole bunch of genetic reference data for the program to use
+- tools : this contains a set of cross platform python and java tools like FastQC
 
-Congratulations on downloading the WGS Extract v4 Installer.
+And there is there is the bioinformatics ("bioinfo") tools.
 
-There is more detailed information in the user manual available at
-https://WGSE.bio/. As well as the Release_Notes.txt file here.
+- macos: uses macports and some custom scripts to install needed dependencies.  There is a new beta homebrew version that is significantly simpler to maintain and install vs. the old macport version.
+- linux: uses apt and some custom scripts to install needed dependencies (ubuntu) or micromamba if not the main repo
+- windows: provides some prebuilt bioinformatics tools which it runs via a prebuilt cygwin or msys2 environment. These are downloaded as binary packages from the release_manifest.json file (bioinfo & cygwin64 or msys2 & bioinfo-msys2).  My guess is it's way more painful to do the linux / macos method on windows, thus the prebuilt need.
 
-Click on the appropriate installer script for your computer :
+The platform installer script would download the set of packages it needs, installs them and then deletes the other cross platform installer scripts to clean up the root directory.  The user would then run the {wgsextract,library}.{bat,sh,command} to start the python tkinter UX.  
 
-    Microsoft Win10/11      	Install_windows.bat
-    Apple MacOS X/11/12     	Install_macos.command
-    Ubuntu Linux (18/20/22)	    Install_ubuntu.sh
-    Generic Linux               Install_linux.sh
+The release process is fairly manual, and you can see it specified in [docs/make_release.txt](docs/make_release.txt).
 
-Right-Click (Windows) or CTRL-Click (MacOS) the first time to go
- though their approval process for your OS. After that, you can simply
- click the script file directly to start. Some OS's have this extra level
- of protection applied to applications not sourced through their app store.
+Since it was a pretty complicated system to maintain, it wasn't under a git repo, just this custom process.
 
-If on a MacOS, drag the WGSExtractv4/ folder (result after unzipping) into
- /Applications or maybe your Home folder.  On Windows, drag to your Users
- Home folder or another disk. The Home folder is one up from the Downloads
- folder. You cannot leave the WGS Extract installation in the Downloads/
- or Documents/ folders; programs usually cannot work from there. (note:
- depending on your version of Windows, you can drag WGSExtractv4/ to the
- "Program Files" folder.)
+## Proposed New Interm Development System
 
-If upgrading, copy the files and folders from the expanded WGSExtractv4/ folder
- onto the same directory as your current installation.  Overwriting or replacing
- any same-named files there.  Then simply (re)run the Installer named above.
+I wanted to improve the app, so I'm proposing a new development situation.  
 
-You can rename the installation directory, if you desire, to other than WGSExtractv4.
+- merge installer & program packages into the github repo as a single source of truth since they are where most new source code is edited here, adding value for the github package.  Put development back into a git repo for our sanity.
+- keep the `release_manifest.json` manifest system for `reflib`, `tools` & the windows `bioinfo` packages since they are all third party software for now and mostly large binaries that don't change as much.
+- make `release_manifest.json` only exist in the github repo, and we use release tags to differentiate versions of this url for installer scripts that we create.
+- create an automated release process that uses github actions & releases to create an end user installer script for each platform.  Host these on the releases page of the github repo and have it update the github page with these latest releases automatically.
+- make an `dev-init.sh` script that will download what is needed from `release_manifest.json` to enable full development of the app. 
 
-Installers are re-entrant. They will update tools, libraries and packages of
- the WGS Extract program when run again.
+## Eventual Goals:
 
-We try to make sure a script starts in a visible Terminal / cmd.exe window when
- you click to start it from your GUI / Finder / Explorer.  But it does not always
- work. On all platforms, starting the script from a Terminal / cmd.exe shell
- will always get the Terminal window to see any log of actions.  To start
- a script in Win10/11, you "call" a .bat file.  In all others, simply type
- "bash" and then give the full script file name.
-
-The actual WGS Extract Program package installation is only a minute whereas
- the Reference Library and tools packages may take 15 minutes to an hour or
- more; depending on your internet connection speed. Each is over 500 MB in size.
-
-Once installed successfully, start the WGS Extract program by clicking on the
- Start script for your computer (only one of them should exist):
-    Microsoft Win10/11      WGSExtract.bat
-    Apple MacOS X/11/12     WGSExtract.command
-    Linux (& Ubuntu LTS)    WGSExtract.sh
-
-Make an alias / shortcut of the Start script file and put it wherever convenient
- (desktop, Application folder, Start menu, etc). You cannot copy it as the script
- location indicates where the installation is. How you make an alias / shortcut
- is different for each OS. Search the internet or see the Installation chapter
- in the WGS Extract Users Manual for more details: https://WGSE.bio/
-
-There is a Library script (similar to the Start script) to run just the
- reference genome library management tool. This is a convenience when you know
- a specific reference genome is needed.  Otherwise, the program will download
- when it is needed and missing.
-
-There is a corresponding Uninstall_xxxx.xxx script for each OS type to completely
- remove the installation and everything it installed.
-
-Full documentation at https://WGSE.bio/. Each release has the full source code.
-But you can check https://wgsextract.github.io/ as well.
+- Move todos into github issues
+- Merge v5 changes into the main branch
+- Make macos homebrew the default
+- Update a bunch of out of date tooling
+- One day, in the far future, make it a one click app, have a windows installer, etc.
