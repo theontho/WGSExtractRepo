@@ -941,12 +941,12 @@ def load_settings(gui=False):
 
     if not lang:
         DEBUG("*** FATAL ERROR: Language subsystem not available!")
-        raise
+        raise RuntimeError("Language subsystem not available!")
     lang.change_language(settings_to_restore.get('lang.language', lang.language))
 
     if not tempf:
         DEBUG("*** FATAL ERROR: Temporary Files subsystem not available!")
-        raise
+        raise RuntimeError("Temporary Files subsystem not available!")
     tempf.change(settings_to_restore.get('tempf.save_FP', tempf.default_FP))
 
     if not (tempf.oFP and os.path.isdir(tempf.oFP)):
@@ -955,21 +955,21 @@ def load_settings(gui=False):
         tpath = tempf.oFP if tempf.oFP else "invalid"
         wgse_message("error", 'InvalidTempDirTitle', True,
                      lang.i18n['errTempDirPath'].replace('{{tempf}}', tpath))
-        raise
+        raise RuntimeError(f"Invalid Temporary Files Directory: {tpath}")
 
     if not reflib:
         DEBUG("*** FATAL ERROR: Reference Library subsystem not available!")
-        raise
+        raise RuntimeError("Reference Library subsystem not available!")
     reflib.change(settings_to_restore.get('reflib.FP', reflib.FP))
 
     if not outdir:
         DEBUG("*** FATAL ERROR: Output Directory subsystem not available!")
-        raise
+        raise RuntimeError("Output Directory subsystem not available!")
     outdir.change(settings_to_restore.get('outdir.FP', outdir.FP))
 
     if not fonts and gui:
         DEBUG("*** FATAL ERROR: Fonts Subsytem not available!")
-        raise
+        raise RuntimeError("Fonts Subsystem not available!")
     if gui:
         fonts.change(newface=settings_to_restore.get('fonts.face', fonts.face),
                      newbasept=settings_to_restore.get('fonts.basept', fonts.basept))
