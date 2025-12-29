@@ -153,9 +153,8 @@ download_tmp/
 
 # windows dependencies (TODO: untested)
 cygwin64/
-bioinfo/
+local/
 msys2/
-bioinfo-msys2/
 
 # binary data dependencies
 reference/

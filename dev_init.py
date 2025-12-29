@@ -72,6 +72,80 @@ def install_system_packages():
                         run_command(["sudo", "apt", "install", "-y", pkg])
         except FileNotFoundError:
             print("Apt not found. Skipping system package installation.")
+    elif sys.platform == "win32":
+        install_windows_dependencies()
+
+
+def install_windows_dependencies():
+    print("=== Checking Windows Dependencies ===")
+    
+    # 1. JQ
+    jq_exe = TMP_DIR / "jq.exe"
+    if not jq_exe.exists():
+        print("Downloading JQ for Windows...")
+        jq_url = "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe"
+        try:
+            run_command(["curl", "-L", "-o", str(jq_exe), jq_url])
+        except Exception as e:
+            print(f"Failed to download JQ: {e}")
+            pass
+
+    # 2. Cygwin Installer (always fetch if missing, just in case)
+    setup_exe = TMP_DIR / "setup-x86_64.exe"
+    if not setup_exe.exists():
+        print("Downloading Cygwin installer...")
+        url = "https://www.cygwin.com/setup-x86_64.exe"
+        run_command(["curl", "-L", "-o", str(setup_exe), url])
+
+def run_cygwin_setup(cygwin_dir_name="cygwin64"):
+    print("=== Running Cygwin Setup ===")
+    setup_exe = TMP_DIR / "setup-x86_64.exe"
+    cygwin_dir = Path(cygwin_dir_name)
+    
+    if not setup_exe.exists():
+        print("Error: setup-x86_64.exe not found.")
+        return
+
+    # Packages from Install_windows.bat
+    packages = [
+        "jq", "p7zip", "unzip", "zip", 
+        "libbz2-devel", "libzip-devel", "liblzma-devel", 
+        "libdeflate-devel", "zlib-devel", "libncurses-devel", 
+        "libcurl-devel", "libssl-devel"
+    ]
+    package_list = ",".join(packages)
+    site = "https://cygwin.mirror.constant.com/"
+    
+    print("Running Cygwin setup (this may take a while)...")
+    # Note: --local-install in batch might imply using what's in the zip? 
+    # But batch also had --site mirror. We will try standard install.
+    cmd = [
+        str(setup_exe),
+        "--root", str(cygwin_dir.resolve()),
+        "--local-package-dir", str(TMP_DIR.resolve()),
+        "--site", site,
+        "--quiet-mode",
+        "--no-shortcuts",
+        "--no-admin",
+        "--packages", package_list
+    ]
+    
+    try:
+        run_command(cmd)
+        print("Cygwin installation complete.")
+        
+        # Cleanup the mirror directory created by setup-x86_64.exe
+        # The installer creates a directory named after the URL-encoded site
+        # e.g., https%3a%2f%2fcygwin.mirror.constant.com%2f
+        encoded_site = "https%3a%2f%2fcygwin.mirror.constant.com%2f"
+        mirror_dir = Path(encoded_site)
+        if mirror_dir.exists() and mirror_dir.is_dir():
+            print(f"Cleaning up mirror directory: {mirror_dir}...")
+            shutil.rmtree(mirror_dir)
+
+    except Exception as e:
+        print(f"Cygwin installation failed: {e}")
+
 
 def check_uv():
     print("=== Checking for uv ===")
@@ -148,6 +222,87 @@ def download_and_extract(pack, manifest_data):
                 shutil.copy2(item, dest)
         shutil.rmtree(nested)
 
+def install_uv():
+    print("Installing uv...")
+    if sys.platform == "win32":
+        installer_url = "https://astral.sh/uv/install.ps1"
+        installer_path = TMP_DIR / "uv_install.ps1"
+        
+        if not installer_path.exists():
+            print(f"Downloading uv installer to {installer_path}...")
+            try:
+                run_command(["curl", "-L", "-o", str(installer_path), installer_url])
+            except Exception as e:
+                print(f"Failed to download uv installer: {e}")
+                return False
+        else:
+            print(f"Found existing uv installer at {installer_path}, skipping download.")
+
+        try:
+            run_command(["powershell", "-ExecutionPolicy", "ByPass", "-File", str(installer_path)])
+        except Exception as e:
+            print(f"Failed to run uv installer: {e}")
+            return False
+
+    else:
+        installer_url = "https://astral.sh/uv/install.sh"
+        installer_path = TMP_DIR / "uv_install.sh"
+        
+        if not installer_path.exists():
+            print(f"Downloading uv installer to {installer_path}...")
+            try:
+                run_command(["curl", "-L", "-o", str(installer_path), installer_url])
+            except Exception as e:
+                print(f"Failed to download uv installer: {e}")
+                return False
+        else:
+            print(f"Found existing uv installer at {installer_path}, skipping download.")
+
+        try:
+            run_command(["sh", str(installer_path)])
+        except Exception as e:
+            print(f"Failed to run uv installer: {e}")
+            return False
+    return True
+
+def ensure_uv():
+    print("=== Checking for uv ===")
+    
+    # Check if uv is already in PATH
+    try:
+        run_command(["uv", "--version"])
+        return "uv"
+    except FileNotFoundError:
+        pass
+
+    print("uv not found. Attempting to install...")
+    if install_uv():
+        # Try to find it in standard locations if not yet in PATH
+        # Windows: %USERPROFILE%/.cargo/bin/uv.exe or %LOCALAPPDATA%/uv/uv.exe
+        # Unix: ~/.cargo/bin/uv or ~/.local/bin/uv
+        
+        candidates = []
+        home = Path.home()
+        if sys.platform == "win32":
+            candidates.append(home / ".cargo" / "bin" / "uv.exe")
+            candidates.append(Path(os.environ.get("LOCALAPPDATA", "")) / "uv" / "uv.exe")
+            candidates.append(home / "AppData" / "Roaming" / "uv" / "uv.exe")
+            candidates.append(home / ".local" / "bin" / "uv.exe")
+        else:
+            candidates.append(home / ".cargo" / "bin" / "uv")
+            candidates.append(home / ".local" / "bin" / "uv")
+        
+        for cand in candidates:
+            if cand.exists():
+                print(f"Found uv at {cand}")
+                return str(cand)
+        
+        print("uv installed but not found in expected paths. You may need to restart your shell.")
+        return None
+    else:
+        print("Failed to auto-install uv.")
+        return None
+
 def main():
     print("==========================================")
     print("WGS Extract Development Environment Init")
@@ -162,8 +317,30 @@ def main():
     with open(MANIFEST, "r") as f:
         manifest_data = json.load(f)
 
-    if not check_uv():
+    uv_cmd = ensure_uv()
+    if not uv_cmd:
+        print("Error: uv is required but could not be found or installed.")
+        print("Please install uv manually: https://github.com/astral-sh/uv")
         sys.exit(1)
+    
+    # Monkey-patch run_command or pass uv_cmd?
+    # Simplest is to just put the new uv path at front of PATH for this process, 
+    # OR wrap subsequent calls. 
+    # But wait, subsequent calls use `run_command(["uv", ...])`.
+    
+
+    # If we found an absolute path, we should probably add its dir to PATH
+    if uv_cmd and os.path.isabs(uv_cmd):
+        uv_dir = str(Path(uv_cmd).parent)
+        
+        # 1. Update current session
+        if uv_dir.lower() not in os.environ["PATH"].lower():
+            print(f"Adding {uv_dir} to PATH for this session...")
+            os.environ["PATH"] = uv_dir + os.pathsep + os.environ["PATH"]
+            
+        # 2. Update persistent User PATH (Windows only)
+        if sys.platform == "win32":
+            add_to_user_path_windows(uv_dir)
 
     install_system_packages()
     setup_venv()
@@ -189,14 +366,16 @@ def main():
 
     if sys.platform in ["cygwin", "msys", "win32"]:
         print("\nDetected Windows environment.")
-        print("1) Cygwin64")
+        print("1) Cygwin64 (Recommended)")
         print("2) MSYS2")
         choice = input("Enter choice [1-2]: ")
         if choice == "1":
             download_and_extract("cygwin64", manifest_data)
+            run_cygwin_setup("cygwin64")
             download_and_extract("bioinfo", manifest_data)
         elif choice == "2":
             download_and_extract("msys2", manifest_data)
+            # run_msys2_setup() # Not implemented
             download_and_extract("bioinfo-msys2", manifest_data)
         else:
             print("Invalid choice. Skipping platform-specific dependencies.")
@@ -204,6 +383,79 @@ def main():
     print("\n==========================================")
     print("Initialization Complete!")
     print("==========================================")
+    
+    cleanup_root_artifacts()
+
+def add_to_user_path_windows(directory):
+    """
+    Safely adds a directory to the persistent User PATH using the Registry.
+    Does not use setx to avoid truncation.
+    """
+    try:
+        import winreg
+    except ImportError:
+        print("Warning: winreg module not available.")
+        return
+
+    print(f"Checking persistent PATH for: {directory}")
+    
+    key_path = r"Environment"
+    try:
+        # Open Key
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_WRITE)
+        
+        # Read current PATH
+        try:
+            current_path_val, _ = winreg.QueryValueEx(key, "Path")
+        except FileNotFoundError:
+            current_path_val = ""
+
+        # Normalize for check
+        path_parts = [p.strip() for p in current_path_val.split(";") if p.strip()]
+        
+        # Check if already present
+        found = False
+        for part in path_parts:
+            if part.lower() == directory.lower():
+                found = True
+                break
+        
+        if not found:
+            print(f"Adding {directory} to permanent User PATH...")
+            # Append new path
+            if not current_path_val.endswith(";"):
+                 current_path_val += ";"
+            new_path_val = current_path_val + directory
+            
+            # Write back
+            winreg.SetValueEx(key, "Path", 0, winreg.REG_EXPAND_SZ, new_path_val)
+            print("Successfully updated Registry PATH.")
+            
+            # Broadcast change mainly for other new windows, though usually requires restart
+            # This is a bit "best effort" in Python without ctypes boilerplate, 
+            # but usually script just reminds user.
+            print("Note: You may need to restart your terminal for changes to take effect globally.")
+        else:
+            print("Path already in Registry.")
+
+        winreg.CloseKey(key)
+
+    except Exception as e:
+        print(f"Warning: Failed to update persistent PATH in registry: {e}")
+
+
+def cleanup_root_artifacts():
+    """Clean up any temporary executables that might have landed in the root."""
+    print("Performing final cleanup...")
+    artifacts = ["setup-x86_64.exe", "jq.exe"]
+    for art in artifacts:
+        p = Path(art)
+        if p.exists():
+            try:
+                p.unlink()
+                print(f"Removed {art} from root.")
+            except Exception as e:
+                print(f"Warning: Failed to remove {art}: {e}")
 
 if __name__ == "__main__":
     main()
