@@ -1,4 +1,5 @@
 # Release notes Beta v4.
+
 These notes here are in the `WGSE_Betav4_Release_Notes.txt` file installed with the software. They give you the most comprehensive list of changes since Beta v2.
 
 Your installed v4 and later release is dated and displayed in the banner when you start the program.  Rerunning the installer will update your software to the latest available for your release track.
@@ -6,9 +7,9 @@ Your installed v4 and later release is dated and displayed in the banner when yo
 Releases are shown latest first and back to the initial **Beta v2 release of 18 Feb 2020**. (Previous years alpha releases not individually catalogued.)
 v3 Alpha was first released Jun 2020, V2 from Dec 2019-Feb 2020, and v1 was first released in May 2019.
 
-Version 4 release:
+# Version 4 release:
 
-# **19 Sep 2025 (52 Installer, 4.44 patch 11 Program)
+## **19 Sep 2025** (52 Installer, 4.44 patch 11 Program)
 * Minor (bug) fixes; internal updates
   * Added TypeError to exception checks on module loads. A temporary Python release library error was not getting caught.
   * Fixed typo in languages.xlsx that prevednted file name from being included in error report on missing AllSNPs file in Microarray CombinedKit processing.
@@ -16,15 +17,15 @@ Version 4 release:
   * Minor tweaks to languages.xlsx to fix relocation of HGP references
   * Minor tweaks in settings.py for MGI T7 sequencer ID (v1, v2, v2.5 etc)
   * Extended support for MacOS 26 Tahoe (note: not 16), MacPorts 2.11.5 (from 2.10.x), xcode CLI to 26.0 min (zcommon_macos.sh, Install_macos.command)
-  
-# **08 Oct 2024 (51 Installer, 4.44 patch 10 Program)
+
+## **08 Oct 2024** (51 Installer, 4.44 patch 10 Program)
 * Minor (bug) fixes; internal updates
   * Fixed typo in last minute edit to zinstall_common.sh that only caused problems with Linux installs (both micromamba and Ubuntu). Was a fix to fix a previous typo that would not leave the WGSExtract.sh and Library.sh files; and still wouldn't.
   * Fixed introduced error in DEBUG mode font change.  Was dropping change before setting it on redraw after removing the globals a few releases ago.
   * Added recognition of Novaseq X sequencer
   * Teemu fixed the microarray generator per company (aconv.py) to be oblivious to out of order coordinates in the template file.  Seems a few templates have that issue in a few places. Improves the generated file.
 
-# **30 Sep 2024 (50 Installer)
+## **30 Sep 2024** (50 Installer)
 * Fix for Micromamba 2 update that breaks current Linux installer. Fix for TK library that is portable across OSs to allow font sizing.
 * Fix for MacOS v15 Sequoia to check Apple xcode CLI version. Macports on Sequoia requires v16 whereas older OSs have v15.
 
@@ -33,41 +34,43 @@ Version 4 release:
   * Generalized zcommon_macos.sh install/uninstall routines and added ones for xcode cli. Cleans up the install / uninstall _macos scripts and makes the code more maintainable.
   * Fixed a nit in the Linux / Ubuntu common installer to only try to rename the file if it exists
 
-# **23 Sep 2024 (4.44 patch 9 Program, 49 Installer)
+## **23 Sep 2024** (4.44 patch 9 Program, 49 Installer)
 * Minor (bug) fixes; internal updates
   * Enable MacOS v15 Sequoia for MacPorts on install. Did not attempt to update the MacPorts nor Python version. Save for v5 release major update still in progress. As it is, need to upgrade Cygwin release to get later htslib/samtools and python to even catchup to msys, ubuntu and macports releases now being used. Note that the change to these release notes causes a change to the program package and thus overall program version given.
 
-# **30 Jun 2024 (4.44 patch 8 Program, 48 Installer)
+## **30 Jun 2024** (4.44 patch 8 Program, 48 Installer)
 * Minor (bug) fixes; internal updates
   * WES Coverage stats display corrected to use "Poz" instead of "WES" in the title when a Y only BAM.
   * Fixed bug introduced in Install_windows.bat that always reinstalls cygwin64 no matter what the version already installed is.
   * Clean up sequencer ID in settings to not mention BGI, Riga and now clearly mark v1 versus v2 chemistry of T7 and T10 models. What is Dante 2500 model (versus 1000 and 2000 from others)?
   * Fixed microarray combinedkit shell script generator for tab separator on sort. Left backquoted single quotes in extracted string assigned using raw string technique. Duh.
 
-# **24 Jun 2024 (4.44 patch 7 Program, 47 Installer)
+## **24 Jun 2024** (4.44 patch 7 Program, 47 Installer)
 * Minor (bug) fixes; internal updates
   * Ubuntu 24.04 explicit support added. Is in v5 code but not back ported. One line in zinstall_common.sh but other implications due to newer Python.
   * Added "export PIP_BREAK_SYSTEM_PACKAGES=1" for PIP install to bypass new python venv setup (for now; not all releases to a higher python version to accept general code changes needed for venv)
   * Fixed Python 3.12 warnings regarding escapes in strings.  Either combined f-string and raw, or pulled needed escapes for shell commands into separate raw string variable. Some strings with warnings were simply multi-line comments ;( Ubuntu 24.04 has Python 3.12 default.
 
-# **20 Jun 2024 (4.44 patch 6 Program)
+## **20 Jun 2024** (4.44 patch 6 Program)
 * Cleanup to allow unaligned BAMs.  Somehow lost this feature over time. Key is their header is missing all SQ fields.  And certain calculations will fail (determining reference genome, paired end type, etc). Added new "Align" state (in addition to Sort and Index ones) to capture issue and then use that to disable user buttons like "To CRAM", "To WES", "Index", "Sort". Required fixes in other areas to detect if unaligned BAM and thus avoid anomolous calculations (paired-end type, etc). FYI, Unaligned BAMS are used in place of FASTQs in Broad Institutes true Best Practices pipeline. As this is an "off label" use of the SAM file spec, there is no specific definition of how to detect an unaligned BAM.
 
 * Minor (bug) fixes; internal updates
 
-# **13 Jun 2024 (4.44 patch 5 Program, v46 Installer)
+## **13 Jun 2024** (4.44 patch 5 Program, v46 Installer)
 * Minor (bug) fixes; internal updates
   * Rewrote wakepy use in commandprocessor.py due to change in program UI with v0.8 and greater. Forced version requirement in Python PIP installer for wakepy (scripts/zinstall_common.sh).
 
-# **30 Mar 2024 (4.44 patch 4 Program. v45 Installer)
+## **30 Mar 2024** (4.44 patch 4 Program. v45 Installer)
 * Proof of Concept MSYS2 implementation for Windows 10/11 systems. To replace Cygwin64 with more easily maintained Windows ports of the bioinformatics tools.  With eventual goal to pull in Windows micromamba to have a universal bioconda installer everywhere that utilizes ucrt64 (minGW executables). Even better will be if the MSVC compiler effort works to compile all so there is no dependencies on UNIX-like libraries. This work caused cleanup of Windows .bat files and script/stage2windows.sh to handle alternate Windows environments (cygwin64 or msys2). And updates to settings.py for the alternate paths for the two installations that are both Windows.  Added Install_windows_msys2.bat which simply calls the original Install_windows.bat with an "msys2" parameter set.  Other .bat files are universal. Requires updates to make_release.sh for two additional packages in the latest-release.json file. Python and PIP library installations for Windows is only for cygwin64 as Teemu has it prebuilt into msys2. First OS/arch specific install in zinstall_common.sh (arggh). No windows_type selection variable is needed in .sh files.  Can simply look for cygwin64/ or msys2/ folder in installation.  Default is to always select / look for cygwin64 first.
 
 * Minor (bug) fixes; internal updates
   * Minor fix to countingNs.py. Had incorrect start location for every run of N's bin due to an additional missing value in the calculation.
   * Minor fixes for unquoted path variables found in scripts/zcommon.sh and the Windows .bat files
 
-# **30 Oct 2023 (4.44 patch 3 Program, v44 Installer)  (initial target date; not finally released until the following mid-March)
+## **30 Oct 2023** (4.44 patch 3 Program, v44 Installer)  (initial target date; not finally released until the following mid-March)
+
 Minimal new functionality pulled in from the v5 release that has been internally developing and releasing for 12 months. Just fixes, mostly in the installer, for issues that have cropped up over the last 12 months. But because it took 8 months to get just this patch out, this has a lot more tweaking of functionality from v5 (installer, library manager) pulled in than we planned to do for a quick patch. Minor fixes / changes to the Python code to accomodate.
+
 * Added Aaron's Micromamba linux installer (rewritten) to replace the _Linux.sh script. Will eventually deprecate the _ubuntu.sh scripts. Added the uninstaller, Library and WGSExtract scripts. Required updates to zcommon.sh and zinstall_common.sh to accomodate.  Will wait for more testing in a DEV release before replacing _ubuntu.sh for Ubuntu.  Uses Conda/Mamba/Micromamba packages and installer.  Makes Linux install more like the Windows release. The Bioinfo and other support tools are isolated to the WGSE Install directory. Making it easier to maintain consistency by not installing in the system area.  MacOS still uses MacPorts which installs everything in /opt/local. Maybe we can switch that to Conda also?
 * Beginning the long awaited command line capability.  Made microarray.py callable from the command line with the outdir and bam file as parameters. Used to create the CombinedKit file from the command line. Not robust for other parameters or parameter errors yet.
 * Tuned the command script output to only come on when the GUI is enabled, and the SHELL commands echoed only with the DEBUG mode on. Cleans up the user script in non-DEBUG GUI mode and removes everything when in command line mode.
@@ -107,17 +110,17 @@ Minimal new functionality pulled in from the v5 release that has been internally
   * Fixed reported typo in seed_genomes.csv using httos:// instead of https://
   * Removed is_legal_path check (now returns true always) as has never been correct.  A quick fix using pathvalidate does not seem to work with Windows path designators.  Need to investigate more. Also corrected report of Temp Directory error by not crashing on a null value setting (which is what was returned if is_legal_path returned false).
 
-# **28 Feb 2023 (4.44 patch 2 Program)
+## **28 Feb 2023** (4.44 patch 2 Program)
 * Minor (bug) fixes; internal updates
   * Introduced with v4.44 an error where hg38to19 script includes settings.py to use the command processor but settings and command processor try to use fonts when not in GUI mode. Slight tweeks to fix.
   * Needed quotes around library.bat and process_refgenomes calls with python executable for when WGS Extract is installed with a path with spaces in the folder name(s) (all part of Program; not Installer)
 
-# **30 Jan 2023 (4.44 patch 1 Program, v43 Installer)
+## **30 Jan 2023** (4.44 patch 1 Program, v43 Installer)
 * Minor (bug) fixes; internal updates
   * Patched settings.py to recognize new Nebula/Prophase sequence names. Now the sequencer is properly recognized again.  Changed all Nebula IDs to ProPhase as they were all introduced by ProPhase changeover and have ProPhase in the sequence name.
   * Removed -Z option to curl in zcommon.sh as it is not supported on Ubuntu 18.04 and some other Linux variants with an old Curl (only change to installer; should have been a "patch")
 
-# **07 Dec 2022 (4.44 Program, v42 Installer)
+## **07 Dec 2022** (4.44 Program, v42 Installer)
 * Minor (bug) fixes; internal updates
   * Upgraded MacOS Python install to 3.11.0 for both archs.  Seems to behave better for MacOS Ventura. The installer is universal but specific for each arch (not using Rosetta).
   * Made WSL BWA button in DEBUG frame only enabled in Windows (has no effect in other OS's but why keep available). Reordered the DEBUG frame items to a more logical one.
@@ -125,7 +128,7 @@ Minimal new functionality pulled in from the v5 release that has been internally
   * Added base font point size and typeface to the DEBUG_MODE frame. Settings are stored (or cleared if set to default).  Settings may be unique per platform and are ignored if not available on that platform (default used).  You can experiment and let us know what you think a better font and size to use is.
   * Finally added a vertical scroll bar to the header pop-up window. Actually to all simple results including haplogroup results and unmapped reads.
 
-# **03 Dec 2022 (4.43 Program, v41 Installer, v4 Cygwin64-bioinfo)
+## **03 Dec 2022** (4.43 Program, v41 Installer, v4 Cygwin64-bioinfo)
 * Minor (bug) fixes; internal updates
   * User reported problem during installation where package downloaded succesfully but WGSExtractv4/ package folder was not created. Added extra error check for folder after the unzip. But had to add the path as the bioinfo package is not unzipped into the current directory like the others. Getting real work done is tough to deal with all the edge cases.
   * Added buttons in DEBUG frame for setting user overrides on (maximum) number of threads and total memory available to WGSE.  Had allowed the setting in the .wgsextract file previously (had to be hand edited in; undocumented).  Now allows it to be dynamically set and changed during the run (and user override value takes immediate effect). Ss saved and restored like other settings.
@@ -136,7 +139,7 @@ Minimal new functionality pulled in from the v5 release that has been internally
   * Nit bug in installer for reference library package install.  Checked if directory exists using file parameter. Fixed to check that it not exist as a directory. Duh. Was just generating an inocuous error message when the directory already existed (like in an upgrade). But correct behavior otherwise.
   * As a result of these fixes, all three platforms appear the same (from the UI viewpoint); finally.  Still the clunky, old fashioned Tk GUI but at least the same now. Also, with the latest WSLg fixes to the file system over the last year, WSLg with Ubuntu is outperforming the Cygwin64 "native" win10/11 executables.
 
-# **29 Nov 2022 (4.42 Program)
+## **29 Nov 2022** (4.42 Program)
 * Minor (bug) fixes; internal updates
   * Fixed code for early Dante (MGI) result files that have sequencer ID's starting with CL100 instead of C100 or V100.
   * Reduced minimum bam header size from 1000 bytes to 600 as a BAM aligned to the old WGSE v1 HG19 model has only primaries in the header (minimal header size).
@@ -147,28 +150,28 @@ Minimal new functionality pulled in from the v5 release that has been internally
   * Changed pop-up about needed disk space for sort to be an OK / Cancel option selection (instead of just OK to continue).
   * Clarified CRAM use pop-up to simply state Stats is not automatically run but needed for other buttons to be enabled. Was already changed to only appear if CRAM selected and stats not run.
 
-# **06 Nov 2022 (4.41 Program, v40 Installer, v7 RefLib)
+## **06 Nov 2022** (4.41 Program, v40 Installer, v7 RefLib)
 * Added code to handle the (what we are calling) hs38d1 and hs38d1a models.  Nebula has switched delivering CRAMs aligned to a hs38d1 model. Although it existed on the NCBI server, it has never been used before that we are aware of. This updates the Program and Reference Library code and so both are updated in this release. For completeness, added the Verily hs38d1 model as well as the hg19 WGSE (25 SNs).
 * Added (back) the sub-identification of internal lab sequencers -- not just the sequencer model. So Illumina NS 6000 (Dante), Illumina MS 6000 (FTDNA), etc. Had simplified it out in the last release when revamping the sequencer ID list. But now becomes more important for the new Nebula / ProPhase sequencer names being used.
 
 * Minor (bug) fixes; internal updates
-   * Cleaned up zcommon.sh and how the installation directory is found; when it is cd'ed into, etc.  So process_refgenomes.sh could be called standalone and from get_and_process_refgenome.sh; and make a call to python from within
-   * Discovered reference library installer was checking settings changed location for version file but always installing into the default release location. Fixed and added installation items like removing genomes.csv.
-   * Updated MacPorts to 2.8.0 and added MacOS 13 Ventura option to install list; changed source of Macports to Github URL instead of their previous release site of distfiles.macports.org
-   * Commented out the call to the Library command at the end of Installers (only called for new installs). With auto-load of missing reference genome files, not really needed and confuses new users.
+  * Cleaned up zcommon.sh and how the installation directory is found; when it is cd'ed into, etc.  So process_refgenomes.sh could be called standalone and from get_and_process_refgenome.sh; and make a call to python from within
+  * Discovered reference library installer was checking settings changed location for version file but always installing into the default release location. Fixed and added installation items like removing genomes.csv.
+  * Updated MacPorts to 2.8.0 and added MacOS 13 Ventura option to install list; changed source of Macports to Github URL instead of their previous release site of distfiles.macports.org
+  * Commented out the call to the Library command at the end of Installers (only called for new installs). With auto-load of missing reference genome files, not really needed and confuses new users.
 
-# **01 Nov 2022 (4.40 Program, v39 Installer, v6 RefLib) (patched 02 Nov 2022 with threads/totmem change)
+## **01 Nov 2022** (4.40 Program, v39 Installer, v6 RefLib) (patched 02 Nov 2022 with threads/totmem change)
 * Added functionality so that when a missing reference genome is discovered and needed, allows the user to have the program download and process it before proceeding.  NEED NIH vs EBI option yet. Library command still exists for users wanting that option.
 * Added hs37, hs38a, GRCh37- (base EBI 37 model), GRCh38-, T2T v1.1, T2T v1.0 and T2T v0.9 models to the Library manager and understood in the WGS Extract program now. Brings it up to 29 models. As we dropped the hg19_wgse model from v1/v2. Note that Build 38 Patch 14 still has not filtered into Gencode, Ensembl, etc. But none of the models in the Library have any patches anyway.
 * Added os_threads and os_totmem to the saved settings; allowing a user to override them downwards from the measured values. Will be restored on restart.  Note that if you run when the CPU is very busy and not as much memory is available to the program, it will set a lower value that will stick.  The GUI to adjust the value will come later. User has to edit the .wgsextract JSON file for now to change.
 
 * Minor (bug) fixes; internal updates
-   * Minor updates to sequencer identification related to HWI-x. Still not sure about HWI-ST and -SN. Flow cells indicate HiSeq 1000-4000 but which Solexa model are they?
-   * Cleaned up error reporting and checking for ref genome. Make clear (and fully implmenent) that can run Library command and then hit OK to missing RefGenome error dialog. Include RefGenome code with filename for user understanding of link in Library menu. Do not report double error when trying to load CRAM with missing RefGenome file.
-   * Dramatically shortened and cleaned up previous get_and_process_refgenomes.sh file.  Split into zlibrary_common.sh for GUI menu implementation of Library command and get_and_process_refgenome.sh (singular) for actual work one one file. Greatly simplified code because created a reference/seed_genomes.csv file with the 19 entries currently defined. Eventually will expand with MD5sum of DICT entries and files themselves for further error checking. Also to make reference genome checker use the file to determine appropriate reference genomes.
-   * Added generation of chromosome length and name to process_refgenomes.sh per reference.
+  * Minor updates to sequencer identification related to HWI-x. Still not sure about HWI-ST and -SN. Flow cells indicate HiSeq 1000-4000 but which Solexa model are they?
+  * Cleaned up error reporting and checking for ref genome. Make clear (and fully implmenent) that can run Library command and then hit OK to missing RefGenome error dialog. Include RefGenome code with filename for user understanding of link in Library menu. Do not report double error when trying to load CRAM with missing RefGenome file.
+  * Dramatically shortened and cleaned up previous get_and_process_refgenomes.sh file.  Split into zlibrary_common.sh for GUI menu implementation of Library command and get_and_process_refgenome.sh (singular) for actual work one one file. Greatly simplified code because created a reference/seed_genomes.csv file with the 19 entries currently defined. Eventually will expand with MD5sum of DICT entries and files themselves for further error checking. Also to make reference genome checker use the file to determine appropriate reference genomes.
+  * Added generation of chromosome length and name to process_refgenomes.sh per reference.
 
-# **11 Oct 2022 (4.39 Program and v38 Installer, v5 Tools)
+## **11 Oct 2022** (4.39 Program and v38 Installer, v5 Tools)
 * Added JRE v8 to all installers and uninstallers; setup settings.py to allow for the separate specification of jre8 versus jre 11-2x? only previously (jre17 is the actual installed). VariamtQC requires JRE8 (as does GATK3 and Picard). JRE11+ are really Java 2. 10 and lower are Java 1 (e.g. 1.8).
 * Modified Oral Microbiome Frame and Unmapped Reads button to reflect Oral and Blood; and Kaiju and CosmosID tools. Modified final result frame accordingly as well.  Tool was not checking for existence of files before running; added that check and bypass so as not to recreate if already exist.
 * Added single-end FASTQ generation to unmapped extraction command.  Also modified the command to not run and only show the result if the file(s) exists already.
@@ -176,82 +179,82 @@ Minimal new functionality pulled in from the v5 release that has been internally
 * Aaron added a more universal Linux installer and startup for more than just Ubuntu.  Uses microMamba to install locally like we do on Windows with Cygwin64. Better than apt for bringing in known versions and easier uninstall (like on Windows). Dumped in 4.39 DEV release with no documentation.
 
 * Minor (bug) fixes; internal updates
-   * Updated haplogrep.jar to the latest (2.4.0) from Github (https://github.com/seppinho/haplogrep-cmd/releases/tag/v2.4.0). Could switch to being installed by installer.  But as so small, will just keep the redistribuion in the tools package in place. Modified version # in manual and languages.xlsx
-   * Added M_ as optional start for the Illumina Novaseq 6000 and HiSeq X sequencers ID / SNs.  Used in a number of ENA BAM / FASTQ files. Determined there is no sequencer ID and other info in the Ultima Genomics sequencer output (https://www.facebook.com/groups/consumerwgs/posts/1119975175264307/) and so cannot identify that sequencer at this time.
-   * Added columns of primary chromosome names (SNs) to .wgse files and WGSE.csv table; in prep for creating seed table of SNs for python and BASH to read in
-   * Fixed missing translation text in languages.xlsx for FastqFileBad error message -- used in Align button when requesting the paired-end FASTQ Files.
-   * Found an ancient DNA BAM with (mistaken?) extra sample in the same BAM.  Modified the Microarray generation to cut out all after the first sample column so the CombinedKit remains a legal microarray RAW file format (was including extra columns for the extra sample values).
-   * FINALLY, found a workaround for the askopenfilenames MacOS library bug. Kept getting fixed then reintroduced by Apple.  Determined that if we only include single-dot suffixes, it works in all cases.  So instead of allowing .fq, .fastq, .fq.gz and .fastq.gz; not only specify .gz instead of .fastq.gz and .fq.gz.  This is only in the MacOS version.  Makes unusable files selectable but does allow multi-file selection.  This plural open files was needed for the new VCF procesing button as well. Backported MacOS askopenfilenames() workaround into a new patched Beta v3 that is still active.
-   * Expanded recognized Illumina sequencer IDs (and thus XY coordinate extraction). Discovered Illumina entries had it as X:Y:Tile and should have been Tile:X:Y (corrected).
-   * Fixed bug when redisplaying WES Coverage stats after already created previopusly; stats result had no rows other than the title row
-   * Decided was calculating WES mapped / raw ARD incorrectly. Was making WES mapped / raw ARD be opposite WGS one (mapped value larger) whereas with WGS the raw value is larger. There are no unmapped gbases in WES as we look at only the primary, filtered areas. So make the two ARD the same in WES and based on the RAW calculation. Was calculating mapped as total gbases / non-zero WES areas.
-   * Restored and expanded 00README.txt in reference/ folder that was somehow dropped during Alpha release cycles; did not bump version so will no be reflected until the next Reference library update.
-   * Fixed problem in determine_reference_genome() call. Was returning 0 instead of (0, "unknwn") in an assignment statement if the mitochondrial model could not be determined.
-   * Fixed check for bam header return check to look for file size less than 1000 bytes instead of 0 bytes (empty). Now catches the bam header creation fail earlier.
-   * Renamed sheet in languages.xlsx to v4 (was still v3)
-   * Removed the weird hg19 model from WGSExtract v1 that was unique / not found anywhere else. Replaced with hs38a @ NIH for completeness of the 1K Genome Build 38 models. Expanded (R) to (Rec) for clarity in the selection labels.
-   * Updated copyright header to include 2022.  Even though October and should probably just update from 2021 to 2023!
-   * Never added to 25 Jul release notes that patched MyHeritage_v2 body file. Daniel discovered it was missing double quotes around the first column (rsID) entries. As v5 was first release in new version system, did not need to bump version (nor date)
-   * Added check for liftover file existing before use. Changed DEBUG error messages for other liftover issues to typical error pop-ups and returns
+  * Updated haplogrep.jar to the latest (2.4.0) from Github (https://github.com/seppinho/haplogrep-cmd/releases/tag/v2.4.0). Could switch to being installed by installer.  But as so small, will just keep the redistribuion in the tools package in place. Modified version # in manual and languages.xlsx
+  * Added M_ as optional start for the Illumina Novaseq 6000 and HiSeq X sequencers ID / SNs.  Used in a number of ENA BAM / FASTQ files. Determined there is no sequencer ID and other info in the Ultima Genomics sequencer output (https://www.facebook.com/groups/consumerwgs/posts/1119975175264307/) and so cannot identify that sequencer at this time.
+  * Added columns of primary chromosome names (SNs) to .wgse files and WGSE.csv table; in prep for creating seed table of SNs for python and BASH to read in
+  * Fixed missing translation text in languages.xlsx for FastqFileBad error message -- used in Align button when requesting the paired-end FASTQ Files.
+  * Found an ancient DNA BAM with (mistaken?) extra sample in the same BAM.  Modified the Microarray generation to cut out all after the first sample column so the CombinedKit remains a legal microarray RAW file format (was including extra columns for the extra sample values).
+  * FINALLY, found a workaround for the askopenfilenames MacOS library bug. Kept getting fixed then reintroduced by Apple.  Determined that if we only include single-dot suffixes, it works in all cases.  So instead of allowing .fq, .fastq, .fq.gz and .fastq.gz; not only specify .gz instead of .fastq.gz and .fq.gz.  This is only in the MacOS version.  Makes unusable files selectable but does allow multi-file selection.  This plural open files was needed for the new VCF procesing button as well. Backported MacOS askopenfilenames() workaround into a new patched Beta v3 that is still active.
+  * Expanded recognized Illumina sequencer IDs (and thus XY coordinate extraction). Discovered Illumina entries had it as X:Y:Tile and should have been Tile:X:Y (corrected).
+  * Fixed bug when redisplaying WES Coverage stats after already created previopusly; stats result had no rows other than the title row
+  * Decided was calculating WES mapped / raw ARD incorrectly. Was making WES mapped / raw ARD be opposite WGS one (mapped value larger) whereas with WGS the raw value is larger. There are no unmapped gbases in WES as we look at only the primary, filtered areas. So make the two ARD the same in WES and based on the RAW calculation. Was calculating mapped as total gbases / non-zero WES areas.
+  * Restored and expanded 00README.txt in reference/ folder that was somehow dropped during Alpha release cycles; did not bump version so will no be reflected until the next Reference library update.
+  * Fixed problem in determine_reference_genome() call. Was returning 0 instead of (0, "unknwn") in an assignment statement if the mitochondrial model could not be determined.
+  * Fixed check for bam header return check to look for file size less than 1000 bytes instead of 0 bytes (empty). Now catches the bam header creation fail earlier.
+  * Renamed sheet in languages.xlsx to v4 (was still v3)
+  * Removed the weird hg19 model from WGSExtract v1 that was unique / not found anywhere else. Replaced with hs38a @ NIH for completeness of the 1K Genome Build 38 models. Expanded (R) to (Rec) for clarity in the selection labels.
+  * Updated copyright header to include 2022.  Even though October and should probably just update from 2021 to 2023!
+  * Never added to 25 Jul release notes that patched MyHeritage_v2 body file. Daniel discovered it was missing double quotes around the first column (rsID) entries. As v5 was first release in new version system, did not need to bump version (nor date)
+  * Added check for liftover file existing before use. Changed DEBUG error messages for other liftover issues to typical error pop-ups and returns
 
-# **23 Aug 2022 (4.38; and v.37 Installer)
+## **23 Aug 2022** (4.38; and v.37 Installer)
 * Minor (bug) fixes; internal updates
-    * Bug in process_refgenomes.sh _uniq_ChrLNM5.csv generation; had wrong column selected.  Also removed redundant first column in _dict.csv generation.
-    * Fixed adding new MacOS samtools sort fix to the button unalign (to FASTQs). Also had to add adjustment of 50% more temp file space required for a Name sort than a coordinate one (samtools sort is weird). Assume FASTQ files to be created are roughly equal in size to the BAM (or 2x the CRAM).
-    * Verified caught all uses of samtools sort in the code now including in generating unmapped BAM. Assume unmapped file is 1/3 the size of the BAM. Should be rare when over 33%% of entries are unmapped.
-    * Now provides a pop-up when doing samtools sort indicating the total temporary file space needed for the sort. Asking the user to assure it is available before proceeding. This after discovering Name Sort requires 50% more space than a Coord sort in the temporary directory.
-    * Detects if asked for fastp on MacOS and app is not available; reports app is missing instead of reporting it cannot find the output file after the run failed.
+  * Bug in process_refgenomes.sh _uniq_ChrLNM5.csv generation; had wrong column selected.  Also removed redundant first column in _dict.csv generation.
+  * Fixed adding new MacOS samtools sort fix to the button unalign (to FASTQs). Also had to add adjustment of 50% more temp file space required for a Name sort than a coordinate one (samtools sort is weird). Assume FASTQ files to be created are roughly equal in size to the BAM (or 2x the CRAM).
+  * Verified caught all uses of samtools sort in the code now including in generating unmapped BAM. Assume unmapped file is 1/3 the size of the BAM. Should be rare when over 33%% of entries are unmapped.
+  * Now provides a pop-up when doing samtools sort indicating the total temporary file space needed for the sort. Asking the user to assure it is available before proceeding. This after discovering Name Sort requires 50% more space than a Coord sort in the temporary directory.
+  * Detects if asked for fastp on MacOS and app is not available; reports app is missing instead of reporting it cannot find the output file after the run failed.
 
-# **17 Aug 2022 (4.37; and v.36 Installer)
+## **17 Aug 2022** (4.37; and v.36 Installer)
 * Fix for MacOS using samtools sort. MacOS has a limit of 256 open files per process; which samtools sort regularly exceeds for large BAMs (100GB and larger). So we now adjust the amount of memory available per thread so less than 250 temp files will be created. Must correspondingly drop the number of available threads. Potentially report error and do not do the sort if not enough memory available. Issue mostly on M1/M2 Apple machines with low memory and performance processor count.
 * Minor (bug) fixes; internal updates
-    * Changed Ubuntu JRE 17 install from -headless to full.  MultiQC required access to an X library only available in the desktop version even though GUI functions are never called.
-    * Slight cleanup of README file for clarity (per Facebook posts / complaints by Alex)
-    * Typo fixed in Library command (get_and_process_refgenomes) "(10) hg38 (ySeq)" which prevented hg38 from being processed after selecting
+  * Changed Ubuntu JRE 17 install from -headless to full.  MultiQC required access to an X library only available in the desktop version even though GUI functions are never called.
+  * Slight cleanup of README file for clarity (per Facebook posts / complaints by Alex)
+  * Typo fixed in Library command (get_and_process_refgenomes) "(10) hg38 (ySeq)" which prevented hg38 from being processed after selecting
 
-# **7 Aug 2022** (4.36)
+## **7 Aug 2022** (4.36)
 * Filled in SNP and InDel buttons with standard code already used internally for microarray, y SNP, etc buttons.  Still have never seen bcftools generate an InDel though.  Know this is not correct code but part of the Developer release as we push forward.
-- Added VCF stats capability. Relying on bcftools stats for now (really need a bcftools idxstats capability but they do not store the info in the TBI file like the BAI; although near identical).
+* Added VCF stats capability. Relying on bcftools stats for now (really need a bcftools idxstats capability but they do not store the info in the TBI file like the BAI; although near identical).
 
-# **31 Jul 2022** (4.35)
+## **31 Jul 2022** (4.35)
 * Properly recognize human_g1k reference model BAMs now (call it hs37- for short). Human_g1k is already in the Library manager and delivered since v2. Just never usable. Invitae delivers sparse gene-panel tests in BAMs with this model. Old Nebula 0.4x tests used it also. Oddly, was already a selection in the pop-up reference model selector. So just more automatic in recognizing it and properly handling it everywhere internally.
 
 * Minor (bug) fixes; internal updates
-    * "wgse_FP" setting on some Win10 systems was returning DOS format. Added a cygpath -u call in zcommon.sh to fix.
-    * FIXED Windows 4.34 installer was sometimes installing the bioinformatics tools into \usr\local on the current disk (instead of wgse_FP/cygwin64/usr/local).
-    * Modifed get_and_process_refgenomes.sh to redirect the stdout of get_current_release_info to /dev/null to surpress its informational message output. Appeared above banner and dup of message in banner.
-    * Added check in zcommon.sh for being run inside BASH; sourced by most scripts otherwise so makes it more universal.
-    * Changed returns to return/exit in zcommon and zinstall ; just in case called dircetly and not sourced. zcommon is sourced by WGSE scripts so return was fine
-    * Modified install_or_upgrade function in zcommon.sh to handle Alpha release 4m/4.33 version.json files. 4.34/4n changed them to package.json and the internal naming so they could be merged.
-    * Errantly had the check of valid $OSTYPE after first use. Moved up appropriately.
-    * Gave up on trying to fool the 4m release to autoupgrade to the new 4n release and installer. Asked people to overlay the new 4n installer on 4m to upgrade.
-    * Moved make_release files into the scripts/ folder and thus part of the Installer archive (removed during installation still)
-    * Moved Library* and scripts/*refgenomes.sh script files from Reference Library to Program package. Thus isolating all scripts into Installer or Program. And making the large reference library more stable and less prone to needing updates. As a result, changed the version number and date of the reference library back to reflect what just its content represents (instead of version 35 it is now 5).  Patches in installer code to handle this special case of version number regression.
-    * Fixed introduced error. If RefLib redirected with a setting at installation then the default reference/ directory will not exist in the installation directory.  So delay reporting error of an unset or bad reference library until after trying to set default and restore saved settings.
+  * "wgse_FP" setting on some Win10 systems was returning DOS format. Added a cygpath -u call in zcommon.sh to fix.
+  * FIXED Windows 4.34 installer was sometimes installing the bioinformatics tools into \usr\local on the current disk (instead of wgse_FP/cygwin64/usr/local).
+  * Modifed get_and_process_refgenomes.sh to redirect the stdout of get_current_release_info to /dev/null to surpress its informational message output. Appeared above banner and dup of message in banner.
+  * Added check in zcommon.sh for being run inside BASH; sourced by most scripts otherwise so makes it more universal.
+  * Changed returns to return/exit in zcommon and zinstall ; just in case called dircetly and not sourced. zcommon is sourced by WGSE scripts so return was fine
+  * Modified install_or_upgrade function in zcommon.sh to handle Alpha release 4m/4.33 version.json files. 4.34/4n changed them to package.json and the internal naming so they could be merged.
+  * Errantly had the check of valid $OSTYPE after first use. Moved up appropriately.
+  * Gave up on trying to fool the 4m release to autoupgrade to the new 4n release and installer. Asked people to overlay the new 4n installer on 4m to upgrade.
+  * Moved make_release files into the scripts/ folder and thus part of the Installer archive (removed during installation still)
+  * Moved Library* and scripts/*refgenomes.sh script files from Reference Library to Program package. Thus isolating all scripts into Installer or Program. And making the large reference library more stable and less prone to needing updates. As a result, changed the version number and date of the reference library back to reflect what just its content represents (instead of version 35 it is now 5).  Patches in installer code to handle this special case of version number regression.
+  * Fixed introduced error. If RefLib redirected with a setting at installation then the default reference/ directory will not exist in the installation directory.  So delay reporting error of an unset or bad reference library until after trying to set default and restore saved settings.
 
-# **25 Jul 2022** (4.34; would have been 4n in old style)
+## **25 Jul 2022** (4.34; would have been 4n in old style)
 * Completed T2T model recognition / integration by bringing in the HG01243 PR1 "Puerto Rican with African ancestry"; Updated library installer, process_reference_genomes, referencelibrary.py, etc. All models used by the Y phylogeny commmunity should be covered now. "Realign" from any goes to the final T2T v2 release.
 * Greatly expanded on the version json file and release management files and processing.  Added concept of release track (Beta, Alpha, Dev) to formalize the process.  Split out more, versioned packages that are now all mutex. Added a scripts/installer.json and release.json file.  The installer is versioned itself; and only it being updated causes a restart of the installer. The program package no longer has the installer scripts in it. The release.json file specifies the URLs of a base directory and files to find the latest available combined package version file, and specifies the release track to use of either Beta, Alpha or Dev(eloper). No longer have to mimix the installed directory structure for the individual latest release files to check.
 
 * Minor (bug) fixes; internal updates
-    * If Coverage stats already calculated and displayed in main Stats window, then do not destroy main stats window to regenerate.  Causes a needless flash (regenerate) of the main Stats window when no data is updated / added
-    * Fixed common installer displays error of Library.* file(s) not found when trying to chmod after moving them
-    - Windows installed into "Program Files" is causing Windows to require Admin privileges to run WGS Extract
-    * Cygwin64 mirror.constant.com caused issues for user in Finland. As doing local install, can simply use a local dir name as the mirror.  Adjusted installer script to do so.
-    * Adjusted the main program to pick up its version and date (and user manual link) from the program/program.json and release.json files.
-    * Minor reformatting of 5 version.json files to be multiline and easier to read and edit; added two more. Renamed from version.json to $package.json
-    - Windows uninstaller always still leaves the WGSExtractv4/cygwin64/bin/bash.exe file and its folders to it on the path
-    * Fixed windows uninstaller ending with message "# was unexpected at this time"
-    * Added version and location info into the banner for the Reference Library manager
-    * cut-and-paste (widely) bug on the installation directory was fixed; caused problems when there was a space in the path (which it was supposed to fix).
+  * If Coverage stats already calculated and displayed in main Stats window, then do not destroy main stats window to regenerate.  Causes a needless flash (regenerate) of the main Stats window when no data is updated / added
+  * Fixed common installer displays error of Library.* file(s) not found when trying to chmod after moving them
+  * Windows installed into "Program Files" is causing Windows to require Admin privileges to run WGS Extract
+  * Cygwin64 mirror.constant.com caused issues for user in Finland. As doing local install, can simply use a local dir name as the mirror.  Adjusted installer script to do so.
+  * Adjusted the main program to pick up its version and date (and user manual link) from the program/program.json and release.json files.
+  * Minor reformatting of 5 version.json files to be multiline and easier to read and edit; added two more. Renamed from version.json to $package.json
+  * Windows uninstaller always still leaves the WGSExtractv4/cygwin64/bin/bash.exe file and its folders to it on the path
+  * Fixed windows uninstaller ending with message "# was unexpected at this time"
+  * Added version and location info into the banner for the Reference Library manager
+  * cut-and-paste (widely) bug on the installation directory was fixed; caused problems when there was a space in the path (which it was supposed to fix).
 
-# **05 Jul 2022**  (versions 4a-4m, or 4.15-4.33) (~1 year)
+## **05 Jul 2022**  (versions 4a-4m, or 4.15-4.33) (~1 year)
 * Added VCF Frame to the last tab with buttons to modify and generate VCF files (similar to completing functionality for FASTQs during March minor update).  Hid buttons not yet implemented (InDel, CNV, SV, Filter) so only SNP and Annotated there now but functionality still in development.
 * Added WES BAM generation to BAM file frame (routine was already there internally; just not added to the GUI yet). Moved Realign button to accommodate. WES BED files only available for Build 37 and 38.
 * Replaced (WGS) Breadth of Coverage and WES Coverage buttons in Stats display with dedicated buttons in Summary column.  Both now run new Bin Coverage commands using samtools depth.  Summary values still displayed as before in main Stats page if data found.  But now hitting buttons, beside running Coverage if not yet run, will bring additional Stats window pop-up that gives Bin Coverage for primary sequences across multiple defined bins: -0, 1-3, 4-7, and 8-.  Previous (WGS) Coverage ran the samtools coverage command. That button has been removed.  Now all coverage results are due to custom processing the samtools depth command.
 * Changed Avg Read Depth to Mean Read Depth; added Standard Deviation calculation and reporting.  Added mean Insert / Fragment size and standard deviation reporting (for paired-end only). Simply modified Wei Lei's getinsertsize.py script.
 * Tuned Stats Breadth of Coverage Total row to (a) not include Other (alt contigs) (was already dropping unmapped and EBV), and (b) to not include Y when a known Female sample.  Was affecting final result by 1-2%. Brings better conformance with expected results.  Note the dropping of Other has an equal impact no matter the gender.  But is varied depending on the reference model chosen (hs38dh having the largest impact).
-- Changed (re)Align (when BWA) to process messages and provide updating progress bar message in command script window. Replaces about 15 status messages every 1 million segment reads which makes the command script log useless.
+* Changed (re)Align (when BWA) to process messages and provide updating progress bar message in command script window. Replaces about 15 status messages every 1 million segment reads which makes the command script log useless.
 * Changed (re)Align command to save _raw BAM file output from aligner in Output Directory and then only delete it after successfully creating a final BAM file. Ditto for new intermediate file _sorted. Helps for when (rare) markdup error is encountered after sorting. When DEBUG_MODE was not turned on, the previous output in the temp directory was wiped.  Saves considerable time to recreate the RAW file when stopping the program due to the markdup error.  _sorted file can then simply be used (and renamed) as final output with _raw then being deleted by hand. Files were in Temp directory before.
 * Now handle the Telomere-to-Telomere DRAFT reference model of chm13 Autosomal and the HG002XY reference models.  Calling it build 99 for now. Note that there are many DRAFT versions with different model lengths per chromosome.  Set N adjust values to 0 per chromosome for now. Cleaned-up to handle advanced Illumina, PacBio HiFi and Oxford Nanopore advanced BAMs there with tens of thousands of base pairs per read segment. Required adding new reference genomes to Install Scripts, Reference Library module and BAM File module. Realign selects primary T2T v2 if Build 99, hs38 if already T2Tv2.
 * Cleaned up Reference Genome Library installer to promote Recommended (3) reference genomes, added T2T model selection (6 in total), and dropped human_g1k_v37 and hg19_WGSE models from base 9 in All option. Also added EBI version selection option to new Recommended and to All option. Added new WGSE.dict generation.
@@ -274,7 +277,7 @@ Minimal new functionality pulled in from the v5 release that has been internally
 * Moved functionality of Upgrade scripts into either a common portion or the base Installer for that OS.  Dropped OS names from script files as extension unique identifies them (.sh for Linux, .command for MacOS, .bat for MS Windows). Renamed Upgrade_Universal to Install_common.sh. Created special Install_windowsstage2.sh for 2nd half of Windows install that can be done in BASH.
 * Changed Windows install functionality to simply do a command-line cygwin64 full "base" install (with 7Zip and some other needed libraries included). Saves us releasing a sub-set environment that did not fully work.  Let's user more easily have a full Cygwin / BASH environment to run the tools.  The bioinformatic tools now naturally sit in the /usr/local/ area and are still separately downloaded from our server. The install is made from our own release capture of a stable set of versions from the time the bioinformatic tools were last compiled.
 * Added a BAM Subset button (specify percent) to the DEBUG tab.
-- Added a #Cpus and Mem per CPU override setting to lower these values from the read ones.  To see if gets around samtools v1.15.1 sort issues being seen.
+* Added a #Cpus and Mem per CPU override setting to lower these values from the read ones.  To see if gets around samtools v1.15.1 sort issues being seen.
 * Added a DEBUG_MODE toogle button to the Settings Frame in the Settings tab. Same line as language selector.  Note that this causes the fourth DEBUG tab to appear or disappear.  And the Reload button on the language line to toggle as well. Initial state at startup is still not from saved settings but from the separate .wgsedebug file set by the user before program start.
 * Improved recognition of sequence naming type by expanding list of accession types checked for and understood (both in the bamfile reference model determination code and the reference library installer shell script)
 * Reference library installer now more formalized.  Added Library.xxxx for each OS to make the call to the installation script.  Scripts and installer picks up if the reference library has been moved in the stored settings and adjusts accordingly (putting the new files there; previously scripts only worked on original installation directory location.) New Library* script calls the get_and_process_refgenomes to get to that function directly. Installer only calls now IF a new installation with no previous reference library.  get_and_process_refgenomes script is parameterized for EBI vs NIH install sources on call.  Modified to reprint menu on each loop iteration. So took out exit on ALL / First-9. Only (1) Exit will exit now. Moved the scripts from reflib/genomes to scripts/ installation directory. (Removes issue of scripts run stand-alone not knowing where the WGSE installation is.)  Removed requirement in code when setting new reference library for it to be already populated.  So user can set new location of reference library and then either move the directory and content OR rerun the installer to install the latest in the new location. get_reference_genomes.sh functionality moved into get_and_process_refgenomes.sh file. process_reference_genomes.sh modified to handle more model types properly (accession names, T2T).
@@ -283,48 +286,48 @@ Minimal new functionality pulled in from the v5 release that has been internally
 * Udpated Windows cygwin64 bioinformatic tools to the latest (samtools 1.15.1)
 
 * Minor (bug) fixes; internal updates:
-    * Cleaned up Align, Unalign and Realign for internal vs external calls; resuming main window. Error reporting pop-ups enhanced and expanded.
-    * Corrected confused logic to make primary file input buttons only become available AFTER the Output Directory is set (BAM file select, FASTQ Align, Fastp. FastQC, VCF Annotate, VCF Filter)
-    * Fixed invalid reference bug when one clicked the Align button before any BAM file selected. Now allows Align before / without a BAM loaded. Cleaned up bugs that still reference a BAM file if it existed when hitting the Align button directly (loaded BAM not correct).
-    * Fixed misocnfigured error message triggered during startup settings restore for when temporary file directory no longer exists
-    * Cleaned automatic stats run logic for intended action of only running when button hit directly or is quick & easy (BAM with index). Auto run Stats (not button direct) from Index button to save user one more step.
-    * Split internal button routines for BAM and Outdir settings into separate user query and internal process routines; preparing to push more function into BAM file class and out of mainwindow GUI to more cleanly separate the two functions.
-    * Refactored language i18n indices names to be more explicit when used as frame and tab labels
-    * Added Monterey option to MacOS Install script for Macports. Updated links to Macports 2.7.1 from 2.6.2. Cleaned up to properly report error when major MacOS version is not available for MacPorts in MacOS Install script.
-    * Updated MS Windows release to handle Win11 and Win10
-    * Added Ubuntu 22 handling to Ubuntu installer
-    * Ubuntu 18* does not have minimap2 or fastp in the apt repository (only minimap); fixed so load line does not error out and prevent other loads. Found releases to install directly when on Ubuntu 18.
-    * Fixed error when unrecognized Build model in a BAM / CRAM (non 19/37 or 38) was generating python error instead of querying to select the likely model
-    * Added error to report when missing a Refgenome file if trying to process a CRAM file (for stats, for example)
-    * Added file name error report when not able to find various stats CSV files during processing due to creation errors along the way
-    * Added more file name exist checks for reference library elements (due to many such files missing for T2T model files)
-    * Sort somal and Mito entries in stats table before displaying; MT is not always last in a reference model. Now makes listing consistent and independent of the model order like for the Autosomes already. But should MT always be after X and Y?
-    * Added default, dummy RG tag to BWA alignment command; similar to dummy done by Dante and Nebula now.  At very start, both had real RG's based on flowcell and lane.  That would be much harder as would have to split FASTQs by lane, align, then merge.
-    * Changed functionality of process_reference_genomes.sh so when processing whole directory, deletes WGSE.csv, WGSE.dict, and *wgse files first.  So causes reprocessing there.
-    * Fixed single-end FASTQ generation from a BAM file
-    * Fixed microarray CombinedKit file generation for numeric named build 38 models; had M and not MT in the tab file passed to BCFTools and so mito was not getting generated (how did this get past testing all these years?)
-    * Fixed stats so Y is not included in total for female samples (was enough to throw it off); moved Other row beyond Total to clarify that it is not included in Stats total (but is included in summary values to the right)
-    * MacOS, in an update, changed the 50 year old "wc" program to add spaces before the count when printed with the file name. This has broken scripts in the old v2 and v3 releases.  Corrected now in v4.
-    * Modified host processor determination on Apple MacOS with M1 processors to use the Performance Processor count only; not the "all" returned by traditional commands.
-    * Changed all BASH shebangs to '/usr/bin/env bash' to try and avoid the bad BASH executables in MacOS and Windows OS bins (defaults).
-    * Moved ref library T2T install source from our local WGSE MS OneDrive to the T2T AWS source after they finally added a chr name version (backup is at UCSC server for same).  MS OneDrive was throttling our link due to too many downloads.
-    * Added clean and clean_all options to process_reference_genomes to clean out files created by that script or even downloaded by the user after initial release. Created more analysis files when processing a directory with many reference genomes.
-    * Refined code in prep for batch mode (non GUI) to process -h (--help) and -v (--version) properly now; so python wgsextract.py -v will return the current version
-    * Cleaned up installers to be less verbose. Saving long logs (python PIP, Cygwin64 setup) to text files for later perusal.  Added header bars for each major section of installation.
-    * Consolidated the internal, common scripts into a scripts/ subdirectory of the release.  Moved the Reference Library genomes processing scripts there as well.  Pulled out common functions in each to a zcommon.sh script to include in them all. Updated installers, etc to accomodate.
-    * Renamed this file to remove WGSE_ start to it. Simplifies directory so only file (starting) with WGSE is the start command / script to start the program.
+  * Cleaned up Align, Unalign and Realign for internal vs external calls; resuming main window. Error reporting pop-ups enhanced and expanded.
+  * Corrected confused logic to make primary file input buttons only become available AFTER the Output Directory is set (BAM file select, FASTQ Align, Fastp. FastQC, VCF Annotate, VCF Filter)
+  * Fixed invalid reference bug when one clicked the Align button before any BAM file selected. Now allows Align before / without a BAM loaded. Cleaned up bugs that still reference a BAM file if it existed when hitting the Align button directly (loaded BAM not correct).
+  * Fixed misocnfigured error message triggered during startup settings restore for when temporary file directory no longer exists
+  * Cleaned automatic stats run logic for intended action of only running when button hit directly or is quick & easy (BAM with index). Auto run Stats (not button direct) from Index button to save user one more step.
+  * Split internal button routines for BAM and Outdir settings into separate user query and internal process routines; preparing to push more function into BAM file class and out of mainwindow GUI to more cleanly separate the two functions.
+  * Refactored language i18n indices names to be more explicit when used as frame and tab labels
+  * Added Monterey option to MacOS Install script for Macports. Updated links to Macports 2.7.1 from 2.6.2. Cleaned up to properly report error when major MacOS version is not available for MacPorts in MacOS Install script.
+  * Updated MS Windows release to handle Win11 and Win10
+  * Added Ubuntu 22 handling to Ubuntu installer
+  * Ubuntu 18* does not have minimap2 or fastp in the apt repository (only minimap); fixed so load line does not error out and prevent other loads. Found releases to install directly when on Ubuntu 18.
+  * Fixed error when unrecognized Build model in a BAM / CRAM (non 19/37 or 38) was generating python error instead of querying to select the likely model
+  * Added error to report when missing a Refgenome file if trying to process a CRAM file (for stats, for example)
+  * Added file name error report when not able to find various stats CSV files during processing due to creation errors along the way
+  * Added more file name exist checks for reference library elements (due to many such files missing for T2T model files)
+  * Sort somal and Mito entries in stats table before displaying; MT is not always last in a reference model. Now makes listing consistent and independent of the model order like for the Autosomes already. But should MT always be after X and Y?
+  * Added default, dummy RG tag to BWA alignment command; similar to dummy done by Dante and Nebula now.  At very start, both had real RG's based on flowcell and lane.  That would be much harder as would have to split FASTQs by lane, align, then merge.
+  * Changed functionality of process_reference_genomes.sh so when processing whole directory, deletes WGSE.csv, WGSE.dict, and *wgse files first.  So causes reprocessing there.
+  * Fixed single-end FASTQ generation from a BAM file
+  * Fixed microarray CombinedKit file generation for numeric named build 38 models; had M and not MT in the tab file passed to BCFTools and so mito was not getting generated (how did this get past testing all these years?)
+  * Fixed stats so Y is not included in total for female samples (was enough to throw it off); moved Other row beyond Total to clarify that it is not included in Stats total (but is included in summary values to the right)
+  * MacOS, in an update, changed the 50 year old "wc" program to add spaces before the count when printed with the file name. This has broken scripts in the old v2 and v3 releases.  Corrected now in v4.
+  * Modified host processor determination on Apple MacOS with M1 processors to use the Performance Processor count only; not the "all" returned by traditional commands.
+  * Changed all BASH shebangs to '/usr/bin/env bash' to try and avoid the bad BASH executables in MacOS and Windows OS bins (defaults).
+  * Moved ref library T2T install source from our local WGSE MS OneDrive to the T2T AWS source after they finally added a chr name version (backup is at UCSC server for same).  MS OneDrive was throttling our link due to too many downloads.
+  * Added clean and clean_all options to process_reference_genomes to clean out files created by that script or even downloaded by the user after initial release. Created more analysis files when processing a directory with many reference genomes.
+  * Refined code in prep for batch mode (non GUI) to process -h (--help) and -v (--version) properly now; so python wgsextract.py -v will return the current version
+  * Cleaned up installers to be less verbose. Saving long logs (python PIP, Cygwin64 setup) to text files for later perusal.  Added header bars for each major section of installation.
+  * Consolidated the internal, common scripts into a scripts/ subdirectory of the release.  Moved the Reference Library genomes processing scripts there as well.  Pulled out common functions in each to a zcommon.sh script to include in them all. Updated installers, etc to accomodate.
+  * Renamed this file to remove WGSE_ start to it. Simplifies directory so only file (starting) with WGSE is the start command / script to start the program.
 
-BETA version 3 Final release (v3.12-3.14)
+# BETA version 3 Final release (v3.12-3.14)
 * A patch file replacement for mainwindow.py was provided in Sept 2021 to fix an error caught in regression testing but not fixed in the final 10 Jul 2021 release. Basically prevented the Align button from working at all.
 
-# **10 Jul 2021**:
+## **10 Jul 2021**:
 * Reworked Upgrade_UbuntuLinux.sh (all platforms) and reference/genomes/get*sh to create single new script (get_and_process_refgenomes.sh) with 17 choices instead of just yes/no in old Upgrade*sh script. Removed all the individual get_ref*sh scripts introduced in the 30 Jun 2021 release.
 * Restructured install of WGS Extractv3 to create, from scratch, the win10tools/tmp and temp/ folders (even though in release .zip) so bad ACLs on previous installs do not propagate.
 * Fixed minor bug in process_reference_genomes.sh that prevented handling multiple file parameters correctly
 * Added -y option to win10 python self-extracting archive command in Upgrade_UbuntuLinux.sh so it does not give the user an option of changing the download location
 * Minor refactoring of some internal names
 
-# **30 June 2021**:
+## **30 June 2021**:
 * Align and Unalign button added to GUI **Analysis** tab in new FASTQ frame.  This adds new request pop-ups for needed parameters and generalizes the sub-functions of the BAM Realign button.  Align works off any FASTQ file(s) specified and allows any of the 10 reference genomes to be chosen to make the target BAM or CRAM.
 * Reference Genome selector window expanded and cleaned-up; Build number added to description string; mainly for the Unknown Reference Genome.
 * Oxford Nanopore BAM / CRAM / FASTQ processing finished.  Mainly, added the minimap2 alignment command for the Align FASTQs button. Minimap2 is already part of Win10tools; added to the Ubuntu Upgrade script.  Minimap2 is not available in MacOS (not in any package manager we have found)
@@ -333,7 +336,7 @@ BETA version 3 Final release (v3.12-3.14)
 * Reduced valid CombinedKit (zip'ped) metric from 5 MB to 500 KB (to better support Teemu doing ad-mixture analysis on aDNA samples)
 * Numerous minor refactoring (e.g. in mainwindow names) and latent introduced bugs (e.g. in DEBUG_MODE unsort command) completed.
 
-# **15 June 2021**:
+## **15 June 2021**:
 Initial Beta v3 release.  List of major changes from Beta v2 (18 Feb 2020) through ALPHA v3.3 to v3.11 and this initial Beta v3.12.
 
 A key new feature is the tool can take in a BAM or CRAM and all functionality works with either specification.  Also, you can use the tool to convert from one file format to the other. By any BAM, we include subset ones.  Not just WGS. FamilyTreeDNA BigY-500 and -700 BAMs.  Like Y- or mtDNA-only BAMs you create with the tool. All are accepted and used.
@@ -394,8 +397,8 @@ More detailed bullet notes on changes in this Beta v3 15 June 2021 release since
 * Major cleanup of Y Haplogroup output page.  Added ISOGG tree button.  Cleaned up pop-up for more than 3 SNPs to more compactly present long lists of SNPs.
 * Major cleanup on stats pages.  Added LOCALE numeric printing, scale factors on values (K, M).  Added Other to capture the rest of the sequences.  Fixed many bugs; especially when subsetted BAMs are supplied. Added more newly determined stats like number of sequences, reference model refinement, size of file, content of file (Auto, X, Y, Mito, unmapped). Clarified RAW versus MAPped values.
 * Added tool version and release date to main banner at top. Added button to get to WGS Extract manual.  Moved the Exit button there instead of at the bottom of the screen.
-* Cleaned up and created Class for handling temp directory. Fixed deletion of entries; especially for directories like the yleaf one. 
-* Added DEBUG feature to provide more robust reporting, prevent deletion of TEMP directory entries when on, etc. 
+* Cleaned up and created Class for handling temp directory. Fixed deletion of entries; especially for directories like the yleaf one.
+* Added DEBUG feature to provide more robust reporting, prevent deletion of TEMP directory entries when on, etc.
 * All windows have explicit close / exit buttons and handle cleanup in such cases consistently
 * Tried to clarify and reduce amount of text, in general, to be more precise
 * Added, more explicitly, the recommended files in the Microarray tool (Renamed from Autosomal to Microarray tool also.)  Added "select recommended" button and explicit close button.
