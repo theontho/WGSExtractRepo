@@ -31,3 +31,8 @@ macos = ["tkmacosx"]
 
 [tool.setuptools]
 packages = ["program"]
+
+[dependency-groups]
+dev = [
+    "pathspec>=0.12.1",
+]

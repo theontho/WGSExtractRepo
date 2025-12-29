@@ -21,7 +21,7 @@ micromamba_url="https://github.com/mamba-org/micromamba-releases/releases/downlo
 export wgse_FP                                # Shellcheck needs (does not affect if already declared)
 _wgsedir=$(dirname "${BASH_SOURCE[0]}")       # Get the (calling) script location to determine the install directory
 _wgseabs=$( cd "$_wgsedir" || true ; pwd -P ) # Resolve any aliases and symlinks (readlink not available)
-[[ $(basename "$_wgseabs") == "scripts" ]] && wgse_FP=$(dirname "$_wgseabs") || wgse_FP="$_wgseabs" # not in scripts/
+[[ $(basename "$_wgseabs") == "scripts" || $(basename "$_wgseabs") == "installer_scripts" ]] && wgse_FP=$(dirname "$_wgseabs") || wgse_FP="$_wgseabs" # not in scripts/ or installer_scripts/
 
 cd -P "$wgse_FP"  ||  true                    # cdx not yet available
 

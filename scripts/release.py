@@ -1,8 +1,10 @@
+#!/usr/bin/env -S uv run python3
 import os
 import shutil
 import json
 import zipfile
 from datetime import datetime
+import pathspec
 
 def create_release():
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -14,6 +16,14 @@ def create_release():
 
     with open(manifest_path, "r") as f:
         manifest = json.load(f)
+
+    # Load .gitignore patterns
+    gitignore_path = os.path.join(repo_root, ".gitignore")
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path, "r") as f:
+            spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
+    else:
+        spec = None
 
     # Use version key for the release package naming
     version = manifest.get("version", {}).get("version", "unknown")
@@ -33,18 +43,44 @@ def create_release():
     # Files to be moved into docs/ inside the ZIP
     docs_files = ["LICENSE.txt", "CHANGELOG.md"]
 
+    # Help determine ignored files using .gitignore
+    def ignore_patterns(path, names):
+        rel_path = os.path.relpath(path, repo_root)
+        if rel_path == ".":
+            rel_path = ""
+        
+        ignored = []
+        for name in names:
+            full_rel_path = os.path.join(rel_path, name)
+            
+            # Basic hardcoded ignores that should always be ignored for release
+            if name.startswith('.') or name in ["tmp", "build", "__pycache__", ".git"]:
+                ignored.append(name)
+                continue
+            
+            # Use pathspec if available
+            if spec:
+                # Check if it's a directory to help pathspec match directory-only patterns
+                is_dir = os.path.isdir(os.path.join(path, name))
+                if is_dir:
+                    # pathspec matches directories if they end with / or if is_dir is handled
+                    # For pathspec.match_file, we can append a / to simulate directory matching if needed,
+                    # but match_file often handles it if the pattern is simple.
+                    # Best practice for pathspec is to use match_file with the path.
+                    if spec.match_file(full_rel_path + '/' if is_dir else full_rel_path):
+                        ignored.append(name)
+                elif spec.match_file(full_rel_path):
+                    ignored.append(name)
+        return ignored
+
     for platform, scripts in platforms.items():
+
         print(f"Creating release for {platform}...")
         
         temp_dir = os.path.join(build_dir, f"temp_{platform}")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
         os.makedirs(temp_dir)
-
-        # 1. Copy directories
-        def ignore_patterns(path, names):
-            ignored = [n for n in names if n.startswith('.') or n in ["tmp", "build", "__pycache__", ".git", "dev-init.sh", "dev-launch.sh", "dev-launch-library.sh", "reference"]]
-            return ignored
 
         for d in include_dirs:
             src = os.path.join(repo_root, d)
@@ -109,3 +145,4 @@ def create_release():
 
 if __name__ == "__main__":
     create_release()
+
