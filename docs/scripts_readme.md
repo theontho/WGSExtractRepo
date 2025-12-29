@@ -1,4 +1,5 @@
-WGS Extract Beta v4 Installation & Reference Library Scripts subdirectory
+## WGS Extract Beta v4 Installation & Reference Library Scripts subdirectory
+
 Full source code and documentation at https://wgse.bio/
 
 These are support scripts for the Installation and management of the
@@ -17,7 +18,7 @@ Library wrappers and implements the command-line level library command.
 *refgenome are called from library_common and the python reference library
 code to get and process the reference genomes in the reference library.
 
-The make_release* files are for making a WGS Extract distribution and
+The `make_release*` files are for making a WGS Extract distribution and
 normally deleted during install so the user never sees them.  But are
 including in the installer package to make the packages complete.
 
