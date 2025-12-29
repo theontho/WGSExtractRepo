@@ -149,6 +149,7 @@ cython_debug/
 .DS_Store
 tmp/
 temp/
+download_tmp/
 
 # windows dependencies (TODO: untested)
 cygwin64/

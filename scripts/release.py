@@ -54,7 +54,7 @@ def create_release():
             full_rel_path = os.path.join(rel_path, name)
             
             # Basic hardcoded ignores that should always be ignored for release
-            if name.startswith('.') or name in ["tmp", "build", "__pycache__", ".git"]:
+            if name.startswith('.') or name in ["download_tmp", "build", "__pycache__", ".git"]:
                 ignored.append(name)
                 continue
             

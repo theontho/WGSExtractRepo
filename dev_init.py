@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 MANIFEST = "installer_scripts/release.json"
-TMP_DIR = Path("tmp")
+TMP_DIR = Path("download_tmp")
 
 def run_command(cmd, shell=False, check=True):
     print(f"Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
@@ -40,15 +40,36 @@ def install_system_packages():
         # Ubuntu/Debian assumed
         try:
             run_command(["apt", "--version"])
-            packages = ["jq", "samtools", "bcftools", "bwa", "p7zip-full", "python3-pip", "python3-tk", "python3-pil", "python3-pil.imagetk", "openjdk-17-jre"]
-            print("Updating apt...")
-            subprocess.run(["sudo", "apt", "update"])
-            for pkg in packages:
-                print(f"Checking {pkg}...")
-                res = subprocess.run(["dpkg", "-s", pkg], capture_output=True)
-                if res.returncode != 0:
-                    print(f"Installing {pkg}...")
-                    run_command(["sudo", "apt", "install", "-y", pkg])
+            
+            aptfile = Path("Aptfile")
+            if aptfile.exists():
+                print("Installing system packages from Aptfile...")
+                update_needed = True # Always check for updates first? Or just run it.
+                print("Updating apt...")
+                subprocess.run(["sudo", "apt", "update"])
+                
+                with open(aptfile, "r") as f:
+                    packages = [
+                        line.strip() 
+                        for line in f 
+                        if line.strip() and not line.strip().startswith("#")
+                    ]
+                
+                if packages:
+                    # Install all at once
+                    cmd = ["sudo", "apt", "install", "-y"] + packages
+                    run_command(cmd)
+            else:
+                print("Warning: Aptfile not found. Falling back to manual default list.")
+                packages = ["jq", "samtools", "bcftools", "bwa", "p7zip-full", "python3-pip", "python3-tk", "python3-pil", "python3-pil.imagetk", "openjdk-17-jre"]
+                print("Updating apt...")
+                subprocess.run(["sudo", "apt", "update"])
+                for pkg in packages:
+                    print(f"Checking {pkg}...")
+                    res = subprocess.run(["dpkg", "-s", pkg], capture_output=True)
+                    if res.returncode != 0:
+                        print(f"Installing {pkg}...")
+                        run_command(["sudo", "apt", "install", "-y", pkg])
         except FileNotFoundError:
             print("Apt not found. Skipping system package installation.")
 
