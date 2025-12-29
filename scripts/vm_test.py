@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Add the scripts directory to path to import release.py if needed
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 BUILD_DIR = REPO_ROOT / "build"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
@@ -262,12 +262,83 @@ def run_test(platform):
     
     return success
 
+def run_aptfile_test():
+    """Test the Aptfile installation on an Ubuntu VM."""
+    print(f"\n{'='*20} Testing Aptfile on UBUNTU {'='*20}")
+    platform = "ubuntu"
+    image = IMAGES.get(platform)
+    
+    # Pull image if not present
+    print(f"[*] Checking for image {image}...")
+    res = subprocess.run(["tart", "list"], capture_output=True, text=True)
+    if image not in res.stdout:
+        print(f"[*] Pulling {image}...")
+        subprocess.run(["tart", "pull", image], check=True)
+
+    aptfile_path = REPO_ROOT / "Aptfile"
+    if not aptfile_path.exists():
+        print(f"[!] Aptfile not found at {aptfile_path}")
+        return False
+
+    vm_name = f"wgse-apt-test-{int(time.time())}"
+    vm = TartVM(vm_name, image)
+    
+    success = False
+    try:
+        vm.clone()
+        vm.start()
+        time.sleep(2)
+        
+        if not vm.wait_until_ready():
+            return False
+
+        remote_aptfile = "/home/admin/Aptfile"
+        vm.transfer_file(aptfile_path, remote_aptfile)
+        
+        print("[*] Updating apt...")
+        # Cirrus Ubuntu images use password 'admin' for sudo. 
+        # Typically they are passwordless sudo for admin user? Let's check.
+        # Usually they are passwordless.
+        vm.exec("sudo apt-get update")
+
+        print("[*] Installing packages from Aptfile...")
+        # Filter comments and empty lines, then pass to xargs apt-get install
+        # We handle this command carefully to avoid shell escaping issues
+        install_cmd = (
+            "grep -vE '^\\s*#' Aptfile | "
+            "grep -vE '^\\s*$' | "
+            "tr '\\n' ' ' | "
+            "xargs sudo apt-get install -y"
+        )
+        
+        res = vm.exec(f"cd /home/admin && {install_cmd}", capture_output=False)
+        
+        if res.returncode == 0:
+            print("[+++] Aptfile Installation Successful!")
+            success = True
+        else:
+            print(f"[!] Aptfile Installation Failed with code {res.returncode}")
+    
+    except KeyboardInterrupt:
+        print("\n[!] Test interrupted by user.")
+        raise
+    except Exception as e:
+        print(f"[!] Error during test: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        vm.stop()
+        vm.delete()
+
+    return success
+
 def main():
     parser = argparse.ArgumentParser(description="WGS Extract VM Installation Test System")
     parser.add_argument("--platform", choices=["ubuntu", "fedora", "macos", "all"], default="all",
                         help="Platform to test (default: all)")
     parser.add_argument("--no-release", action="store_true", help="Skip running release.py")
     parser.add_argument("--setup-only", action="store_true", help="Only setup Tart and pull images")
+    parser.add_argument("--test-aptfile", action="store_true", help="Test Aptfile installation on Ubuntu")
     
     args = parser.parse_args()
 
@@ -286,6 +357,10 @@ def main():
 
         # Clean up any mess from before
         cleanup_stale_vms()
+
+        if args.test_aptfile:
+            success = run_aptfile_test()
+            sys.exit(0 if success else 1)
 
         if not args.no_release:
             run_release_script()

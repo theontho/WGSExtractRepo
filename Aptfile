@@ -1,0 +1,30 @@
+# Utilities
+bash
+grep
+sed
+coreutils
+zip
+unzip
+p7zip-full
+curl
+jq
+
+# Python
+python3
+python3-pip
+python3-tk
+python3-pil
+python3-pil.imagetk
+
+# Java
+openjdk-17-jre
+openjdk-8-jre
+
+# Bioinformatics
+samtools
+bcftools
+tabix
+bwa
+bowtie2
+minimap2
+fastp
