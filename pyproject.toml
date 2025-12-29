@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wgsextract"
+version = "44.11"
+description = "A toolbox app for processing WGS data"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+    "Pillow",
+    "pyliftover",
+    "pyscreenshot",
+    "openpyxl",
+    "pandas",
+    "psutil",
+    "multiqc",
+    "wakepy>=0.8",
+    "biopython",
+    "numpy",
+    "requests",
+    "urllib3",
+    "pyfaidx",
+    "pysocks",
+]
+
+[project.optional-dependencies]
+macos = ["tkmacosx"]
+
+[tool.setuptools]
+packages = ["program"]
