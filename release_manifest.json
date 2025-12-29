@@ -1,14 +1,7 @@
 {
-  "installer": {
-    "version": 52,
-    "date": "19Sep2025",
-    "URL": "https://get.wgse.io/WGSExtract-Dev52_19Sep2025_installer.zip"
-  },
-  "program": {
+  "version": {
     "version": "44.11",
-    "date": "19Sep2025",
-    "URL": "https://get.wgse.io/WGSExtract-v44.11_19Sep2025_program.zip",
-    "manual": "https://bit.ly/3JCyZNa"
+    "date": "19Sep2025"
   },
   "reflib": {
     "version": 9,
