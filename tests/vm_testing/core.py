@@ -26,11 +26,11 @@ class TartVM:
 
     def start(self):
         print(f"[*] Starting VM {self.name}...")
-        # Removed --no-graphics to enable GUI support as requested
+        # Enable softnet for better network compatibility on macOS
+        # We allow all traffic to avoid accidental blocks in private ranges.
+        # We don't redirect output to DEVNULL to allow the user to see sudo prompts if softnet needs priming.
         self.process = subprocess.Popen(
-            ["tart", "run", self.name],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            ["tart", "run", "--net-softnet", "--net-softnet-allow=0.0.0.0/0", self.name]
         )
 
     def stop(self):
@@ -64,15 +64,22 @@ class TartVM:
         return result
 
     def wait_until_ready(self, timeout=120):
-        print(f"[*] Waiting for VM {self.name} to be ready...")
+        print(f"[*] Waiting for VM {self.name} to be ready and have network...")
         start_time = time.time()
         while time.time() - start_time < timeout:
+            # Check if VM is responsive
             res = self.exec("ls", capture_output=True)
             if res.returncode == 0:
-                print(f"[+] VM {self.name} is ready.")
-                return True
+                # Check for internet access
+                net_res = self.exec("ping -c 1 8.8.8.8", capture_output=True)
+                if net_res.returncode == 0:
+                    print(f"[+] VM {self.name} is ready and online.")
+                    return True
+                else:
+                    print(f"[*] VM {self.name} responsive but offline (ping failed).")
+            
             time.sleep(2)
-        print(f"[!] Timeout waiting for VM {self.name}")
+        print(f"[!] Timeout waiting for VM {self.name} (ready/online check)")
         return False
 
     def transfer_file(self, local_path, remote_path):

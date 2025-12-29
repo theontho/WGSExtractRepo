@@ -274,6 +274,14 @@ def run_dev_scripts_test(platform):
                  cache_zip_path.unlink()
              print("[+] Cache transferred.")
 
+        print("[*] Verifying internet access from guest...")
+        vm.exec("ip addr show || ifconfig")
+        res = vm.exec("curl -I https://google.com", capture_output=True)
+        if res.returncode != 0:
+            print(f"[!] Warning: Initial connectivity test failed: {res.stderr}")
+        else:
+            print("[+] Guest has internet access.")
+
         print("[*] Installing uv...")
         res = vm.exec("curl -LsSf https://astral.sh/uv/install.sh | sh", capture_output=True)
         if res.returncode != 0:
