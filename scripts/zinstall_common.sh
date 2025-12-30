@@ -77,7 +77,6 @@ pip_install() {
         # Last resort: just try pip3
         pip=( pip3 )
       fi
-    fi
   else
     case "${OSTYPE}:${cpu_arch}:${osver}" in    # MacOS passes arch as first arg; major/min version as 2nd; Ubuntu major as first
       darwin*) ;; # Do nothing since we dealt with MacOS above
@@ -285,6 +284,7 @@ rmx ./*_Linux.sh scripts/*_Linux.sh                        # Original generic Li
 # We now remove files for OSs that are not installed here; leaving only one OS set of scripts
 case $OSTYPE in
   darwin*)
+    cpx installer_scripts/WGSExtract.command installer_scripts/Library.command .
     rmx ./*_ubuntu.sh scripts/*_ubuntu.sh
     rmx ./*_linux.sh scripts/*_linux.sh
     rmx ./*.bat scripts/zinstall_stage2windows.sh  ;;
@@ -292,9 +292,11 @@ case $OSTYPE in
   linux*)
     # Only the linux releases have overlapping extensions and so need WGSExtract and Library files renamed
     if [[ "$linux_type" == "micromamba" ]]; then
+      cpx installer_scripts/WGSExtract_linux.sh installer_scripts/Library_linux.sh .
       rmx ./*_ubuntu.sh scripts/*_ubuntu.sh
       for file in Library_linux.sh WGSExtract_linux.sh; do [ -f $file ] && mvx $file ${file/_linux} ; done
     else    # Our historic Ubuntu release (before we had the generic Linux release)
+      cpx installer_scripts/WGSExtract_ubuntu.sh installer_scripts/Library_ubuntu.sh .
       rmx ./*_linux.sh scripts/*_linux.sh
       for file in Library_ubuntu.sh WGSExtract_ubuntu.sh; do [ -f $file ] && mvx $file ${file/_ubuntu} ; done
     fi
@@ -302,12 +304,14 @@ case $OSTYPE in
     rmx ./*command ;;
 
   msys*)
+    cpx installer_scripts/WGSExtract.bat installer_scripts/Library.bat .
     # rmrx cygwin64 python
     rmx ./*_ubuntu.sh scripts/*_ubuntu.sh
     rmx ./*_linux.sh scripts/*_linux.sh
     rmx ./*command scripts/*_macos.sh ;;
 
   cygwin*)
+    cpx installer_scripts/WGSExtract.bat installer_scripts/Library.bat .
     # Leave msys installer in case user wants to switch
     # rmrx msys2
     rmx ./*_ubuntu.sh scripts/*_ubuntu.sh
