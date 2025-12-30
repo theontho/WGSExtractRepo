@@ -34,7 +34,7 @@ def get_arguments():
                     "BATCH MODE FROM THE COMMAND LINE IS NOT YET IMPLEMENTED."))
 
     # -h, --help is automatic with ArgumentParser
-    parser.add_argument("-v", "--version", action='version', version=f'%(prog)s {wgse.__version__}')
+    parser.add_argument("-v", "--version", action='version', version=f'WGSExtract {wgse.__version__}')
 
     # Really a required button for batch mode; but optional because without any args starts interactive mode
     parser.add_argument("-p", "--process_button",
@@ -113,6 +113,11 @@ if __name__ == '__main__':
         print(f'       If output directory is not specified in the settings, it is set to the location of the BAM.')
         exit()
 
+    # If --version or -h/--help are present, handle them before full init
+    if "--version" in sys.argv or "-v" in sys.argv or "-h" in sys.argv or "--help" in sys.argv:
+        parser = get_arguments()
+        parser.parse_args() # This will handle --version or --help and exit
+    
     wgse.init(interactive=True)     # Reads and restores settings BEFORE processing args
 
     # args = get_arguments()      # Todo Place holder. Intent is to allow complete batch mode processing (no gui)

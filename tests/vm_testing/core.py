@@ -26,11 +26,10 @@ class TartVM:
 
     def start(self):
         print(f"[*] Starting VM {self.name}...")
-        # Enable softnet for better network compatibility on macOS
-        # We allow all traffic to avoid accidental blocks in private ranges.
-        # We don't redirect output to DEVNULL to allow the user to see sudo prompts if softnet needs priming.
+        # We remove --net-softnet to avoid sudo prompts in automated environments.
+        # Default networking should be sufficient for basic connectivity.
         self.process = subprocess.Popen(
-            ["tart", "run", "--net-softnet", "--net-softnet-allow=0.0.0.0/0", self.name]
+            ["tart", "run", self.name]
         )
 
     def stop(self):
@@ -63,7 +62,7 @@ class TartVM:
         )
         return result
 
-    def wait_until_ready(self, timeout=120):
+    def wait_until_ready(self, timeout=300):
         print(f"[*] Waiting for VM {self.name} to be ready and have network...")
         start_time = time.time()
         while time.time() - start_time < timeout:

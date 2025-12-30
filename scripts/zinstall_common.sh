@@ -82,9 +82,19 @@ pip_install() {
       linux*:x86_64:20* | \
       linux*:x86_64:22* | \
       linux*:x86_64:24*)        pip=( pip3 )  ;;
+      linux*:aarch64:20* | \
+      linux*:aarch64:22* | \
+      linux*:aarch64:24* | \
+      linux*:arm64:20* | \
+      linux*:arm64:22* | \
+      linux*:arm64:24*)        pip=( pip3 )  ;;
       linux*:x86_64:micromamba) pip=( pip3 )        # Make sure to save cache files within micromamba environment directory
-                                  # shellcheck disable=SC2206
-                                  opts+=( --cache-dir "${wgse_FP}/micromamba/cache/pip" $VERBOSE )  ;;
+      # shellcheck disable=SC2206
+      opts+=( --cache-dir "${wgse_FP}/micromamba/cache/pip" $VERBOSE )  ;;
+      linux*:aarch64:micromamba | \
+      linux*:arm64:micromamba) pip=( pip3 )        # Make sure to save cache files within micromamba environment directory
+      # shellcheck disable=SC2206
+      opts+=( --cache-dir "${wgse_FP}/micromamba/cache/pip" $VERBOSE )  ;;
       msys*:x86_64:* )          pip=( msys2/ucrt64/bin/python -m pip ) ;;   # In bioinfo folder; not on main path
       cygwin*:x86_64:*)         pip=( python/python.exe -m pip )  ;;  #  pip3 requires python/, python/scripts be on PATH
       *)  echo "*** Error: unknown OS:ARCH:VER combination of ${OSTYPE}:${cpu_arch}:${osver}"

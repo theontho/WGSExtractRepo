@@ -15,7 +15,12 @@
 # Micromamba 2.0.0-0 was released on Sep 25th 2024, which introduced breaking changes
 # The version of the micromamba binary being downloaded is now fixed at 1.5.10-0 to ensure compatibility with this script
 # Todo re-work this script to work with Micromamba 2
-micromamba_url="https://github.com/mamba-org/micromamba-releases/releases/download/1.5.10-0/micromamba-linux-64"
+case ${cpu_arch:-$(uname -m)} in
+  x86_64)  mm_arch="linux-64" ;;
+  aarch64|arm64) mm_arch="linux-aarch64" ;;
+  *) mm_arch="linux-64" ;; # Fallback
+esac
+micromamba_url="https://github.com/mamba-org/micromamba-releases/releases/download/1.5.10-0/micromamba-${mm_arch}"
 
 #---------------------------------- Setup common environment ------------------------------------------------------
 export wgse_FP                                # Shellcheck needs (does not affect if already declared)
@@ -61,8 +66,8 @@ echo_log "\_/"
 echo_log "/ \\"
 echo_fnl
 
-# Aborts script if script if *not* on a 64-bit x86 architecture. Customised messages for some architectures are given.
-if [[ ${cpu_arch} != "x86_64" ]]; then
+# Aborts script if script if *not* on a supported architecture. Customised messages for some architectures are given.
+if [[ ${cpu_arch} != "x86_64" ]] && [[ ${cpu_arch} != "aarch64" ]] && [[ ${cpu_arch} != "arm64" ]]; then
 
   case ${cpu_arch} in
     arm*|aarch*) arch="ARM-based"       ;;
@@ -192,8 +197,11 @@ echo_fnl
 
 # Todo Bowtie2 omitted due to incompatibility with Python 3.11
 # Conda-forge needed to install dependencies of some bioconda packages
+packages=( bwa bwa-mem2 minimap2 hisat2 samtools bcftools tabix fastp )
+[[ ${mm_arch} == "linux-64" ]] && packages+=( pbmm2 )
+
 micromamba install $verbosem -y -r "$microdir" -c conda-forge -c bioconda \
-  bwa bwa-mem2 minimap2 hisat2 pbmm2 samtools bcftools tabix fastp 2>&1 | echo_tee
+  "${packages[@]}" 2>&1 | echo_tee
 micromamba_abort "Failed to install the bioinformatic tools"
 
 # Todo do we really need this?  Or should we simply do it every time? Disabled for now
