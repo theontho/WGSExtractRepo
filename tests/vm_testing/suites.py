@@ -41,6 +41,30 @@ def run_platform_test(platform):
         if not vm.wait_until_ready():
             return False
 
+        # Configure unattended sudo for ubuntu (and fedora if needed)
+        # Cirrus images default user 'admin' has password 'admin'
+        if platform in ["ubuntu", "fedora"]:
+            sudo_user = "admin"
+            print(f"[*] Configuring unattended sudo for {sudo_user}...")
+            # Create a file in /etc/sudoers.d/ to allow passwordless sudo
+            # We pipe the password 'admin' to sudo -S handles the prompt
+            # Configure sudo by appending to /etc/sudoers directly to avoid include issues
+            # Also ensure we are thorough
+            setup_cmd = f"echo 'admin' | sudo -S sh -c 'echo \"{sudo_user} ALL=(ALL) NOPASSWD: ALL\" >> /etc/sudoers'"
+            res = vm.exec(setup_cmd)
+            if res.returncode != 0:
+                print(f"[!] Warning: Failed to append to sudoers: {res.stderr}")
+                
+            # Verify sudo works without password
+            print("[*] Verifying sudo configuration...")
+            res = vm.exec("sudo -n true")
+            if res.returncode != 0:
+                print(f"[!] Sudo verification failed: {res.stderr}")
+                print("[*] Checking /etc/sudoers content:")
+                vm.exec("echo 'admin' | sudo -S cat /etc/sudoers")
+            else:
+                print("[+] Sudo requires no password.")
+
         remote_zip = "/tmp/release.zip"
         vm.transfer_file(zip_path, remote_zip)
         
@@ -69,6 +93,11 @@ def run_platform_test(platform):
         # Install_linux.sh: source scripts/zxterm_linux.sh
         # Install_ubuntu.sh: source scripts/zxterm_ubuntu.sh
         vm.exec(rf"sed -i 's/^source scripts\/zxterm/ # source scripts\/zxterm/' {installer_path}")
+        
+        # Patch zcommon.sh to disable sudo -v (which triggers password prompt even with NOPASSWD)
+        zcommon_path = f"{target_dir}/scripts/zcommon.sh"
+        print("[*] Patching zcommon.sh to disable sudo -v...")
+        vm.exec(rf"sed -i 's/sudo -v/# sudo -v/' {zcommon_path}")
         
         # Make executable and run
         vm.exec(f"chmod +x {installer_path}")
