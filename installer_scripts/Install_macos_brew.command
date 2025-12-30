@@ -68,10 +68,23 @@ fi
 echo '================================= Installing Homebrew ==================================='
 install_homebrew
 
+# Ensure Homebrew is in the PATH for the current process
+if [ -d "/opt/homebrew/bin" ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -d "/usr/local/Homebrew/bin" ]; then
+    eval "$(/usr/local/Homebrew/bin/brew shellenv)"
+fi
+
+# echo "DEBUG: PATH is $PATH"
+# echo "DEBUG: which samtools -> $(which samtools)"
+# echo "DEBUG: ls -l /opt/homebrew/bin/samtools -> $(ls -l /opt/homebrew/bin/samtools 2>/dev/null)"
 
 # Verify installations
 if ! command -v samtools &> /dev/null || ! command -v bcftools &> /dev/null || ! command -v bwa &> /dev/null; then
     echo "ERROR: Failed to install required bioinformatics tools via Homebrew"
+    echo "DEBUG: samtools check: $(command -v samtools || echo "not found")"
+    echo "DEBUG: bcftools check: $(command -v bcftools || echo "not found")"
+    echo "DEBUG: bwa check: $(command -v bwa || echo "not found")"
     exit 1
 fi
 echo

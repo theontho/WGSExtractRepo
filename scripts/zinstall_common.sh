@@ -64,15 +64,19 @@ pip_install() {
   if [[ "${OSTYPE}" == darwin* ]]; then
     libs+=( tkmacosx ) # MacOS extra package for tkinter colored buttons
     opts=()
-    custom_pip_path="/usr/local/bin/pip3"
-    arch_arg=$([ "${cpu_arch}" = "arm64" ] && echo "-arm64" || echo "-x86_64")
-    homebrew_pip_path=$([ "${cpu_arch}" = "arm64" ] && echo "/opt/homebrew/bin/pip3.11" || echo "/usr/local/Homebrew/bin/pip3.11")
-    chosen_pip_path=$([ -x "${custom_pip_path}" ] && echo "${custom_pip_path}" || echo "${homebrew_pip_path}")
-    
-    if [ -x "${custom_pip_path}" ] ; then
-      pip=( arch "${arch_arg}" "${chosen_pip_path}" )
-    else
-      pip=( "${homebrew_pip_path}" )
+      custom_pip_path="/usr/local/bin/pip3"
+      arch_arg=$([ "${cpu_arch}" = "arm64" ] && echo "-arm64" || echo "-x86_64")
+      homebrew_pip_path=$([ "${cpu_arch}" = "arm64" ] && echo "/opt/homebrew/bin/pip3.11" || echo "/usr/local/Homebrew/bin/pip3.11")
+      chosen_pip_path=$([ -x "${custom_pip_path}" ] && echo "${custom_pip_path}" || echo "${homebrew_pip_path}")
+      
+      if [ -x "${custom_pip_path}" ] ; then
+        pip=( arch "${arch_arg}" "${chosen_pip_path}" )
+      elif [ -x "${homebrew_pip_path}" ]; then
+        pip=( "${homebrew_pip_path}" )
+      else
+        # Last resort: just try pip3
+        pip=( pip3 )
+      fi
     fi
   else
     case "${OSTYPE}:${cpu_arch}:${osver}" in    # MacOS passes arch as first arg; major/min version as 2nd; Ubuntu major as first

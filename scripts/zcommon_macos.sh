@@ -35,38 +35,41 @@ export _os_vers     # Normally local as only used in routine below but treated l
 
 # Shared Homebrew package lists
 # Todo pbmm2, a PacBio Minimap2 front-end  https://github.com/PacificBiosciences/pbmm2
-export HOMEBREW_PKGS="bash grep gnu-sed coreutils zip unzip p7zip md5sha1sum jq python@3.11 python-tk@3.11 zulu@8 zulu@11 samtools bcftools htslib bwa minimap2 fastp bowtie2"
+export HOMEBREW_PKGS="bash grep gnu-sed coreutils zip unzip 7zip md5sha1sum jq python@3.11 python-tk@3.11 samtools bcftools htslib bwa minimap2 fastp bowtie2"
+export HOMEBREW_CASKS="zulu@8 zulu@11"
 export HOMEBREW_BIO_PKGS="brewsci/bio/bwa-mem2 brewsci/bio/hisat2"
 
 install_homebrew() {
   # Check if Homebrew is installed
   if ! command -v brew &> /dev/null; then
+      if [ -x "/opt/homebrew/bin/brew" ]; then
+          eval "$(/opt/homebrew/bin/brew shellenv)"
+      elif [ -x "/usr/local/bin/brew" ]; then
+          eval "$(/usr/local/bin/brew shellenv)"
+      fi
+  fi
+
+  if ! command -v brew &> /dev/null; then
       echo "Installing Homebrew..."
       /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       
-      local HOMEBREW_PREFIX
       # Determine where Homebrew was installed
       if [ -d "/opt/homebrew" ]; then
-          HOMEBREW_PREFIX="/opt/homebrew"
+          eval "$(/opt/homebrew/bin/brew shellenv)"
       else
-          HOMEBREW_PREFIX="/usr/local/Homebrew"
-      fi
-      
-      # Add Homebrew to PATH if needed
-      if [[ "$SHELL" == "/bin/zsh" ]]; then
-          echo 'eval "$('${HOMEBREW_PREFIX}/bin/brew' shellenv)"' >> ~/.zshrc
-          eval "$(${HOMEBREW_PREFIX}/bin/brew shellenv)"
-      else
-          echo 'eval "$('${HOMEBREW_PREFIX}/bin/brew' shellenv)"' >> ~/.bash_profile
-          eval "$(${HOMEBREW_PREFIX}/bin/brew shellenv)"
+          eval "$(/usr/local/bin/brew shellenv)"
       fi
   fi
+
+  # echo "DEBUG: Homebrew prefix is $(brew --prefix)"
+  # echo "DEBUG: Homebrew bin is $(brew --prefix)/bin"
 
   echo "Updating Homebrew and packages..."
   brew update
 
   echo "Installing required Unix utilities & bioinformatics tools..."
   brew install $HOMEBREW_PKGS
+  brew install $HOMEBREW_CASKS
   brew install $HOMEBREW_BIO_PKGS
 
   echo "Homebrew setup completed successfully!"

@@ -26,8 +26,8 @@ class TartVM:
 
     def start(self):
         print(f"[*] Starting VM {self.name}...")
-        # We remove --net-softnet to avoid sudo prompts in automated environments.
-        # Default networking should be sufficient for basic connectivity.
+        # Default networking (shared) is used.
+        # We avoid --net-softnet as it may require host-side sudo to set SUID bits.
         self.process = subprocess.Popen(
             ["tart", "run", self.name]
         )
@@ -65,19 +65,39 @@ class TartVM:
     def wait_until_ready(self, timeout=300):
         print(f"[*] Waiting for VM {self.name} to be ready and have network...")
         start_time = time.time()
+        macos_interface_fix_attempted = False
+        macos_dns_fix_attempted = False
+        
         while time.time() - start_time < timeout:
             # Check if VM is responsive
             res = self.exec("ls", capture_output=True)
             if res.returncode == 0:
                 # Check for internet access
-                net_res = self.exec("ping -c 1 8.8.8.8", capture_output=True)
+                net_res = self.exec("/sbin/ping -c 1 8.8.8.8", capture_output=True)
                 if net_res.returncode == 0:
-                    print(f"[+] VM {self.name} is ready and online.")
-                    return True
+                    # Internet by IP is good. Now check DNS resolution.
+                    dns_res = self.exec("curl -I https://www.google.com", capture_output=True)
+                    if dns_res.returncode == 0:
+                        print(f"[+] VM {self.name} is ready and online (DNS working).")
+                        return True
+                    else:
+                        print(f"[*] VM {self.name} online by IP but DNS failing.")
+                        # If macOS, try to force DNS
+                        if not macos_dns_fix_attempted and ("macos" in self.image or "macos" in self.name):
+                             print("[*] Attempting macOS DNS fix (setting 8.8.8.8)...")
+                             # Try both Ethernet and Wi-Fi to be safe, ignore errors if one doesn't exist
+                             self.exec("echo admin | sudo -S /usr/sbin/networksetup -setdnsservers Ethernet 8.8.8.8 || true")
+                             self.exec("echo admin | sudo -S /usr/sbin/networksetup -setdnsservers Wi-Fi 8.8.8.8 || true")
+                             macos_dns_fix_attempted = True
                 else:
                     print(f"[*] VM {self.name} responsive but offline (ping failed).")
+                    # If macOS and we haven't tried fix, maybe it needs a nudge
+                    if not macos_interface_fix_attempted and ("macos" in self.image or "macos" in self.name):
+                         print("[*] Attempting macOS interface fix...")
+                         self.exec("echo admin | sudo -S /usr/sbin/ipconfig set en0 DHCP")
+                         macos_interface_fix_attempted = True
             
-            time.sleep(2)
+            time.sleep(5)
         print(f"[!] Timeout waiting for VM {self.name} (ready/online check)")
         return False
 

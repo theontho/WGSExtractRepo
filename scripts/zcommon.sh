@@ -842,7 +842,12 @@ install_or_upgrade() {
   case $OSTYPE in
     msys* | cygwin*)
       powershell Expand-Archive -LiteralPath "$zipfile" -DestinationPath "$destpath" -Force  ;;
-    darwin*) 7zz x -tzip -y "$zipfile" >/dev/null  ;;
+    darwin*)
+      if command -v 7zz &>/dev/null; then
+          7zz x -tzip -y "$zipfile" >/dev/null
+      else
+          7z x -tzip -y "$zipfile" >/dev/null
+      fi ;;
     linux*)  7z  x -tzip -y "$zipfile" >/dev/null  ;;
   esac
   rmx "$zipfile"
