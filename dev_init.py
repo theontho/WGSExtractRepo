@@ -17,13 +17,16 @@ def get_cygwin_bash():
     """Returns the absolute path to cygwin bash.exe or just 'bash' if not on Windows."""
     if sys.platform == "win32":
         # Assume cygwin64 is in the current directory or a standard location
-        local_cyg = Path.cwd() / "cygwin64" / "bin" / "bash.exe"
-        if local_cyg.exists():
-            return str(local_cyg)
+        # Prefer sh.exe as bash.exe is broken in some Cygwin versions
+        for shell in ["sh.exe", "bash.exe"]:
+            local_cyg = Path.cwd() / "cygwin64" / "bin" / shell
+            if local_cyg.exists():
+                return str(local_cyg)
         # Fallback to C:\cygwin64 if local doesn't exist
-        std_cyg = Path("C:/cygwin64/bin/bash.exe")
-        if std_cyg.exists():
-            return str(std_cyg)
+        for shell in ["sh.exe", "bash.exe"]:
+            std_cyg = Path("C:/cygwin64/bin") / shell
+            if std_cyg.exists():
+                return str(std_cyg)
     return "bash"
 
 def install_system_packages():

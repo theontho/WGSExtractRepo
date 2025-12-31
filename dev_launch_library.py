@@ -25,7 +25,8 @@ def main():
     elif sys.platform in ["win32", "cygwin", "msys"]:
         print("Launching WGS Extract Library for Windows...")
         # Run directly from root for dev environment compatibility
-        subprocess.run(["uv", "run", "cygwin64\\bin\\bash", "scripts/library_common.sh", "."])
+        # Using sh instead of bash as bash.exe is broken in some Cygwin versions
+        subprocess.run(["uv", "run", "cygwin64\\bin\\sh", "scripts/library_common.sh", "."])
     else:
         print(f"Unsupported OS: {sys.platform}")
         sys.exit(1)

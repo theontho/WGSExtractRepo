@@ -609,7 +609,10 @@ def init(interactive=False):
         samtools_oFP = f'{install_oFP}cygwin64\\usr\\local\\bin\\'
         samtools_FP  = f'{install_FP}cygwin64/usr/local/bin/'
 
-        bashx_oFN  = f'{cygwin64_oFP}bash.exe'       # Exception, native-OS and no quote
+        bashx_oFN  = f'{cygwin64_oFP}sh.exe'         # sh.exe is bash in cygwin and works while bash.exe fails
+        # Ensure cygwin64/bin is in PATH for DLL resolution
+        if cygwin64_oFP not in os.environ["PATH"]:
+            os.environ["PATH"] = f'{cygwin64_oFP};{os.environ["PATH"]}'
         headx_qFN  = f'"{cygwin64_FP}head.exe"'
         tailx_qFN  = f'"{cygwin64_FP}tail.exe"'
         awkx_qFN   = f'"{cygwin64_FP}gawk.exe"'
@@ -652,6 +655,7 @@ def init(interactive=False):
         samtools_oFP = f'{install_oFP}msys2\\ucrt64\\bin\\'
         samtools_FP  = f'{install_FP}msys2/ucrt64/bin/'
 
+        # Might need the cygwin fix here for dev_launch.py , not tested yet
         bashx_oFN  = f'{msys2_oFP}bash.exe'    # Exception, native-OS and no quote
         headx_qFN  = f'"{msys2_FP}head.exe"'
         tailx_qFN  = f'"{msys2_FP}tail.exe"'
