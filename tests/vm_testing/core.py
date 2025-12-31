@@ -24,13 +24,16 @@ class TartVM:
         print(f"[*] Cloning {self.image} into {self.name}...")
         subprocess.run(["tart", "clone", self.image, self.name], check=True)
 
-    def start(self):
+    def start(self, gui=False):
         print(f"[*] Starting VM {self.name}...")
         # Default networking (shared) is used.
         # We avoid --net-softnet as it may require host-side sudo to set SUID bits.
-        self.process = subprocess.Popen(
-            ["tart", "run", self.name]
-        )
+        cmd = ["tart", "run"]
+        if not gui:
+            cmd.append("--no-graphics")
+        cmd.append(self.name)
+        
+        self.process = subprocess.Popen(cmd)
 
     def stop(self):
         print(f"[*] Stopping VM {self.name}...")
@@ -43,7 +46,7 @@ class TartVM:
         print(f"[*] Deleting VM {self.name}...")
         subprocess.run(["tart", "delete", self.name], capture_output=True)
 
-    def exec(self, command, input_data=None, capture_output=True):
+    def exec(self, command, input_data=None, capture_output=True, user=None):
         """Execute a command in the VM using tart exec."""
         cmd = ["tart", "exec", self.name]
         if isinstance(command, str):
@@ -67,13 +70,23 @@ class TartVM:
         start_time = time.time()
         macos_interface_fix_attempted = False
         macos_dns_fix_attempted = False
+        tools_installed = False
         
         while time.time() - start_time < timeout:
             # Check if VM is responsive
             res = self.exec("ls", capture_output=True)
             if res.returncode == 0:
+                # Ensure net-tools and ping are installed on Linux if missing
+                if not tools_installed and ("ubuntu" in self.image or "fedora" in self.image):
+                    print("[*] Ensuring network tools are installed...")
+                    if "ubuntu" in self.image:
+                        self.exec("echo admin | sudo -S apt-get update && echo admin | sudo -S apt-get install -y net-tools iputils-ping curl")
+                    else:
+                        self.exec("echo admin | sudo -S dnf install -y net-tools iputils curl")
+                    tools_installed = True
+
                 # Check for internet access
-                net_res = self.exec("/sbin/ping -c 1 8.8.8.8", capture_output=True)
+                net_res = self.exec("ping -c 1 8.8.8.8", capture_output=True)
                 if net_res.returncode == 0:
                     # Internet by IP is good. Now check DNS resolution.
                     dns_res = self.exec("curl -I https://www.google.com", capture_output=True)

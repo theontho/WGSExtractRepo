@@ -12,7 +12,7 @@ if IS_WINDOWS:
 def get_vm_class():
     return WSLVM if IS_WINDOWS else TartVM
 
-def run_platform_test(platform):
+def run_platform_test(platform, gui=False):
     print(f"\n{'='*20} Testing {platform.upper()} {'='*20}")
     
     # Check if platform is supported by the current backend
@@ -56,7 +56,7 @@ def run_platform_test(platform):
     success = False
     try:
         vm.clone()
-        vm.start()
+        vm.start(gui=gui)
         # Give GUI/Userland a moment to spawn
         time.sleep(2)
         
@@ -87,6 +87,13 @@ def run_platform_test(platform):
             res = vm.exec("sudo -n true")
             if res.returncode != 0:
                  print(f"[!] Sudo verification failed: {res.stderr}")
+
+        # GUI Setup for Ubuntu (if requested)
+        if gui and platform == "ubuntu" and not IS_WINDOWS:
+            print("[*] GUI requested. Installing XFCE4 and python3-tk (this may take a few minutes)...")
+            vm.exec("sudo apt-get update", user="admin")
+            vm.exec("sudo DEBIAN_FRONTEND=noninteractive apt-get install -y xfce4 xfce4-terminal python3-tk xinit", user="admin")
+            print("[*] GUI dependencies installed.")
 
         remote_zip = "/tmp/release.zip"
         vm.transfer_file(zip_path, remote_zip)
@@ -137,24 +144,59 @@ def run_platform_test(platform):
             print("[!] Verification failed: program/wgsextract.py not found.")
             return False
         
-        print("[*] Testing app launch (version check)...")
-        # Launch app to verify dependencies
-        python_cmd = f"python3 {target_dir}/program/wgsextract.py --version"
-        
-        # For Linux/Fedora with micromamba, python is in micromamba/bin
-        # Note: Installer setup logic puts micromamba in {target_dir}/micromamba
+        # Determine Launch Command
+        python_cmd = f"python3 {target_dir}/program/wgsextract.py"
         if platform in ["fedora"]:
-             python_cmd = f"{target_dir}/micromamba/bin/python3 {target_dir}/program/wgsextract.py --version"
+             python_cmd = f"{target_dir}/micromamba/bin/python3 {target_dir}/program/wgsextract.py"
         
-        res = vm.exec(python_cmd, user=user)
-        print(res.stdout)
-        
-        if res.returncode == 0 or "WGS Extract" in res.stdout:
-            print(f"[+++] {platform.upper()} Test Successful!")
-            success = True
+        if gui:
+            print(f"[*] Launching app in GUI mode on {platform}...")
+            
+            if platform == "ubuntu":
+                # Configure Autologin and X Start
+                print("[*] Configuring autologin for admin...")
+                # Override getty service
+                vm.exec("sudo mkdir -p /etc/systemd/system/getty@tty1.service.d", user=user)
+                autologin_conf = "[Service]\nExecStart=\nExecStart=-/sbin/agetty --autologin admin --noclear %I $TERM"
+                # We need to write this file.
+                vm.exec(f"echo '{autologin_conf}' | sudo tee /etc/systemd/system/getty@tty1.service.d/override.conf", user=user)
+                
+                # Configure .xinitrc to launch app
+                print("[*] Configuring .xinitrc...")
+                vm.exec(f"echo 'exec {python_cmd}' > {target_root}/.xinitrc", user=user)
+                
+                # Configure .profile to startx if on tty1
+                print("[*] Configuring .profile to start X...")
+                vm.exec(f"echo '[[ -z $DISPLAY && $(tty) == /dev/tty1 ]] && exec startx' >> {target_root}/.profile", user=user)
+                
+                # Restart getty to trigger login
+                print("[*] Restarting getty to trigger autologin and app launch...")
+                vm.exec("sudo systemctl restart getty@tty1", user=user)
+                
+                print("[!] App should now be running in the Tart window.")
+                input("Press Enter to stop the VM and finish the test...")
+                success = True # Assumed if user is happy
+                
+            elif platform == "macos":
+                # MacOS handling
+                print("[!] Launching on MacOS GUI...")
+                # Just run it. It might appear.
+                vm.exec(python_cmd, user=user, capture_output=False)
+                input("Press Enter to stop...")
+                success = True
+            else:
+                 print(f"[!] GUI launch not implemented for {platform} yet.")
         else:
-            print(f"[!] App launch check failed for {platform}")
-            print(res.stderr)
+            print("[*] Testing app launch (version check)...")
+            res = vm.exec(f"{python_cmd} --version", user=user)
+            print(res.stdout)
+            
+            if res.returncode == 0 or "WGS Extract" in res.stdout:
+                print(f"[+++] {platform.upper()} Test Successful!")
+                success = True
+            else:
+                print(f"[!] App launch check failed for {platform}")
+                print(res.stderr)
 
     except KeyboardInterrupt:
         print("\n[!] Test interrupted by user.")

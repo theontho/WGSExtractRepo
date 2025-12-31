@@ -24,6 +24,7 @@ def main():
     parser.add_argument("--setup-only", action="store_true", help="Only setup Tart and pull images")
     parser.add_argument("--test-aptfile", action="store_true", help="Test Aptfile installation on Ubuntu")
     parser.add_argument("--test-dev", action="store_true", help="Test dev_init.py and dev_launch.py on Ubuntu/MacOS")
+    parser.add_argument("--gui", action="store_true", help="Run VM with GUI enabled (and install desktop env on Linux)")
     
     args = parser.parse_args()
 
@@ -109,7 +110,7 @@ def main():
 
         results = {}
         for p in platforms:
-            results[p] = run_platform_test(p)
+            results[p] = run_platform_test(p, gui=args.gui)
 
         print("\n" + "="*50)
         print("TEST RESULTS SUMMARY")
