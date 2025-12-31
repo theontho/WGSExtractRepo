@@ -155,6 +155,9 @@ download_tmp/
 cygwin64/
 local/
 msys2/
+python/
+jre8/
+jre17/
 
 # binary data dependencies
 reference/

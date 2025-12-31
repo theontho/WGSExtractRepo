@@ -23,7 +23,8 @@ def main():
             subprocess.run(["uv", "run", "bash", "installer_scripts/WGSExtract_linux.sh"])
     elif sys.platform in ["win32", "cygwin", "msys"]:
         print("Launching WGS Extract for Windows...")
-        subprocess.run(["uv", "run", "cmd.exe", "/c", "installer_scripts\\WGSExtract.bat"])
+        # Run directly from root for dev environment compatibility
+        subprocess.run(["uv", "run", "python", "program/wgsextract.py"])
     else:
         print(f"Unsupported OS: {sys.platform}")
         sys.exit(1)

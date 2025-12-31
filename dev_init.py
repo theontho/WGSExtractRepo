@@ -99,6 +99,56 @@ def install_windows_dependencies():
         url = "https://www.cygwin.com/setup-x86_64.exe"
         run_command(["curl", "-L", "-o", str(setup_exe), url])
 
+    install_java()
+
+def install_java():
+    print("=== Installing Java JRE (8 and 17) ===")
+    java_configs = {
+        "jre8": {
+            "url": "https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u345-b01/OpenJDK8U-jre_x64_windows_hotspot_8u345b01.zip",
+            "rename_from": "jdk8u345-b01-jre"
+        },
+        "jre17": {
+            "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.2%2B8/OpenJDK17U-jre_x64_windows_hotspot_17.0.2_8.zip",
+            "rename_from": "jdk-17.0.2+8-jre"
+        }
+    }
+    
+    for jre_dir, config in java_configs.items():
+        if Path(jre_dir).exists():
+            print(f"{jre_dir} already exists, skipping...")
+            continue
+            
+        url = config["url"]
+        filename = url.split("/")[-1]
+        dest_path = TMP_DIR / filename
+        
+        if not dest_path.exists():
+            print(f"Downloading {jre_dir} from {url}...")
+            run_command(["curl", "-L", "-o", str(dest_path), url])
+            
+        print(f"Extracting {jre_dir}...")
+        # Use powershell for extraction on Windows
+        run_command(["powershell", "-Command", f"Expand-Archive -Path '{dest_path}' -DestinationPath './' -Force"])
+        
+        rename_from = Path(config["rename_from"])
+        if rename_from.exists():
+            print(f"Renaming {rename_from} to {jre_dir}...")
+            if Path(jre_dir).exists():
+                shutil.rmtree(jre_dir)
+            rename_from.rename(jre_dir)
+
+def ensure_runtime_directories():
+    print("=== Ensuring Runtime Directories ===")
+    dirs = ["temp", "reference"]
+    for d in dirs:
+        p = Path(d)
+        if not p.exists():
+            print(f"Creating {d} directory...")
+            p.mkdir(parents=True, exist_ok=True)
+        else:
+            print(f"{d} directory already exists.")
+
 def run_cygwin_setup(cygwin_dir_name="cygwin64"):
     print("=== Running Cygwin Setup ===")
     setup_exe = TMP_DIR / "setup-x86_64.exe"
@@ -150,17 +200,15 @@ def run_cygwin_setup(cygwin_dir_name="cygwin64"):
         print(f"Cygwin installation failed: {e}")
 
 
-def check_uv():
-    print("=== Checking for uv ===")
-    bash_exe = get_cygwin_bash()
     try:
         if sys.platform == "win32":
-            run_command([bash_exe, "-l", "-c", "uv --version"])
+            # Check host uv first
+            run_command(["uv", "--version"])
         else:
             run_command(["uv", "--version"])
         return True
     except (FileNotFoundError, subprocess.CalledProcessError):
-        print("uv not found. Please install uv (see https://github.com/astral-sh/uv).")
+        print("uv not found on host. Please install uv (see https://github.com/astral-sh/uv).")
         return False
 
 def setup_venv():
@@ -168,16 +216,7 @@ def setup_venv():
     if not Path(".venv").exists():
         print("Creating virtual environment...")
         if sys.platform == "win32":
-             # We need to use cygpath on the CWD because we are passing it to bash
-             # But 'uv venv' creates it in the current dir.
-             # If we run uv from bash, CWD is key.
-             # run_command passes cwd=None by default, so it inherits cwd.
-             # But bash might start in home dir if -l is used?
-             # Yes, -l usually logs in.
-             # So we must cd to the project dir.
-             bash_exe = get_cygwin_bash()
-             cmd = [bash_exe, "-l", "-c", "cd $(cygpath -u '" + str(Path.cwd().resolve()) + "') && uv venv"]
-             run_command(cmd)
+             run_command(["uv", "venv"])
         else:
             run_command(["uv", "venv"])
     else:
@@ -186,19 +225,21 @@ def setup_venv():
 def install_python_dependencies():
     print("=== Installing Python Dependencies with uv ===")
     if sys.platform == "win32":
-        # Run uv inside Cygwin to install dependencies
+        # Run uv on host
+        run_command(["uv", "pip", "install", "-e", "."])
         
-        # We need to run this command in Cygwin bash
-        bash_exe = get_cygwin_bash()
-        cmd = [bash_exe, "-l", "-c", "cd $(cygpath -u '" + str(Path.cwd().resolve()) + "') && uv pip install -e ."]
-        run_command(cmd)
+        # Create 'python' junction to .venv/Scripts for compatibility with WGSExtract.bat
+        if not Path("python").exists():
+            print("Creating 'python' junction to .venv/Scripts...")
+            # Use cmd /c mklink /j to create a junction
+            subprocess.run(["cmd", "/c", "mklink", "/j", "python", ".venv\\Scripts"], check=True)
     else:
         # Use uv pip install which is part of the venv workflow
         run_command(["uv", "pip", "install", "-e", "."])
         if sys.platform == "darwin":
             run_command(["uv", "pip", "install", "-e", ".[macos]"])
 
-def download_and_extract(pack, manifest_data):
+def download_and_extract(pack, manifest_data, dest="./"):
     if pack not in manifest_data:
         print(f"Warning: No entry for '{pack}' in manifest.")
         return
@@ -222,18 +263,18 @@ def download_and_extract(pack, manifest_data):
     if sys.platform == "darwin":
         # Extract using 7zz if available, else unzip
         try:
-            run_command(["7zz", "x", "-y", str(dest_path)])
+            run_command(["7zz", "x", "-y", "-o" + dest, str(dest_path)])
         except FileNotFoundError:
-            run_command(["unzip", "-o", str(dest_path)])
+            run_command(["unzip", "-o", str(dest_path), "-d", dest])
     elif sys.platform.startswith("linux"):
         try:
-            run_command(["7z", "x", "-y", str(dest_path)])
+            run_command(["7z", "x", "-y", "-o" + dest, str(dest_path)])
         except FileNotFoundError:
-            run_command(["unzip", "-o", str(dest_path)])
+            run_command(["unzip", "-o", str(dest_path), "-d", dest])
     elif sys.platform in ["win32", "cygwin", "msys"]:
-        run_command(["powershell", "-Command", f"Expand-Archive -Path '{dest_path}' -DestinationPath './' -Force"])
+        run_command(["powershell", "-Command", f"Expand-Archive -Path '{dest_path}' -DestinationPath '{dest}' -Force"])
     else:
-        run_command(["unzip", "-o", str(dest_path)])
+        run_command(["unzip", "-o", str(dest_path), "-d", dest])
 
     # Clean up nested folder if it exists
     nested = Path("WGSExtractv4")
@@ -296,13 +337,11 @@ def ensure_uv():
     print("=== Checking for uv ===")
     
     if sys.platform == "win32":
-        bash_exe = get_cygwin_bash()
-        # Check inside Cygwin
+        # Check host
         try:
-            run_command([bash_exe, "-l", "-c", "uv --version"])
-            return "uv" # It's available in bash
+            run_command(["uv", "--version"])
+            return "uv" 
         except (FileNotFoundError, subprocess.CalledProcessError):
-             # Not found in bash
              pass
     else:
         # Check if uv is already in PATH
@@ -350,6 +389,7 @@ def main():
     print("==========================================")
 
     TMP_DIR.mkdir(exist_ok=True)
+    ensure_runtime_directories()
 
     if not os.path.exists(MANIFEST):
         print(f"Error: {MANIFEST} not found.")
@@ -400,7 +440,6 @@ def main():
              # Only add if it's a windows path. If it's a cygwin path (unlikely to be returned as abs path from bash check), skip.
              add_to_user_path_windows(uv_dir)
 
-    install_system_packages()
     setup_venv()
     install_python_dependencies()
 
@@ -423,18 +462,17 @@ def main():
                 shutil.copy2(item, dest)
 
     if sys.platform in ["cygwin", "msys", "win32"]:
-        print("\nDetected Windows environment.")
-        print("1) Cygwin64 (Recommended)")
-        print("2) MSYS2")
-        choice = input("Enter choice [1-2]: ")
+        print("\nDetected Windows environment. Defaulting to Cygwin64.")
+        # choice = input("Enter choice [1-2]: ")
+        choice = "1"
         if choice == "1":
             # download_and_extract("cygwin64", manifest_data) # Already done at start
             # run_cygwin_setup("cygwin64") # Already done at start
-            download_and_extract("bioinfo", manifest_data)
+            download_and_extract("bioinfo", manifest_data, dest="cygwin64/usr")
         elif choice == "2":
             download_and_extract("msys2", manifest_data)
             # run_msys2_setup() # Not implemented
-            download_and_extract("bioinfo-msys2", manifest_data)
+            download_and_extract("bioinfo-msys2", manifest_data, dest="msys2")
         else:
             print("Invalid choice. Skipping platform-specific dependencies.")
 
