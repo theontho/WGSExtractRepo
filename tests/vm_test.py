@@ -28,16 +28,36 @@ def main():
     args = parser.parse_args()
 
     try:
-        # Check for Tart
-        res = subprocess.run(["command", "-v", "tart"], shell=True, capture_output=True)
-        if res.returncode != 0:
-            print("[*] Tart not found. Installing via Homebrew...")
-            subprocess.run(["brew", "install", "cirruslabs/cli/tart"], check=True)
+        # Check for Virtualization Backend
+        if sys.platform != "win32":
+            # Check for Tart
+            res = subprocess.run(["command", "-v", "tart"], shell=True, capture_output=True)
+            if res.returncode != 0:
+                print("[*] Tart not found. Installing via Homebrew...")
+                subprocess.run(["brew", "install", "cirruslabs/cli/tart"], check=True)
+        else:
+            # Check for WSL
+            res = subprocess.run(["wsl", "--status"], shell=True, capture_output=True)
+            if res.returncode != 0:
+                print("[!] WSL is not installed or not working. Please enable WSL2.")
+                sys.exit(1)
 
         if args.setup_only:
-            for img in IMAGES.values():
-                print(f"[*] Pulling {img}...")
-                subprocess.run(["tart", "pull", img])
+            # Setup logic depends on backend.
+            if sys.platform != "win32":
+                for img in IMAGES.values():
+                    print(f"[*] Pulling {img}...")
+                    subprocess.run(["tart", "pull", img])
+            else:
+                from tests.vm_testing.wsl import WSLImageManager
+                mgr = WSLImageManager()
+                # Pre-download supported images
+                for p in ["ubuntu", "fedora"]:
+                    print(f"[*] Pre-fetching rootfs for {p}...")
+                    try:
+                        mgr.get_image_path(p)
+                    except Exception as e:
+                        print(f"[!] Failed to fetch {p}: {e}")
             return
 
         # Clean up any mess from before
@@ -56,6 +76,12 @@ def main():
                 target_platforms = [p for p in target_platforms if p == args.platform]
                 if not target_platforms:
                      print(f"[!] Platform {args.platform} not supported for dev tests (only ubuntu/macos).")
+                     sys.exit(1)
+            
+            if sys.platform == "win32":
+                target_platforms = [p for p in target_platforms if p != "macos"]
+                if not target_platforms and args.platform == "macos":
+                     print("[!] MacOS dev tests not supported on Windows.")
                      sys.exit(1)
 
             results = {}
@@ -78,6 +104,9 @@ def main():
 
         platforms = ["ubuntu", "fedora", "macos"] if args.platform == "all" else [args.platform]
         
+        if sys.platform == "win32":
+            platforms = [p for p in platforms if p != "macos"]
+
         results = {}
         for p in platforms:
             results[p] = run_platform_test(p)

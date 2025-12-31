@@ -28,14 +28,49 @@ def find_release_zip(platform):
 def cleanup_stale_vms():
     """Cleanup any leftover test VMs from previous runs."""
     print("[*] Cleaning up stale test VMs...")
-    res = subprocess.run(["tart", "list"], capture_output=True, text=True)
-    for line in res.stdout.splitlines():
-        if "wgse-test-" in line:
-             name = line.split()[0] # Assuming first column is name
-             if name.startswith("wgse-test-"):
-                 print(f"[*] Found stale VM {name}, deleting...")
-                 subprocess.run(["tart", "stop", name], capture_output=True)
-                 subprocess.run(["tart", "delete", name], capture_output=True)
+    
+    if sys.platform == "win32":
+        # Windows / WSL cleanup
+        try:
+            # wsl --list --quiet returns names only, but might need encoding handling
+            # Using -v is more robust to parse if needed, but -q is better for names loops.
+            # But -q might output unicode.
+            res = subprocess.run(["wsl", "--list", "--quiet"], capture_output=True, text=True, encoding='utf-16')
+            # WSL list output is often utf-16
+            if res.returncode != 0:
+                 # Try default encoding if utf-16 fails or returns empty
+                 res = subprocess.run(["wsl", "--list", "--quiet"], capture_output=True, text=True)
+            
+            if res.returncode != 0:
+                return # WSL might not be enabled or error
+            
+            for line in res.stdout.splitlines():
+                name = line.strip()
+                if not name: continue
+                # Remove null bytes if any (common in wsl output decoding issues)
+                name = name.replace('\x00', '')
+                
+                if "wgse-test-" in name or "wgse-apt-test-" in name or "wgse-dev-test-" in name:
+                     print(f"[*] Found stale WSL distro {name}, unregistering...")
+                     subprocess.run(["wsl", "--unregister", name], capture_output=True)
+                     # Also try to clean up the dir if we know it
+                     # But we don't know the path easily without querying.
+                     # WSLVM.delete logic handles it, but here we just do best effort unregister.
+                     # The directory cleanup is harder to do blindly reliably.
+        except Exception as e:
+            print(f"[!] Error during WSL cleanup: {e}")
+
+    else:
+        # Mac/Linux (Tart)
+        res = subprocess.run(["tart", "list"], capture_output=True, text=True)
+        if res.returncode == 0:
+            for line in res.stdout.splitlines():
+                if "wgse-test-" in line or "wgse-apt-test-" in line or "wgse-dev-test-" in line:
+                     name = line.split()[0] # Assuming first column is name
+                     if name.startswith("wgse-"):
+                         print(f"[*] Found stale VM {name}, deleting...")
+                         subprocess.run(["tart", "stop", name], capture_output=True)
+                         subprocess.run(["tart", "delete", name], capture_output=True)
 
 def create_repo_zip(output_path):
     """Create a zip archive of the current repository state, excluding git and release/build artifacts."""
