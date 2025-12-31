@@ -120,9 +120,16 @@ if $make_installer && ! command -v jq &> /dev/null ; then
   fi
 fi
 
-# Assure correct permissions for key files
+# Assure correct permissions for key files and ensure LF line endings for shell scripts
 chmod 0755 ./*.bat ./*.command ./*.sh scripts/*.sh
 chmod 0644 ./*.txt
+
+# Ensure shell scripts have LF line endings (in case they were edited on Windows)
+if command -v sed &> /dev/null; then
+  for f in ./*.sh ./*.command scripts/*.sh; do
+    [ -f "$f" ] && sed -i '' 's/\r$//' "$f" 2>/dev/null || sed -i 's/\r$//' "$f" 2>/dev/null
+  done
+fi
 
 #------------------------------------------------------------------------------------------------------------------
 # We create up to three regular package and three Installer .zip files. One Installer .zip for each release track type.

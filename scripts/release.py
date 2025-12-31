@@ -6,6 +6,20 @@ import zipfile
 from datetime import datetime
 import pathspec
 
+def copy_and_ensure_lf(src, dst):
+    """Copy a file and ensure it has LF line endings if it is a shell script."""
+    if src.endswith(('.sh', '.command')):
+        with open(src, 'rb') as f:
+            content = f.read()
+        # Convert CRLF to LF
+        new_content = content.replace(b'\r\n', b'\n')
+        with open(dst, 'wb') as f:
+            f.write(new_content)
+        # Preserve permissions
+        shutil.copymode(src, dst)
+    else:
+        shutil.copy2(src, dst)
+
 def create_release():
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     build_dir = os.path.join(repo_root, "build")
@@ -85,12 +99,12 @@ def create_release():
         for d in include_dirs:
             src = os.path.join(repo_root, d)
             if os.path.exists(src):
-                shutil.copytree(src, os.path.join(temp_dir, d), dirs_exist_ok=True, ignore=ignore_patterns)
+                shutil.copytree(src, os.path.join(temp_dir, d), dirs_exist_ok=True, ignore=ignore_patterns, copy_function=copy_and_ensure_lf)
 
         # 2. Rename base_reference to reference in the package
         base_ref_src = os.path.join(repo_root, "base_reference")
         if os.path.exists(base_ref_src):
-            shutil.copytree(base_ref_src, os.path.join(temp_dir, "reference"), dirs_exist_ok=True, ignore=ignore_patterns)
+            shutil.copytree(base_ref_src, os.path.join(temp_dir, "reference"), dirs_exist_ok=True, ignore=ignore_patterns, copy_function=copy_and_ensure_lf)
 
         # 3. Handle documentation files
         zip_docs_dir = os.path.join(temp_dir, "docs")
@@ -100,16 +114,16 @@ def create_release():
         # Copy release.json to root if it exists in installer_scripts/
         release_json_src = os.path.join(temp_dir, "installer_scripts", "release.json")
         if os.path.exists(release_json_src):
-            shutil.copy2(release_json_src, os.path.join(temp_dir, "release.json"))
+            copy_and_ensure_lf(release_json_src, os.path.join(temp_dir, "release.json"))
         for f in docs_files:
             src = os.path.join(repo_root, f)
             if os.path.exists(src):
-                shutil.copy2(src, os.path.join(zip_docs_dir, f))
+                copy_and_ensure_lf(src, os.path.join(zip_docs_dir, f))
 
         # README.md -> docs/dev_readme.md
         repo_readme = os.path.join(repo_root, "README.md")
         if os.path.exists(repo_readme):
-            shutil.copy2(repo_readme, os.path.join(zip_docs_dir, "dev_readme.md"))
+            copy_and_ensure_lf(repo_readme, os.path.join(zip_docs_dir, "dev_readme.md"))
 
         # docs/installer_readme.md -> README.md (root)
         inst_readme_src = os.path.join(temp_dir, "docs", "installer_readme.md")
@@ -121,7 +135,7 @@ def create_release():
             script_name = scripts[script_type]
             src_script = os.path.join(repo_root, "installer_scripts", script_name)
             if os.path.exists(src_script):
-                shutil.copy2(src_script, os.path.join(temp_dir, script_name))
+                copy_and_ensure_lf(src_script, os.path.join(temp_dir, script_name))
             else:
                 print(f"Warning: {script_type} script {script_name} not found")
 

@@ -1,0 +1,10 @@
+# Enforce LF line endings for shell scripts and python scripts
+*.sh text eol=lf
+*.command text eol=lf
+*.py text eol=lf
+
+# Enforce CRLF line endings for batch files (important for Windows CMD)
+*.bat text eol=crlf
+
+# Default to auto for others
+* text=auto
