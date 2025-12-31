@@ -28,7 +28,7 @@ fi
 if [[ -z $wgse_FP ]] ; then
   # Find the installation directory
   declare -x wgse_FP
-  _wgsedir=$(dirname "${BASH_SOURCE[0]}")       # Get the (calling) script location to determine the install directory
+  _wgsedir=$(dirname "${BASH_SOURCE[0]:-$0}")       # Get the (calling) script location to determine the install directory
   _wgseabs=$( cd "$_wgsedir" || true ; pwd -P ) # Resolve any aliases and symlinks (readlink not available)
   [[ $(basename "$_wgseabs") == "scripts" ]] && wgse_FP=$(dirname "$_wgseabs") || wgse_FP="$_wgseabs" # not in scripts/
 

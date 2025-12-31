@@ -16,11 +16,13 @@
 
 [[ ":$PATH:" != *":/usr/bin:"* ]] && PATH="/usr/bin:${PATH}" && export PATH     # Cygwin starts with no environment
 
-cursh="$(ps -p$$ | tail -1 | grep -o 'bash')"   # Get shell from process stats; determine if BASH (best solution)
+cursh="$(ps -p$$ | tail -1 | grep -oE 'bash|sh')"   # Get shell from process stats; determine if BASH (best solution)
+[[ -z "$cursh" && -n "$BASH_VERSION" ]] && cursh="bash" # Fallback if ps fails
 
-if (( $# != 1 )) || ! (return 0 2>/dev/null) || [ "$cursh" != "bash" ] ; then
+if (( $# != 1 )) || ! (return 0 2>/dev/null) || [[ ! "$cursh" =~ ^(bash|sh)$ ]] ; then
   printf "Usage: source WGSE_script { install_dir } \n"   # We cannot get a script name in a SHELL independent way
   printf "  WGSE scripts should be sourced and run from a BASH shell.\n"
+  [[ -n "$cursh" ]] && printf "  Current shell detected as: %s\n" "$cursh"
   (return 0 2>/dev/null) && return 1 || exit 1
 fi
 
@@ -81,7 +83,11 @@ case $OSTYPE in
     ;;
 
   cygwin*)
-    declare -rx bashx="/bin/bash.exe"
+    trybash="/bin/bash.exe"
+    if ! "$trybash" -c "true" >/dev/null 2>&1; then
+       trybash="/bin/sh.exe"
+    fi
+    declare -rx bashx="$trybash"
     [[ ":$PATH:" != *":/usr/local/bin:"* ]] && PATH="/usr/local/bin:/bin:${PATH}"
     ;;
 
@@ -227,9 +233,21 @@ sudo_rmrx() { _perform_rmrx "sudo" "$@"; }
 mvx() { \mv -f "$@" || true; }
 sudo_mvx() { sudox mv -f "$@"; }
 cdx() { \cd -P "$1" || true; }               # built-in; but helps ignore the error shellcheck reports
+# Determine working curl command
+CURL_CMD="curl"
+if ! curl --version >/dev/null 2>&1; then
+  # If default curl fails (e.g. missing DLLs in Cygwin), try Windows curl
+  if [ -f "/cygdrive/c/Windows/System32/curl.exe" ]; then
+     CURL_CMD="/cygdrive/c/Windows/System32/curl.exe"
+  elif [ -f "/c/Windows/System32/curl.exe" ]; then
+     CURL_CMD="/c/Windows/System32/curl.exe"
+  fi
+fi
+export CURL_CMD
+
 readq() { echo ; read -n1 -r -p "$@" ; echo ; }  # For 1 char answer from user; $1 query string, optional $2 var to set
 # reada() { read -ra "$@"; }                # For reading into am array variable
-curlx() { curl -k#LC - --retry 5 "$@"; }     # -Z not in curl < v7.66 (Monterey-11 and earlier; Ubuntu 18.04)
+curlx() { "$CURL_CMD" -k#LC - --retry 5 "$@"; }     # -Z not in curl < v7.66 (Monterey-11 and earlier; Ubuntu 18.04)
 # sudov, _perform_rmx and _perform_rmrx defined below; more than a single line
 set +a
 
@@ -415,8 +433,19 @@ get_and_process_refgenome() {
   [ -f "${initf[$1]}"  ] && rmx "${initf[$1]}"
 
   # To get around exclanations embedded in MS Onedrive URLs; no spaces in params so no escaped double quotes needed
+  echo "DEBUG: Downloading from URL: ${gurl[$1]}"
+  echo "DEBUG: Destination path: $(pwd)/${initf[$1]}"
+  echo "DEBUG: Executing command: curlx -o ${initf[$1]} ${gurl[$1]}"
+
   IFS=" " read -ra cmd <<<"curlx -o ${initf[$1]} ${gurl[$1]}"
   "${cmd[@]}"
+
+  if [ -f "${initf[$1]}" ]; then
+     echo "DEBUG: File exists at destination: ${initf[$1]}"
+     ls -l "${initf[$1]}"
+  else
+     echo "DEBUG: File NOT found at destination: ${initf[$1]}"
+  fi
 
   if _filesizebad "${initf[$1]}" 500000000; then
     echo "*** Error downloading ${initf[$1]}"

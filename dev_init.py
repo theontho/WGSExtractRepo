@@ -141,6 +141,20 @@ def install_java():
                 shutil.rmtree(jre_dir)
             rename_from.rename(jre_dir)
 
+def copy_launch_scripts():
+    print("=== Copying Launch Scripts to Root ===")
+    scripts_to_copy = ["WGSExtract.bat", "Library.bat"]
+    source_dir = Path("installer_scripts")
+    
+    for script in scripts_to_copy:
+        src = source_dir / script
+        dest = Path(script)
+        if src.exists():
+            print(f"Copying {script} to root...")
+            shutil.copy2(src, dest)
+        else:
+            print(f"Warning: {src} not found, cannot copy to root.")
+
 def ensure_runtime_directories():
     print("=== Ensuring Runtime Directories ===")
     dirs = ["temp", "reference"]
@@ -231,11 +245,15 @@ def install_python_dependencies():
         # Run uv on host
         run_command(["uv", "pip", "install", "-e", "."])
         
-        # Create 'python' junction to .venv/Scripts for compatibility with WGSExtract.bat
         if not Path("python").exists():
-            print("Creating 'python' junction to .venv/Scripts...")
-            # Use cmd /c mklink /j to create a junction
-            subprocess.run(["cmd", "/c", "mklink", "/j", "python", ".venv\\Scripts"], check=True)
+            print("Creating 'python' directory for wrapper...")
+            Path("python").mkdir(exist_ok=True)
+            
+        python_bat = Path("python/python.bat")
+        print(f"Creating {python_bat} wrapper...")
+        # Use @uv run to avoid command echoing and ensure it uses the project venv
+        with open(python_bat, "w") as f:
+            f.write("@uv run python %*\n")
     else:
         # Use uv pip install which is part of the venv workflow
         run_command(["uv", "pip", "install", "-e", "."])
@@ -478,6 +496,8 @@ def main():
             download_and_extract("bioinfo-msys2", manifest_data, dest="msys2")
         else:
             print("Invalid choice. Skipping platform-specific dependencies.")
+        
+        # copy_launch_scripts()
 
     print("\n==========================================")
     print("Initialization Complete!")
