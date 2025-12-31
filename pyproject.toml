@@ -35,4 +35,9 @@ packages = ["program"]
 [dependency-groups]
 dev = [
     "pathspec>=0.12.1",
+    "pytest>=7.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

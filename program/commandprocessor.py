@@ -55,6 +55,7 @@ def is_command_available(command, opt, internal=True):
       'openjdk 1': r"openjdk (?P<major>\d+)[.](?P<minor>\d+)[.](?P<sub>\d+)",              # openjdk 11.0.14 2022-02-08
       'openjdk 2': r"openjdk (?P<major>\d+)[.](?P<minor>\d+)[.](?P<sub>\d+)",              # openjdk 20.x.xx 2023-03-21
       'java vers': r"java version \"1[.](?P<major>\d+)[.](?P<minor>\d+)_(?P<sub>\d+)",     # Oracle Java 8
+      'java 2':    r"java (?P<major>\d+)[.](?P<minor>\d+)[.](?P<sub>\d+)",                 # Oracle Java 25.x.xx 2025-12-30
       'samtools ': r"samtools (?P<major>\d+)[.](?P<minor>\d+)[.]?(?P<sub>[a-z0-9]*)",      # samtools 1.12  or 1.15.1
       'python 3.': r"python (?P<major>\d+)[.](?P<minor>\d+)[.](?P<sub>\d+)"                # python 3.8.9
     }
@@ -70,10 +71,15 @@ def is_command_available(command, opt, internal=True):
         # Ugly; when True we pass back the major / minor version as a global in settings.py
         cp_version = ['0', '0', '0']    # Start with list of strings; end with list of ints
         check = result.stdout.decode('utf-8', errors='ignore').splitlines()     # Windows WSL2 generates errors
-        if check and len(check) and len(check[0]) > 9:
-            # Use the 1st 9 characters of 1st command return line to lookup regex string to extract major/minor version
+        if check and len(check) and len(check[0]) >= 7:
+            # Match 1st command return line to lookup keys to extract major/minor version
             check[0] = check[0].lower()
-            pattern = re.compile(lookup.get(check[0][:9], '(?P<major>garbage).(?P<minor>trash).(?P<sub>recycle)'))
+            pattern_str = '(?P<major>garbage).(?P<minor>trash).(?P<sub>recycle)'
+            for key in lookup:
+                if check[0].startswith(key):
+                    pattern_str = lookup[key]
+                    break
+            pattern = re.compile(pattern_str)
             match = pattern.match(check[0])         # Find version regex string match
             if match:
                 cp_version = match.groups("0")
