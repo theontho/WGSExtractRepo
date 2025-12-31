@@ -9,7 +9,7 @@ This git repo is for development of WGS Extract, if you would just like to insta
 ## Basic Dev Workflow
 
 * Run `dev_init.py` to init your dev environment.
-    * Windows: Doesn't work fully yet, run `uv run scripts/release.py`, take the windows installer zip, unzip it , run the installer script and edit the program folder there as a workaround for now.  Will make it workable soon.
+    * Windows: Works on an windows 11 machine.
     * MacOS: Works on an apple silicon mac.
     * Linux: Not tested yet, maybe works? 
 * Edit - build - run: launch with `dev_launch.py`, edit in your text editor.  `dev_init.py` needs to work.

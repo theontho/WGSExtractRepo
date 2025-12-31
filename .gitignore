@@ -151,7 +151,7 @@ tmp/
 temp/
 download_tmp/
 
-# windows dependencies (TODO: untested)
+# windows dependencies , TODO msys2 untested
 cygwin64/
 local/
 msys2/
