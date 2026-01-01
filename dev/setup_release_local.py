@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 
 # Paths relative to the repository root
-REPO_ROOT = Path(__file__).parent.resolve()
+REPO_ROOT = Path(__file__).parent.parent.resolve()
 RELEASE_JSON_PATH = REPO_ROOT / "release.json"
 LOCAL_RELEASE_DIR = REPO_ROOT / "local_release"
 OUTPUT_JSON_PATH = REPO_ROOT / "release-override.json"

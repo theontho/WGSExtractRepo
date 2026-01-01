@@ -11,8 +11,8 @@
     "__comment3": "Developers, you can replace URLs above with file:///path to test before release."
   },
   "version": {
-    "version": "44.11",
-    "date": "19Sep2025"
+    "version": "45",
+    "date": "01Jan2026"
   },
   "reflib": {
     "version": 9,

@@ -82,8 +82,8 @@ if __name__ == "__main__":
     # We should make paths relative or absolute as needed.
     # Repo root assumption based on user context: /Users/mac/Documents/genetics/WGSExtract/WGSExtractRepo
     
-    base_dir = "/Users/mac/Documents/genetics/WGSExtract/WGSExtractRepo"
-    doc_path = os.path.join(base_dir, "docs/WGS Extract Manual Alphav4.md")
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    doc_path = os.path.join(base_dir, "docs/WGS_Extract_Manual.md")
     img_dir = os.path.join(base_dir, "docs/images")
     
     extract_images(doc_path, img_dir)

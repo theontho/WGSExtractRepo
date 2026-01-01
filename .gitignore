@@ -167,6 +167,6 @@ FastQC/
 jartools/
 yleaf/
 
-# Root launch scripts for Windows dev env
-/WGSExtract.bat
-/Library.bat
+# Root launch scripts
+/WGSExtract.*
+/Library.*
