@@ -2,6 +2,10 @@
 import sys
 from pathlib import Path
 
+#######################################
+# Buggy, doesn't work correctly, WIP.
+#######################################
+
 # Ensure repo root is in sys.path so we can import tests.vm_testing
 # This allows running as ./tests/vm_test.py or python3 tests/vm_test.py
 current_file = Path(__file__).resolve()

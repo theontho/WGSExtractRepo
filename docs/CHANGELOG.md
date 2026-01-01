@@ -9,6 +9,12 @@ v3 Alpha was first released Jun 2020, V2 from Dec 2019-Feb 2020, and v1 was firs
 
 # Version 4 release:
 
+## **01 Jan 2025** (4.45)
+* Should be functionally identical to 4.44
+* Mostly a dev release to move the latest program into a git repo and have a more streamlined release process so multiple developers can collaborate.  Lots of refactoring around that has been done.  Go see the git repo for more info if you are interested.
+* There is no more concepts of a separate Installer & Program version or packages, just one version now.  Installer zips come with the program & installer packages built in.
+* There is a new beta mac homebrew based install option, which should be significantly faster and less of a hassle to install / uninstall on a mac machine than the old ports installer. We suggest trying it!
+
 ## **19 Sep 2025** (52 Installer, 4.44 patch 11 Program)
 * Minor (bug) fixes; internal updates
   * Added TypeError to exception checks on module loads. A temporary Python release library error was not getting caught.
@@ -356,18 +362,18 @@ Proper, more complete and robust installers have been built for the three platfo
 The previous release was a 5 GB download. The actual Python and Bash shell script source code is only a little over a megabyte.  With reference data files for the Microarray generator and yleaf needing another 80 megabytes (compressed).  The vast majority of that download was the human genome reference models (5 at just over 1 gigabyte each).  And the Win10 bioinformatic and python tool release.  We now download as much of this as possible either during install or only on demand.  We also have a script to take your old installation and transfer any of these large files that may be needed so they do not have to be downloaded again. The initial download is simply the installer scripts.
 
 Here is a mapping of the basic, standard reference genomes between the v2 and v3 releases:
-| Beta v2b (18 Feb 2020) | Beta v3 (15 Jun 2021)           | Notes
-| ---------------------- | ------------------------------- | --------------------------------------------
-|hs37d5.fa.gz            | `*`                             | (no change)
-|human_f1k_v37.fasta.gz  | `-`                             | (no change) ; not ever used
-|GCA_000...set.fna.gz    | `*` hs38.fa.gz                  | renamed
-|`-`                     | `-` hs38dh.fa.gz                | added, aka GRCh38_full_analysis...hla.fa.gz
-|hg19.fa.gz              | `-` hg19_wgse.fa.gz             | renamed, in error and should not be used
-|`-`                     | `*` hg19_yseq.fa.gz             | added, replaces earlier hg19.fa.gz
-|`-`                     | `*` hg19.fa.gz                  | added, only true Yoruba hg19 model
-|hg38.fa.gz              | `*`                             | (no change)
-|`-`                     | `**` Homo_sapiens.GRCh37...fa.gz| added, only true EBI numeric-SN / GRCh models
-|`-`                     | `**` Homo_sapiens.GRCh38...fa.gz| added, only true EBI numerc-SN  / GRCh models
+| Beta v2b (18 Feb 2020) | Beta v3 (15 Jun 2021)            | Notes                                         |
+| ---------------------- | -------------------------------- | --------------------------------------------- |
+| hs37d5.fa.gz           | `*`                              | (no change)                                   |
+| human_f1k_v37.fasta.gz | `-`                              | (no change) ; not ever used                   |
+| GCA_000...set.fna.gz   | `*` hs38.fa.gz                   | renamed                                       |
+| `-`                    | `-` hs38dh.fa.gz                 | added, aka GRCh38_full_analysis...hla.fa.gz   |
+| hg19.fa.gz             | `-` hg19_wgse.fa.gz              | renamed, in error and should not be used      |
+| `-`                    | `*` hg19_yseq.fa.gz              | added, replaces earlier hg19.fa.gz            |
+| `-`                    | `*` hg19.fa.gz                   | added, only true Yoruba hg19 model            |
+| hg38.fa.gz             | `*`                              | (no change)                                   |
+| `-`                    | `**` Homo_sapiens.GRCh37...fa.gz | added, only true EBI numeric-SN / GRCh models |
+| `-`                    | `**` Homo_sapiens.GRCh38...fa.gz | added, only true EBI numerc-SN  / GRCh models |
 
 `*` marked v3 models are the core, base ones that should be used most often.  `-` dash marked ones are there but likely not needed unless dealing with some ancientDNA that used them.  `**` marked models are new and the only numeric-Sequence-named models that some historically called 'GRCh'.
 

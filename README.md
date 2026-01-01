@@ -12,17 +12,18 @@ This git repo is for development of WGS Extract, if you would just like to insta
     * Windows: Works on an windows 11 machine.
     * MacOS: Works on an apple silicon mac.
     * Linux: Not tested yet, maybe works? 
-* Run `setup_release_local.py` to create a local release override so you don't have to redownload packages from the internet repeatedly during testing.
-* Edit - build - run: launch with `dev_launch.py`, edit in your text editor.  `dev_init.py` needs to work.
+* Run `setup_release_local.py` to create a local release override cache so you don't have to redownload packages from the internet repeatedly during testing & development.
+* Edit - build - run: launch with `dev_launch.py`, edit in your text editor, quit and launch again, etc.
 * Library updating: run `dev_launch_library.py`
-* Build Release Installers: run `uv run scripts/release.py` , see outputs in the `build/` folder.
+* Build Release Installers: run `uv run scripts/release.py` , see output zip files in the `build/` folder.  Use `--release-overide` to use your local cache for the installer, makes things much faster for testing.  Users would download those zips and run the `Install` scripts they see in the root.
 * Installer Status
+    * Test flow: install and download a genome (bash testing), MT Haplogroup (java testing), make a microarray file
     * Windows: Manually tested on a windows 11 machine to work
     * MacOS Brew: Manually tested on an apple silicon mac with homebrew
-    * MacOS MacPorts: Not tested yet due to not getting the tart vm test working and macports being annoying to remove.
-    * Linux (Ubuntu and not-ubuntu): Tested to work with `vm_test.py` in an arm64 tart vm, not tested manually yet.
-
-Make branches, do standard git stuff, etc.
+    * MacOS MacPorts: Manually tested on a UTM vm macOS 26.2
+    * Ubuntu Linux: Manually tested on a UTM arm64 vm and x86 WSL to work
+    * Micromamba Linux: Tested with archlinux and openSUSE tumbleweed WSL.  Needed to install system packages for python & tk manually to get the app to launch, but the installer said it was successful. 
+* `vm_test.py`: Buggy, doesn't work correctly, WIP.
 
 ## Links
 

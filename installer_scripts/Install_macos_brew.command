@@ -25,8 +25,13 @@ source scripts/zcommon.sh "$wgse_FP"         || { echo "ERROR: Cannot source scr
 source scripts/zcommon_macos.sh "$wgse_FP"   || { echo "ERROR: Cannot source scripts/zcommon_macos.sh" ; exit 1 ; }
 
 
-echo '=========================================================================================='
-echo 'WGS Extract Installer for MacOS'
+print_header() {
+  echo "$1"
+  echo '================================================================================'
+}
+
+
+print_header 'WGS Extract Installer for MacOS'
 echo
 echo 'WGS Extract needs Apple Xcode CLI, Homebrew'
 echo 'We will also need to uninstall the macports packages to replace them with homebrew managed ones.'
@@ -34,19 +39,19 @@ echo 'You can also optionally uninstall old WGSE installed python, java and macp
 echo 'They must install into password protected system directories and will need your password to install.'
 echo
 
-echo '========================== Install Xcode CLI Tools ======================================'
+print_header 'Install Xcode CLI Tools'
 # Install Xcode CLI tools first as some Python PIP tool installs need it
 apple_cli_install
 echo
 
-echo '===================== Removing Old WGSE Python Installations ============================'
+print_header 'Removing Old WGSE Python Installations'
 vers=( 3.8 3.9 3.10 3.11 )    # Versions from WGSE v2 through v4
 
 for (( i=0; i< ${#vers[@]}; i++ )) ; do
   python_uninstall "${vers[$i]}" ask
 done
 
-echo '===================== Removing Old WGSE Java Installations =============================='
+print_header 'Removing Old WGSE Java Installations'
 jdkpacks=( "adoptopenjdk-11.jre"   "zulu-17.jre"        "zulu-8.jre" )    # Versions from WGSE v3 and v4
 jdknames=( "openJDK v11 (WGSE v3)" "Azul v17 (WGSE v4)" "Azul v8 (WGSEv4)" )
 
@@ -56,7 +61,7 @@ done
 
 # Check if macports is installed and uninstall it if it is
 if command -v port &> /dev/null; then
-    echo '========================= Uninstalling MacPorts Packages =============================='
+    print_header 'Uninstalling MacPorts Packages'
     uninstall_macports_packages
     echo 'MacPorts Packages uninstalled successfully.'
     echo
@@ -65,7 +70,7 @@ fi
 
 
 
-echo '================================= Installing Homebrew ==================================='
+print_header 'Installing Homebrew'
 install_homebrew
 
 # Ensure Homebrew is in the PATH for the current process
@@ -92,8 +97,7 @@ echo
 # Todo pbmm2, a PacBio Minimap2 front-end  https://github.com/PacificBiosciences/pbmm2
 
 
-echo '================================================================================'
-echo 'Common script to install the Python and WGS Extract packages'
+print_header 'Common script to install the Python and WGS Extract packages'
 "$bashx" "${wgse_FP}/scripts/zinstall_common.sh" "$cpu_arch" "$osver" "-"
 
 case $? in

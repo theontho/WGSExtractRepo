@@ -168,6 +168,9 @@ def create_release(use_override=False):
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, temp_dir)
                     
+                    if file.endswith('.md'):
+                        arcname = arcname[:-3] + '.txt'
+
                     if file.endswith(('.sh', '.bat', '.command')):
                         # Ensure scripts are executable in the ZIP
                         zinfo = zipfile.ZipInfo.from_file(file_path, arcname)
@@ -186,8 +189,11 @@ def create_release(use_override=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create WGSExtract release packages.")
-    parser.add_argument("--release-override", action="store_true", help="Use release-override.json from repo root.")
+    parser.add_argument("-ro", "--release-override", action="store_true", help="Use release-override.json from repo root.")
     args = parser.parse_args()
+    
+    if args.release_override:
+        print("[!] Using release-override.json from repo root.")
     
     create_release(use_override=args.release_override)
 
