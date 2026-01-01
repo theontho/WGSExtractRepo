@@ -8,7 +8,7 @@ repo_root = os.path.dirname(os.path.abspath(__file__))
 if repo_root not in sys.path:
     sys.path.append(repo_root)
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="WGS Extract Dev Tools")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 

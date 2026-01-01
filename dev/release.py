@@ -30,7 +30,7 @@ def create_release(use_override: bool = False) -> None:
     if use_override:
         manifest_path = os.path.join(repo_root, "release-override.json")
     else:
-        manifest_path = os.path.join(repo_root, "installer_scripts", "release.json")
+        manifest_path = os.path.join(repo_root, "release.json")
 
     if not os.path.exists(manifest_path):
         print(f"Error: Manifest not found at {manifest_path}")
@@ -128,10 +128,9 @@ def create_release(use_override: bool = False) -> None:
             # should be packaged as release.json in the zip root
             copy_and_ensure_lf(manifest_path, os.path.join(temp_dir, "release.json"))
         else:
-            # Original logic: copy from installer_scripts/release.json
-            release_json_src = os.path.join(temp_dir, "installer_scripts", "release.json")
-            if os.path.exists(release_json_src):
-                copy_and_ensure_lf(release_json_src, os.path.join(temp_dir, "release.json"))
+            # Original logic: copy from repo root release.json
+            if os.path.exists(manifest_path):
+                copy_and_ensure_lf(manifest_path, os.path.join(temp_dir, "release.json"))
         
         for f in docs_files:
             src = os.path.join(repo_root, f)

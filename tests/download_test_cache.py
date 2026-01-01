@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Setup paths
 REPO_ROOT = Path(__file__).resolve().parent.parent
-MANIFEST_PATH = REPO_ROOT / "installer_scripts" / "release.json"
+MANIFEST_PATH = REPO_ROOT / "release.json"
 CACHE_DIR = REPO_ROOT / "download_tmp"
 
 def run_command(cmd):
