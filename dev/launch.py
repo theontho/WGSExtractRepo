@@ -3,7 +3,7 @@ import os
 import sys
 import subprocess
 
-def main():
+def main() -> None:
     if sys.platform == "darwin":
         print("Launching WGS Extract for MacOS...")
         subprocess.run(["uv", "run", "bash", "installer_scripts/WGSExtract.command"])

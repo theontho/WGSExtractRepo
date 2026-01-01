@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+from typing import Optional, Dict, Any, Union
 
 # Paths relative to the repository root
 REPO_ROOT = Path(__file__).parent.parent.resolve()
@@ -11,7 +12,7 @@ LOCAL_RELEASE_DIR = REPO_ROOT / "local_release"
 OUTPUT_JSON_PATH = REPO_ROOT / "release-override.json"
 
 
-def download_file(url, dest):
+def download_file(url: str, dest: Union[str, Path]) -> None:
     """Downloads a file from a URL to a destination path using curl."""
     print(f"Downloading {url} to {dest}...")
     try:
@@ -19,7 +20,7 @@ def download_file(url, dest):
     except Exception as e:
         print(f"Error downloading {url}: {e}")
 
-def fetch_json(url):
+def fetch_json(url: str) -> Optional[Dict[str, Any]]:
     """Fetches JSON content from a URL using curl."""
     try:
         result = subprocess.run(["curl", "-k#LC", "-", "--retry", "5", url], capture_output=True, text=True, check=True)
@@ -28,7 +29,7 @@ def fetch_json(url):
         print(f"Error fetching JSON from {url}: {e}")
         return None
 
-def setup_local_release():
+def setup_local_release() -> None:
     if not RELEASE_JSON_PATH.exists():
         print(f"Error: {RELEASE_JSON_PATH} not found in repository root.")
         return

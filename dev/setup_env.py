@@ -5,10 +5,12 @@ import stat
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict, Any, Optional, Union, List
+
 from .utils import run_command, get_cygwin_bash, add_to_user_path_windows
 from .constants import MANIFEST, TMP_DIR
 
-def install_system_packages():
+def install_system_packages() -> None:
     print("=== Checking System Packages ===")
     if sys.platform == "darwin":
         # MacOS
@@ -70,7 +72,7 @@ def install_system_packages():
     elif sys.platform == "win32":
         install_windows_dependencies()
 
-def install_java():
+def install_java() -> None:
     print("=== Installing Java JRE (8 and 17) ===")
     java_configs = {
         "jre8": {
@@ -107,7 +109,7 @@ def install_java():
                 shutil.rmtree(jre_dir)
             rename_from.rename(jre_dir)
 
-def install_windows_dependencies():
+def install_windows_dependencies() -> None:
     print("=== Checking Windows Dependencies ===")
     
     # Cygwin Installer (always fetch if missing, just in case)
@@ -119,7 +121,7 @@ def install_windows_dependencies():
 
     install_java()
 
-def copy_launch_scripts():
+def copy_launch_scripts() -> None:
     print("=== Copying Launch Scripts to Root ===")
     source_dir = Path("installer_scripts")
     
@@ -165,7 +167,7 @@ def copy_launch_scripts():
             if not dest.exists() and "ubuntu" not in src_name: 
                 print(f"Note: {src} not found, skipping.")
 
-def ensure_runtime_directories():
+def ensure_runtime_directories() -> None:
     print("=== Ensuring Runtime Directories ===")
     dirs = ["temp", "reference"]
     for d in dirs:
@@ -176,7 +178,7 @@ def ensure_runtime_directories():
         else:
             print(f"{d} directory already exists.")
 
-def run_cygwin_setup(cygwin_dir_name="cygwin64"):
+def run_cygwin_setup(cygwin_dir_name: str = "cygwin64") -> None:
     print("=== Running Cygwin Setup ===")
     setup_exe = TMP_DIR / "setup-x86_64.exe"
     cygwin_dir = Path(cygwin_dir_name)
@@ -220,7 +222,7 @@ def run_cygwin_setup(cygwin_dir_name="cygwin64"):
     except Exception as e:
         print(f"Cygwin installation failed: {e}")
 
-def setup_venv():
+def setup_venv() -> None:
     print("=== Setting up Virtual Environment ===")
     if not Path(".venv").exists():
         print("Creating virtual environment...")
@@ -228,7 +230,7 @@ def setup_venv():
     else:
         print("Virtual environment already exists.")
 
-def install_python_dependencies():
+def install_python_dependencies() -> None:
     print("=== Installing Python Dependencies with uv ===")
     if sys.platform == "win32":
         run_command(["uv", "pip", "install", "-e", "."])
@@ -246,7 +248,7 @@ def install_python_dependencies():
         if sys.platform == "darwin":
             run_command(["uv", "pip", "install", "-e", ".[macos]"])
 
-def download_and_extract(pack, manifest_data, dest="./"):
+def download_and_extract(pack: str, manifest_data: Dict[str, Any], dest: str = "./") -> None:
     if pack not in manifest_data:
         print(f"Warning: No entry for '{pack}' in manifest.")
         return
@@ -296,7 +298,7 @@ def download_and_extract(pack, manifest_data, dest="./"):
                 shutil.copy2(item, target_dest)
         shutil.rmtree(nested)
 
-def install_uv():
+def install_uv() -> bool:
     print("Installing uv...")
     if sys.platform == "win32":
         print("Installing uv inside Cygwin...")
@@ -327,7 +329,7 @@ def install_uv():
             return False
     return True
 
-def ensure_uv():
+def ensure_uv() -> Optional[str]:
     print("=== Checking for uv ===")
     
     try:

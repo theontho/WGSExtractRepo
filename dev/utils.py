@@ -3,12 +3,13 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
+from typing import Union, List
 
-def run_command(cmd, shell=False, check=True):
+def run_command(cmd: Union[str, List[str]], shell: bool = False, check: bool = True) -> subprocess.CompletedProcess:
     print(f"Running: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
     return subprocess.run(cmd, shell=shell, check=check, capture_output=True, text=True)
 
-def get_cygwin_bash():
+def get_cygwin_bash() -> str:
     """Returns the absolute path to cygwin bash.exe or just 'bash' if not on Windows."""
     if sys.platform == "win32":
         # Assume cygwin64 is in the current directory or a standard location
@@ -24,7 +25,7 @@ def get_cygwin_bash():
                 return str(std_cyg)
     return "bash"
 
-def add_to_user_path_windows(directory):
+def add_to_user_path_windows(directory: str) -> None:
     """
     Safely adds a directory to the persistent User PATH using the Registry.
     Does not use setx to avoid truncation.
@@ -81,7 +82,7 @@ def add_to_user_path_windows(directory):
     except Exception as e:
         print(f"Warning: Failed to update persistent PATH in registry: {e}")
 
-def cleanup_root_artifacts():
+def cleanup_root_artifacts() -> None:
     """Clean up any temporary executables that might have landed in the root."""
     print("Performing final cleanup...")
     artifacts = ["setup-x86_64.exe"]

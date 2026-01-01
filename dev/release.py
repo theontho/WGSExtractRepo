@@ -5,8 +5,9 @@ import json
 import zipfile
 from datetime import datetime
 import pathspec
+from typing import List
 
-def copy_and_ensure_lf(src, dst):
+def copy_and_ensure_lf(src: str, dst: str) -> None:
     """Copy a file and ensure it has LF line endings if it is a shell script."""
     if src.endswith(('.sh', '.command')):
         with open(src, 'rb') as f:
@@ -22,7 +23,7 @@ def copy_and_ensure_lf(src, dst):
 
 import argparse
 
-def create_release(use_override=False):
+def create_release(use_override: bool = False) -> None:
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     build_dir = os.path.join(repo_root, "build")
     
@@ -68,7 +69,7 @@ def create_release(use_override=False):
     docs_files = ["LICENSE.txt", "CHANGELOG.md"]
 
     # Help determine ignored files using .gitignore
-    def ignore_patterns(path, names):
+    def ignore_patterns(path: str, names: List[str]) -> List[str]:
         rel_path = os.path.relpath(path, repo_root)
         if rel_path == ".":
             rel_path = ""

@@ -3,7 +3,7 @@ import os
 import sys
 import subprocess
 
-def main():
+def main() -> None:
     if sys.platform == "darwin":
         print("Launching WGS Extract Library for MacOS...")
         # Note: Library.command might also need uv run internally or we wrap it here

@@ -21,7 +21,7 @@ from .setup_env import (
     copy_launch_scripts
 )
 
-def main():
+def main() -> None:
     print("==========================================")
     print("WGS Extract Development Environment Init")
     print("==========================================")

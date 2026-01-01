@@ -1,8 +1,9 @@
 import re
 import os
 import base64
+from typing import List
 
-def extract_images(markdown_path, images_dir):
+def extract_images(markdown_path: str, images_dir: str) -> None:
     """
     Extracts base64 encoded images from a markdown file, saves them to a directory,
     and replaces the base64 strings with relative file paths in the markdown file.
