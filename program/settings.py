@@ -697,8 +697,8 @@ def init(interactive=False):
     elif os_plat == "Darwin":  # Apple MacOS
         new_homebrew_root = '/opt/homebrew'
         homebrew_root = new_homebrew_root if os.path.exists(new_homebrew_root) else '/usr/local/Homebrew'
-        macports_root = "/opt/local/bin"
-        custom_python_root = "/usr/local/bin"
+        macports_root = "/opt/local"
+        custom_python_root = "/usr/local"
         has_macports = os.path.exists(macports_root)
         has_custom_python = os.path.exists(custom_python_root)
 

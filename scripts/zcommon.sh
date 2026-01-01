@@ -16,7 +16,7 @@
 
 [[ ":$PATH:" != *":/usr/bin:"* ]] && PATH="/usr/bin:${PATH}" && export PATH     # Cygwin starts with no environment
 
-cursh="$(ps -p$$ | tail -1 | grep -oE 'bash|sh')"   # Get shell from process stats; determine if BASH (best solution)
+cursh="$(ps -p$$ | tail -1 | grep -o 'bash')" || cursh="$(ps -p$$ | tail -1 | grep -o 'sh')"   # Get shell from process stats; determine if BASH (best solution)
 [[ -z "$cursh" && -n "$BASH_VERSION" ]] && cursh="bash" # Fallback if ps fails
 
 if (( $# != 1 )) || ! (return 0 2>/dev/null) || [[ ! "$cursh" =~ ^(bash|sh)$ ]] ; then
@@ -93,19 +93,22 @@ case $OSTYPE in
 
   darwin*)
     # Use system bash and include Homebrew paths
-    declare -rx bashx="/bin/bash"
+    bashx="/bin/bash"
     # Add Homebrew paths if they exist
     if [ -d "/opt/homebrew/bin" ]; then
       # Apple Silicon Homebrew location
       [[ ":$PATH:" != *":/opt/homebrew/bin:"* ]] && PATH="/opt/homebrew/bin:/opt/homebrew/sbin:${PATH}"
+      bashx="/opt/homebrew/bin/bash"
     elif [ -d "/usr/local/Homebrew/bin" ]; then
       # Intel Homebrew location
       [[ ":$PATH:" != *":/usr/local/Homebrew/bin:"* ]] && PATH="/usr/local/Homebrew/bin:${PATH}"
+      bashx="/usr/local/Homebrew/bin/bash"
     elif [ -d "/opt/local/bin" ]; then
       # MacPorts location
-      declare -rx bashx="/opt/local/bin/bash"
+      bashx="/opt/local/bin/bash"
       [[ ":$PATH:" != *":/opt/local/bin:"* ]] && PATH="/opt/local/bin:/opt/local/sbin:${PATH}"
     fi
+    declare -rx bashx
     ;;
 
 
