@@ -695,24 +695,56 @@ def init(interactive=False):
         exit()
 
     elif os_plat == "Darwin":  # Apple MacOS
-        new_homebrew_root = '/opt/homebrew'
-        homebrew_root = new_homebrew_root if os.path.exists(new_homebrew_root) else '/usr/local/Homebrew'
-        macports_root = "/opt/local"
-        custom_python_root = "/usr/local"
-        has_macports = os.path.exists(macports_root)
-        has_custom_python = os.path.exists(custom_python_root)
+        # Search for key executables in common locations to support both Homebrew and MacPorts
+        # Homebrew can be in /opt/homebrew (Apple Silicon) or /usr/local (Intel)
+        # MacPorts is usually in /opt/local
 
-        bash_samtools_root = macports_root if has_macports else homebrew_root
-        python_root = custom_python_root if has_custom_python else homebrew_root
-        python_executable = "python3" if has_custom_python else "python3.11"
+        # 1. BASH: Default MacOS Bash is v3 and too old for some scripts
+        bash_options = [
+            "/opt/local/bin/bash",      # MacPorts
+            "/opt/homebrew/bin/bash",   # Homebrew (ARM)
+            "/usr/local/bin/bash",      # Homebrew (Intel)
+            "/bin/bash"                 # System Default (last resort)
+        ]
+        bashx_oFN = "/bin/bash"  # Default
+        for b in bash_options:
+            if os.path.exists(b):
+                bashx_oFN = b
+                break
 
-        python3_FP    = f'{python_root}/bin/'
+        # 2. SAMTOOLS/BCFTOOLS root
+        # If MacPorts is installed, it often has the tools we need
+        # Otherwise Homebrew (ARM or Intel)
+        tool_roots = ["/opt/local", "/opt/homebrew", "/usr/local"]
+        bash_samtools_root = "/usr/local"  # Default fallback
+        for r in tool_roots:
+            if os.path.exists(f"{r}/bin/samtools"):
+                bash_samtools_root = r
+                break
+        
+        samtools_oFP = f'{bash_samtools_root}/bin/'
+        samtools_FP  = f'{bash_samtools_root}/bin/'
+
+        # 3. PYTHON: Support Homebrew, Custom, or System
+        # Look for python3.11 specifically if using Homebrew, otherwise generic python3
+        python_executable = "python3"
+        python_root = "/usr/bin" # Default
+        python_search = [
+            ("/usr/local/bin", "python3"),
+            ("/opt/homebrew/bin", "python3.11"),
+            ("/opt/homebrew/bin", "python3"),
+            ("/opt/local/bin", "python3"),
+            ("/usr/bin", "python3")
+        ]
+        for p_dir, p_exe in python_search:
+            if os.path.exists(f"{p_dir}/{p_exe}"):
+                python_root = p_dir
+                python_executable = p_exe
+                break
+
+        python3_FP    = f'{python_root}/'
         python3x_qFN  = f'"{python3_FP}{python_executable}"'
 
-        samtools_oFP  = f'{bash_samtools_root}/bin/'
-        samtools_FP   = f'{bash_samtools_root}/bin/'
-
-        bashx_oFN  = f'{bash_samtools_root}/bin/bash'       # default MacOS Bash is v3 and too old
         headx_qFN  = '"/usr/bin/head"'
         tailx_qFN  = '"/usr/bin/tail"'
         awkx_qFN   = '"/usr/bin/awk"'

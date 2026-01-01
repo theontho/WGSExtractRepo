@@ -12,6 +12,7 @@ This git repo is for development of WGS Extract, if you would just like to insta
     * Windows: Works on an windows 11 machine.
     * MacOS: Works on an apple silicon mac.
     * Linux: Not tested yet, maybe works? 
+* Run `setup_release_local.py` to create a local release override so you don't have to redownload packages from the internet repeatedly during testing.
 * Edit - build - run: launch with `dev_launch.py`, edit in your text editor.  `dev_init.py` needs to work.
 * Library updating: run `dev_launch_library.py`
 * Build Release Installers: run `uv run scripts/release.py` , see outputs in the `build/` folder.

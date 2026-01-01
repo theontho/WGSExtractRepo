@@ -20,10 +20,20 @@ def copy_and_ensure_lf(src, dst):
     else:
         shutil.copy2(src, dst)
 
-def create_release():
+import argparse
+
+def create_release(use_override=False):
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     build_dir = os.path.join(repo_root, "build")
-    manifest_path = os.path.join(repo_root, "installer_scripts", "release.json")
+    
+    if use_override:
+        manifest_path = os.path.join(repo_root, "release-override.json")
+    else:
+        manifest_path = os.path.join(repo_root, "installer_scripts", "release.json")
+
+    if not os.path.exists(manifest_path):
+        print(f"Error: Manifest not found at {manifest_path}")
+        return
 
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
@@ -111,10 +121,17 @@ def create_release():
         if not os.path.exists(zip_docs_dir):
             os.makedirs(zip_docs_dir)
             
-        # Copy release.json to root if it exists in installer_scripts/
-        release_json_src = os.path.join(temp_dir, "installer_scripts", "release.json")
-        if os.path.exists(release_json_src):
-            copy_and_ensure_lf(release_json_src, os.path.join(temp_dir, "release.json"))
+        # Packaging the release.json
+        if use_override:
+            # When using override, the file we load from repo_root/release-override.json
+            # should be packaged as release.json in the zip root
+            copy_and_ensure_lf(manifest_path, os.path.join(temp_dir, "release.json"))
+        else:
+            # Original logic: copy from installer_scripts/release.json
+            release_json_src = os.path.join(temp_dir, "installer_scripts", "release.json")
+            if os.path.exists(release_json_src):
+                copy_and_ensure_lf(release_json_src, os.path.join(temp_dir, "release.json"))
+        
         for f in docs_files:
             src = os.path.join(repo_root, f)
             if os.path.exists(src):
@@ -158,5 +175,9 @@ def create_release():
     print("All releases created in build/ directory.")
 
 if __name__ == "__main__":
-    create_release()
+    parser = argparse.ArgumentParser(description="Create WGSExtract release packages.")
+    parser.add_argument("--release-override", action="store_true", help="Use release-override.json from repo root.")
+    args = parser.parse_args()
+    
+    create_release(use_override=args.release_override)
 

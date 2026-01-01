@@ -150,6 +150,8 @@ cython_debug/
 tmp/
 temp/
 download_tmp/
+local_release/
+/release-override.json
 
 # windows dependencies , TODO msys2 untested
 cygwin64/
