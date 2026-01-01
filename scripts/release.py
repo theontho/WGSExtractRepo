@@ -167,7 +167,17 @@ def create_release(use_override=False):
                         continue
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, temp_dir)
-                    zipf.write(file_path, arcname)
+                    
+                    if file.endswith(('.sh', '.bat', '.command')):
+                        # Ensure scripts are executable in the ZIP
+                        zinfo = zipfile.ZipInfo.from_file(file_path, arcname)
+                        zinfo.create_system = 3  # Unix
+                        # Set permissions to 755: (S_IFREG | 0o755) << 16
+                        zinfo.external_attr = (0o100755 << 16)
+                        with open(file_path, 'rb') as f:
+                            zipf.writestr(zinfo, f.read())
+                    else:
+                        zipf.write(file_path, arcname)
 
         print(f"Created {zip_name}")
         shutil.rmtree(temp_dir)

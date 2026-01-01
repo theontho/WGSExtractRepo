@@ -285,6 +285,7 @@ rmx ./*_Linux.sh scripts/*_Linux.sh                        # Original generic Li
 case $OSTYPE in
   darwin*)
     cpx installer_scripts/WGSExtract.command installer_scripts/Library.command .
+    chmod +x ./WGSExtract.command ./Library.command
     rmx ./*_ubuntu.sh scripts/*_ubuntu.sh
     rmx ./*_linux.sh scripts/*_linux.sh
     rmx ./*.bat scripts/zinstall_stage2windows.sh  ;;
@@ -293,13 +294,16 @@ case $OSTYPE in
     # Only the linux releases have overlapping extensions and so need WGSExtract and Library files renamed
     if [[ "$linux_type" == "micromamba" ]]; then
       cpx installer_scripts/WGSExtract_linux.sh installer_scripts/Library_linux.sh .
+      chmod +x ./WGSExtract_linux.sh ./Library_linux.sh
       rmx ./*_ubuntu.sh scripts/*_ubuntu.sh
       for file in Library_linux.sh WGSExtract_linux.sh; do [ -f $file ] && mvx $file ${file/_linux} ; done
     else    # Our historic Ubuntu release (before we had the generic Linux release)
       cpx installer_scripts/WGSExtract_ubuntu.sh installer_scripts/Library_ubuntu.sh .
+      chmod +x ./WGSExtract_ubuntu.sh ./Library_ubuntu.sh
       rmx ./*_linux.sh scripts/*_linux.sh
       for file in Library_ubuntu.sh WGSExtract_ubuntu.sh; do [ -f $file ] && mvx $file ${file/_ubuntu} ; done
     fi
+    chmod +x ./WGSExtract.sh ./Library.sh
     rmx ./*.bat scripts/zinstall_stage2windows.sh
     rmx ./*command ;;
 

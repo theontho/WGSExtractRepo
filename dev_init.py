@@ -3,6 +3,7 @@ import os
 import sys
 import subprocess
 import json
+import stat
 import shutil
 from pathlib import Path
 
@@ -143,17 +144,49 @@ def install_java():
 
 def copy_launch_scripts():
     print("=== Copying Launch Scripts to Root ===")
-    scripts_to_copy = ["WGSExtract.bat", "Library.bat"]
     source_dir = Path("installer_scripts")
     
-    for script in scripts_to_copy:
-        src = source_dir / script
-        dest = Path(script)
-        if src.exists():
-            print(f"Copying {script} to root...")
-            shutil.copy2(src, dest)
+    scripts_map = {}
+    if sys.platform == "darwin":
+        scripts_map = {
+            "WGSExtract.command": "WGSExtract.command",
+            "Library.command": "Library.command"
+        }
+    elif sys.platform.startswith("linux"):
+        # Distinguish between Micromamba (generic Linux) and Ubuntu
+        if Path("micromamba").exists():
+            scripts_map = {
+                "WGSExtract_linux.sh": "WGSExtract.sh",
+                "Library_linux.sh": "Library.sh"
+            }
         else:
-            print(f"Warning: {src} not found, cannot copy to root.")
+            scripts_map = {
+                "WGSExtract_ubuntu.sh": "WGSExtract.sh",
+                "Library_ubuntu.sh": "Library.sh"
+            }
+    elif sys.platform in ["win32", "cygwin", "msys"]:
+        scripts_map = {
+            "WGSExtract.bat": "WGSExtract.bat",
+            "Library.bat": "Library.bat"
+        }
+    
+    for src_name, dest_name in scripts_map.items():
+        src = source_dir / src_name
+        dest = Path(dest_name)
+        if src.exists():
+            print(f"Copying {src_name} to {dest_name}...")
+            shutil.copy2(src, dest)
+            # Make executable
+            try:
+                st = os.stat(dest)
+                os.chmod(dest, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                print(f"Made {dest_name} executable.")
+            except Exception as e:
+                print(f"Warning: Failed to make {dest_name} executable: {e}")
+        else:
+            # Only warn if neither version of a expected script exists
+            if not dest.exists() and "ubuntu" not in src_name: 
+                print(f"Note: {src} not found, skipping.")
 
 def ensure_runtime_directories():
     print("=== Ensuring Runtime Directories ===")
@@ -497,7 +530,10 @@ def main():
         else:
             print("Invalid choice. Skipping platform-specific dependencies.")
         
-        # copy_launch_scripts()
+        copy_launch_scripts()
+    else:
+        # Also copy for other platforms
+        copy_launch_scripts()
 
     print("\n==========================================")
     print("Initialization Complete!")
