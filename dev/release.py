@@ -23,7 +23,7 @@ def copy_and_ensure_lf(src: str, dst: str) -> None:
 
 import argparse
 
-def create_release(use_override: bool = False) -> None:
+def create_release(use_override: bool = False, use_new_scripts: bool = False) -> None:
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     build_dir = os.path.join(repo_root, "build")
     
@@ -63,7 +63,10 @@ def create_release(use_override: bool = False) -> None:
     }
 
     # Directories to include
-    include_dirs = ["program", "scripts", "docs", "installer_scripts"]
+    include_dirs = ["program", "scripts", "docs", "installer_scripts", "jartools", "FastQC", "yleaf"]
+    if use_new_scripts:
+        include_dirs.append("new_scripts")
+        include_dirs.append("bootstrap_scripts")
     
     # Files to be moved into docs/ inside the ZIP
     docs_files = ["LICENSE.txt", "CHANGELOG.md"]
@@ -74,25 +77,46 @@ def create_release(use_override: bool = False) -> None:
         if rel_path == ".":
             rel_path = ""
         
+        # Whitelist specific directories to bypass .gitignore (binary dependencies)
+        whitelist_prefixes = ["jartools", "FastQC", "yleaf", "reference", "base_reference"]
+        # Check if we are inside or matching a whitelisted directory
+        # rel_path might be "jartools" or "" (if matching "jartools" in names)
+        
         ignored = []
         for name in names:
             full_rel_path = os.path.join(rel_path, name)
             
+            # Start checks
+            
             # Basic hardcoded ignores that should always be ignored for release
-            if name.startswith('.') or name in ["download_tmp", "build", "__pycache__", ".git"]:
+            if name.startswith('.') and name != ".": # . is not a name usually
+                 pass # check specifically for .git, .DS_Store etc
+            
+            if name in ["download_tmp", "build", "__pycache__", ".git", ".DS_Store", ".venv", "venv", ".idea", ".vscode"]:
                 ignored.append(name)
                 continue
             
+            if name.endswith(".pyc"):
+                ignored.append(name)
+                continue
+
+            # Bypass gitignore for whitelisted paths
+            is_whitelisted = False
+            for wp in whitelist_prefixes:
+                # If full_rel_path starts with whitelisted prefix
+                # e.g. "jartools" or "jartools/haplogrep.jar"
+                if full_rel_path == wp or full_rel_path.startswith(wp + os.sep):
+                    is_whitelisted = True
+                    break
+            
+            if is_whitelisted:
+                continue
+
             # Use pathspec if available
             if spec:
-                # Check if it's a directory to help pathspec match directory-only patterns
                 is_dir = os.path.isdir(os.path.join(path, name))
                 if is_dir:
-                    # pathspec matches directories if they end with / or if is_dir is handled
-                    # For pathspec.match_file, we can append a / to simulate directory matching if needed,
-                    # but match_file often handles it if the pattern is simple.
-                    # Best practice for pathspec is to use match_file with the path.
-                    if spec.match_file(full_rel_path + '/' if is_dir else full_rel_path):
+                    if spec.match_file(full_rel_path + '/'):
                         ignored.append(name)
                 elif spec.match_file(full_rel_path):
                     ignored.append(name)
@@ -150,7 +174,12 @@ def create_release(use_override: bool = False) -> None:
         # 4. Copy the main installer and uninstall scripts to the root
         for script_type in ["install", "uninstall"]:
             script_name = scripts[script_type]
-            src_script = os.path.join(repo_root, "installer_scripts", script_name)
+            
+            if use_new_scripts:
+                src_script = os.path.join(repo_root, "bootstrap_scripts", script_name)
+            else:
+                src_script = os.path.join(repo_root, "installer_scripts", script_name)
+                
             if os.path.exists(src_script):
                 copy_and_ensure_lf(src_script, os.path.join(temp_dir, script_name))
             else:
@@ -190,10 +219,14 @@ def create_release(use_override: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create WGSExtract release packages.")
     parser.add_argument("-ro", "--release-override", action="store_true", help="Use release-override.json from repo root.")
+    parser.add_argument("-n", "--new", action="store_true", help="Use new Python-based installers and bootstrap scripts.")
     args = parser.parse_args()
     
     if args.release_override:
         print("[!] Using release-override.json from repo root.")
     
-    create_release(use_override=args.release_override)
+    if args.new:
+        print("[!] Using new Python-based installers.")
+
+    create_release(use_override=args.release_override, use_new_scripts=args.new)
 

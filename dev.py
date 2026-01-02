@@ -23,6 +23,7 @@ def main() -> None:
     # release
     release_parser = subparsers.add_parser("release", help="Create WGSExtract release packages")
     release_parser.add_argument("-ro", "--release-override", action="store_true", help="Use release-override.json from repo root")
+    release_parser.add_argument("-n", "--new", action="store_true", help="Use new Python-based installers and bootstrap scripts")
 
     args = parser.parse_args()
 
@@ -40,7 +41,7 @@ def main() -> None:
         setup_local_release()
     elif args.command == "release":
         from dev.release import create_release
-        create_release(use_override=args.release_override)
+        create_release(use_override=args.release_override, use_new_scripts=args.new)
     else:
         parser.print_help()
 
