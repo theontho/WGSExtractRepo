@@ -17,7 +17,8 @@ def run_install_test(
     launch_marker_text: str,
     is_new_installer: bool = False,
     installer_env: Optional[dict] = None,
-    archive_extract_subdir: Optional[str] = None
+    archive_extract_subdir: Optional[str] = None,
+    installer_input: str = "\n"
 ):
     repo_root = Path(__file__).resolve().parent.parent
     build_dir = repo_root / "build"
@@ -65,7 +66,7 @@ def run_install_test(
     old_cwd = os.getcwd()
     os.chdir(work_dir)
     try:
-        result = subprocess.run(installer_cmd, env=env, input="\n", text=True)
+        result = subprocess.run(installer_cmd, env=env, input=installer_input, text=True)
         if result.returncode != 0:
             print(f"[!] Installer returned non-zero code: {result.returncode}")
             sys.exit(1)

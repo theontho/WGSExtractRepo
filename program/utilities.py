@@ -359,6 +359,14 @@ class LanguageStrings:
         """
         from mainwindow import button_set_language
 
+        if not wgse.gui and (language is None or language not in self.avail_langs):
+            # In auto / non-interactive mode, default to English if available, or first available
+            # This avoids the popup dialog that would stall the process
+            new_lang = 'English' if 'English' in self.avail_langs else self.avail_langs[0]
+            DEBUG(f"Auto-selecting language: {new_lang}")
+            self.switch_language(new_lang)
+            return
+
         if language not in self.avail_langs:      # If requested language not set or not understand
             button_set_language()           # Ask user for language; calls switch_language() directly
         else:

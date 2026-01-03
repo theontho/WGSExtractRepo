@@ -145,13 +145,14 @@ cython_debug/
 #  JetBrains specific template is usually in a separate gitignore section
 # .idea/
 
-# temporary / os files
+# temporary / os / dev files
 .DS_Store
 tmp/
 temp/
 download_tmp/
 local_release/
 /release-override.json
+/devsettings.toml
 
 # windows dependencies , TODO msys2 untested
 cygwin64/

@@ -150,7 +150,26 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False, ve
         if use_override:
             # When using override, the file we load from repo_root/release-override.json
             # should be packaged as release.json in the zip root
-            copy_and_ensure_lf(manifest_path, os.path.join(temp_dir, "release.json"))
+            dest_manifest = os.path.join(temp_dir, "release.json")
+            
+            with open(manifest_path, 'r') as f:
+                content = f.read()
+                
+            # If on Linux target (ubuntu/linux) and we have Windows file URLs, transform them for WSL
+            if platform in ["linux", "ubuntu"]:
+                # Simple transformation for common Windows drive letters in file:// URLs
+                # Regex to match file:///X:/ and convert to file:///mnt/x/
+                # We need 're' module for this.
+                import re
+                def repl(match):
+                    drive = match.group(1).lower()
+                    return f"file:///mnt/{drive}/"
+                
+                content = re.sub(r'file:///?([A-Za-z]):[/\\]', repl, content)
+                content = content.replace('\\', '/') # Ensure forward slashes for remainder of path
+                
+            with open(dest_manifest, 'w') as f:
+                f.write(content)
         else:
             # Original logic: copy from repo root release.json
             if os.path.exists(manifest_path):
