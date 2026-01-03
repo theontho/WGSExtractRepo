@@ -5,7 +5,8 @@ from typing import List, Optional
 from new_scripts.core.common import (
     WGSE_FP, OSTYPE, CPU_ARCH, SUCCESS, FAIL,
     get_latest_release_info, read_current_release_info,
-    ver_comp, get_reflib_dir, rmx, rmrx, mvx, cpx
+    ver_comp, get_reflib_dir, rmx, rmrx, mvx, cpx,
+    get_latest_json
 )
 from new_scripts.core.logging import echo_tee, logger
 from new_scripts.install.pip_utils import pip_install

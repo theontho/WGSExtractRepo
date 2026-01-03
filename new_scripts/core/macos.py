@@ -30,7 +30,11 @@ def install_homebrew():
     casks = "zulu@8 zulu@11"
     bio_pkgs = "brewsci/bio/bwa-mem2 brewsci/bio/hisat2"
     
-    subprocess.run(['brew', 'update'], check=True)
+    try:
+        subprocess.run(['brew', 'update'], check=True)
+    except subprocess.CalledProcessError:
+        echo_tee("Warning: 'brew update' failed. Continuing anyway...")
+
     subprocess.run(['brew', 'install'] + pkgs.split(), check=True)
     subprocess.run(['brew', 'install', '--cask'] + casks.split(), check=True)
     subprocess.run(['brew', 'install'] + bio_pkgs.split(), check=True)

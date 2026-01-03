@@ -24,6 +24,7 @@ dependencies = [
     "urllib3",
     "pyfaidx",
     "pysocks",
+    "sh>=1.14.3",
 ]
 
 [project.optional-dependencies]

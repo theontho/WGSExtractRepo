@@ -23,7 +23,7 @@ def copy_and_ensure_lf(src: str, dst: str) -> None:
 
 import argparse
 
-def create_release(use_override: bool = False, use_new_scripts: bool = False) -> None:
+def create_release(use_override: bool = False, use_new_scripts: bool = False, verbose: bool = False) -> None:
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     build_dir = os.path.join(repo_root, "build")
     
@@ -63,7 +63,7 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False) ->
     }
 
     # Directories to include
-    include_dirs = ["program", "scripts", "docs", "installer_scripts", "jartools", "FastQC", "yleaf"]
+    include_dirs = ["program", "scripts", "docs", "installer_scripts"]
     if use_new_scripts:
         include_dirs.append("new_scripts")
         include_dirs.append("bootstrap_scripts")
@@ -206,9 +206,13 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False) ->
                         zinfo.create_system = 3  # Unix
                         # Set permissions to 755: (S_IFREG | 0o755) << 16
                         zinfo.external_attr = (0o100755 << 16)
+                        if verbose:
+                            print(f"  + {arcname} (script)")
                         with open(file_path, 'rb') as f:
                             zipf.writestr(zinfo, f.read())
                     else:
+                        if verbose:
+                            print(f"  + {arcname}")
                         zipf.write(file_path, arcname)
 
         print(f"Created {zip_name}")
@@ -220,6 +224,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create WGSExtract release packages.")
     parser.add_argument("-ro", "--release-override", action="store_true", help="Use release-override.json from repo root.")
     parser.add_argument("-n", "--new", action="store_true", help="Use new Python-based installers and bootstrap scripts.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Show verbose output (e.g., files added to ZIP).")
     args = parser.parse_args()
     
     if args.release_override:
@@ -228,5 +233,5 @@ if __name__ == "__main__":
     if args.new:
         print("[!] Using new Python-based installers.")
 
-    create_release(use_override=args.release_override, use_new_scripts=args.new)
+    create_release(use_override=args.release_override, use_new_scripts=args.new, verbose=args.verbose)
 
