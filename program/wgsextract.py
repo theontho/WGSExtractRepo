@@ -85,6 +85,10 @@ def get_arguments():
             dest="DebugMode", required=False,
             help="Turn on Debug Mode")
 
+    parser.add_argument("-a", "--auto", action='store_true',
+            dest="AutoMode", required=False,
+            help="Turn on Auto / Non-interactive Mode (bypass GUI dialogs)")
+
     return parser.parse_args()
 
 
@@ -118,19 +122,27 @@ if __name__ == '__main__':
         parser = get_arguments()
         parser.parse_args() # This will handle --version or --help and exit
     
-    wgse.init(interactive=True)     # Reads and restores settings BEFORE processing args
+    args = get_arguments()      # Todo Place holder. Intent is to allow complete batch mode processing (no gui)
 
-    # args = get_arguments()      # Todo Place holder. Intent is to allow complete batch mode processing (no gui)
+    wgse.DEBUG_MODE = args.DebugMode
+    interactive = not args.AutoMode
+
+    wgse.init(interactive=interactive)     # Reads and restores settings BEFORE processing args
 
     # Restore BAM if specified on the Command Line -- to setup OS File association of WGSExtract to BAM and CRAM files
-    if len(sys.argv) == 2:
+    if len(sys.argv) >= 2 and args.Bamfile:
+        set_output_path(os.path.dirname(args.Bamfile))
+        if not set_BAM_file(args.Bamfile):
+            exit()      # Already reported issue
+    elif len(sys.argv) == 2 and not args.Bamfile and not sys.argv[1].startswith('-'):
+        # Fallback for simple BAM file passing without -b flag
         set_output_path(os.path.dirname(sys.argv[1]))
         if not set_BAM_file(sys.argv[1]):
-            exit()      # Already reported issue
+            exit()
 
     # Todo If (command) args, use batch mode; otherwise startup interactive
 
-    wgse_main(__name__, interactive=True)
+    wgse_main(__name__, interactive=interactive)
 
 
 """

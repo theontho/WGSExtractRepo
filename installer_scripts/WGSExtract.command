@@ -21,6 +21,6 @@ source scripts/zcommon.sh "$wgse_FP"        || { echo "ERROR: Cannot source scri
 
 echo 'Starting WGS Extract ...'
 
-"$pythonx" "${wgse_FP}/program/wgsextract.py"
+"$pythonx" "${wgse_FP}/program/wgsextract.py" "$@"
 
 readq 'Press any key to close this window (maybe scroll up to review for errors) ...'

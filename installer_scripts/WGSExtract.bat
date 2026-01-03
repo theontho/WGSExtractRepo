@@ -13,12 +13,12 @@ cd /d "%wgse_FP%"
 
 if exist "cygwin64\" (
   echo Starting WGS Extract on cygwin64 ...
-  python\python program\wgsextract.py
+  python\python program\wgsextract.py %*
 
 ) else if exist "msys2\" (
   echo Starting WGS Extract on msys2 ...
   set "PATH=/ucrt64/bin;/usr/bin;%PATH%"
-  msys2\ucrt64\bin\python program\wgsextract.py
+  msys2\ucrt64\bin\python program\wgsextract.py %*
 
 ) else (
   echo Cannot find a Windows binary tools release for WGS Extract. Exiting.

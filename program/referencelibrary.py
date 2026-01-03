@@ -309,6 +309,10 @@ class ReferenceLibrary:
         #  smaller in ref than BAM here; wrong SN naming convention, etc. Biggest issue is patched models. Only
         #  latest GRCh models from Ensembl include patch entries beyond base models. So SN count larger.
 
+        if not (wgse.gui or wgse.DEBUG_MODE):
+            DEBUG("ReferenceLibrary.ask_reference_genome: Non-interactive mode, bypassing dialog.")
+            return "Unknown", 0
+
         font = wgse.fonts.table if wgse and wgse.fonts else {'14': ("Times New Roman", 14)}
 
         # mainWindow.withdraw()
