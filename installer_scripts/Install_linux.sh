@@ -169,7 +169,7 @@ echo_tee "[2/5] Installing Python from Conda Forge into base."
 echo_fnl
 
 # Todo 3.12.* triggers new warnings on some constructs still in use (remove in v5)
-micromamba install $verbosem -y -r "$microdir" -c conda-forge 'python=3.11.*' pip tk=*=xft_* 2>&1 | echo_tee
+micromamba install $verbosem -y -r "$microdir" -c conda-forge 'python=3.11.*' pip tk 2>&1 | echo_tee
 micromamba_abort "Failed to install Python "
 
 echo_tee "--------------------------------------------------------------------------------"

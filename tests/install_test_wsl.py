@@ -29,7 +29,7 @@ def load_settings(repo_root: Path) -> Dict[str, str]:
                 data[key] = value
     return data
 
-def test_wsl_ubuntu():
+def test_wsl_ubuntu(manual_kill: bool = False):
     repo_root = Path(__file__).resolve().parent.parent
     settings = load_settings(repo_root)
     
@@ -65,13 +65,14 @@ def test_wsl_ubuntu():
         launch_cmd=launch_cmd,
         launch_marker_text="Starting WGS Extract",
         is_new_installer=False,
-        installer_input="n\n\n"
+        installer_input="n\n\n",
+        manual_kill=manual_kill
     )
     
     if success:
         print("[*] WSL Ubuntu Test PASSED")
 
-def test_wsl_linux():
+def test_wsl_linux(manual_kill: bool = False):
     repo_root = Path(__file__).resolve().parent.parent
     settings = load_settings(repo_root)
     
@@ -100,7 +101,8 @@ def test_wsl_linux():
         launch_cmd=launch_cmd,
         launch_marker_text="Starting WGS Extract",
         is_new_installer=False,
-        installer_input="\n" # Might need customized input if it asks questions
+        installer_input="\n", # Might need customized input if it asks questions
+        manual_kill=manual_kill
     )
     
     if success:
@@ -108,16 +110,17 @@ def test_wsl_linux():
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python install_test_wsl.py [ubuntu|linux|all]")
+        print("Usage: python install_test_wsl.py [ubuntu|linux|all] [--manual-kill]")
         sys.exit(1)
     
     mode = sys.argv[1]
+    manual_kill = "--manual-kill" in sys.argv
     
     if mode in ["ubuntu", "all"]:
-        test_wsl_ubuntu()
+        test_wsl_ubuntu(manual_kill=manual_kill)
     
     if mode in ["linux", "all"]:
-        test_wsl_linux()
+        test_wsl_linux(manual_kill=manual_kill)
 
 if __name__ == "__main__":
     main()

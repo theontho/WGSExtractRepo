@@ -18,7 +18,8 @@ def run_install_test(
     is_new_installer: bool = False,
     installer_env: Optional[dict] = None,
     archive_extract_subdir: Optional[str] = None,
-    installer_input: str = "\n"
+    installer_input: str = "\n",
+    manual_kill: bool = False
 ):
     repo_root = Path(__file__).resolve().parent.parent
     build_dir = repo_root / "build"
@@ -132,6 +133,10 @@ def run_install_test(
         else:
             print("[*] Launch marker found!")
             print("[*] Core test logic PASSED.")
+            
+        if manual_kill:
+            print(f"[*] --manual-kill specified. App (PID {proc.pid}) is running.")
+            input("[*] Press Enter to terminate the app and run cleanup...")
     finally:
         print("[*] Terminating app...")
         try:
