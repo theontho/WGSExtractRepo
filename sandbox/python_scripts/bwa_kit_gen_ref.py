@@ -4,12 +4,12 @@ import subprocess
 from pathlib import Path
 
 # Add project root to sys.path
-root_dir = Path(__file__).resolve().parent.parent
+root_dir = Path(__file__).resolve().parent.parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-from new_scripts.core.logging import logger, echo_tee
-from new_scripts.core.common import WGSE_FP, BASHX
+from core.logging import logger, echo_tee
+from core.common import WGSE_FP, BASHX
 
 URL38 = "ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_full_analysis_set.fna.gz"
 URL37D5 = "ftp://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz"

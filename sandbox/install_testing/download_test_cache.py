@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 # Setup paths
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFEST_PATH = REPO_ROOT / "release.json"
 CACHE_DIR = REPO_ROOT / "out" / "download_cache"
 

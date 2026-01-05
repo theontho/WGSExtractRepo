@@ -2,8 +2,8 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Optional, List
-from new_scripts.core.common import WGSE_FP, rmx, rmrx, mvx, CPU_ARCH, OSTYPE
-from new_scripts.core.logging import logger, echo_tee, echo_log
+from core.common import WGSE_FP, rmx, rmrx, mvx, CPU_ARCH, OSTYPE
+from core.logging import logger, echo_tee, echo_log
 
 # Constants for Micromamba
 MICRODIR = WGSE_FP / "micromamba"

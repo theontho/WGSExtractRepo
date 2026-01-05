@@ -22,4 +22,4 @@ fi
 # 3. Launch the new Python installer
 echo "Launching Python-based installer..."
 export macos_type="macports"
-python3 new_scripts/install_macos.py "$@"
+python3 sandbox/python_scripts/install_macos.py "$@"

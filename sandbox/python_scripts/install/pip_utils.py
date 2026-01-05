@@ -5,13 +5,13 @@ import platform
 from pathlib import Path
 
 # Add project root to sys.path
-root_dir = Path(__file__).resolve().parent.parent.parent
+root_dir = Path(__file__).resolve().parent.parent.parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
 from typing import List, Optional
-from new_scripts.core.common import WGSE_FP, OSTYPE, CPU_ARCH
-from new_scripts.core.logging import echo_tee, logger
+from core.common import WGSE_FP, OSTYPE, CPU_ARCH
+from core.logging import echo_tee, logger
 
 def pip_install(cpu_arch: str, osver: str):
     """Installs or upgrades Python libraries (transliterated from pip_install in shell)."""

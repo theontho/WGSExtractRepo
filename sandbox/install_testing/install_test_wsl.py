@@ -30,7 +30,7 @@ def load_settings(repo_root: Path) -> Dict[str, str]:
     return data
 
 def test_wsl_ubuntu(manual_kill: bool = False):
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     settings = load_settings(repo_root)
     
     distro = settings.get("wslUbuntu")
@@ -73,7 +73,7 @@ def test_wsl_ubuntu(manual_kill: bool = False):
         print("[*] WSL Ubuntu Test PASSED")
 
 def test_wsl_linux(manual_kill: bool = False):
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parent.parent.parent
     settings = load_settings(repo_root)
     
     distro = settings.get("wslNotUbuntu")

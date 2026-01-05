@@ -1,6 +1,6 @@
-from new_scripts.core.common import WGSE_FP, OSTYPE, get_reflib_dir, rmx, cpx, BASHX, ver_comp
-from new_scripts.core.logging import echo_tee, askyesno
-from new_scripts.core.genomes import get_and_process_refgenome, read_genomes_file
+from core.common import WGSE_FP, OSTYPE, get_reflib_dir, rmx, cpx, BASHX, ver_comp
+from core.logging import echo_tee, askyesno
+from core.genomes import get_and_process_refgenome, read_genomes_file
 
 def library_menu():
     """Interactive menu for reference genome management."""

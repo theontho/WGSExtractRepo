@@ -11,8 +11,8 @@ def test_windows_installer(is_new_installer: bool):
     # On Windows, we need to use 'cmd /c' to run .bat files properly from subprocess.run
     if is_new_installer:
         # Assuming new_scripts/install_windows.py might exist in the future, 
-        # but for now we follow the pattern in release.py
-        installer_cmd = [sys.executable, "new_scripts/install_windows.py"]
+        # Assuming sandbox/python_scripts/install_windows.py might exist in the future, 
+        installer_cmd = [sys.executable, "sandbox/python_scripts/install_windows.py"]
     else:
         installer_cmd = ["cmd", "/c", "Install_windows.bat"]
         

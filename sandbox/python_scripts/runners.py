@@ -4,13 +4,13 @@ import subprocess
 from pathlib import Path
 
 # Add project root to sys.path
-root_dir = Path(__file__).resolve().parent.parent
+root_dir = Path(__file__).resolve().parent.parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-from new_scripts.core.common import WGSE_FP, OSTYPE, BASHX
-from new_scripts.core.logging import echo_tee, logger
-from new_scripts.core.library import main_menu
+from core.common import WGSE_FP, OSTYPE, BASHX
+from core.logging import echo_tee, logger
+from core.library import main_menu
 
 def run_wgsextract():
     """Launches the WGS Extract main program."""

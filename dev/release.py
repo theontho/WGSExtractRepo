@@ -65,8 +65,7 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False, ve
     # Directories to include
     include_dirs = ["program", "scripts", "docs", "installer_scripts"]
     if use_new_scripts:
-        include_dirs.append("new_scripts")
-        include_dirs.append("bootstrap_scripts")
+        include_dirs.append(os.path.join("sandbox", "python_scripts"))
     
     # Files to be moved into docs/ inside the ZIP
     docs_files = ["LICENSE.txt", "CHANGELOG.md"]
@@ -195,7 +194,7 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False, ve
             script_name = scripts[script_type]
             
             if use_new_scripts:
-                src_script = os.path.join(repo_root, "bootstrap_scripts", script_name)
+                src_script = os.path.join(repo_root, "sandbox", "python_scripts", "bootstrap", script_name)
             else:
                 src_script = os.path.join(repo_root, "installer_scripts", script_name)
                 

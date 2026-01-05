@@ -3,8 +3,8 @@ import shutil
 import platform
 import subprocess
 from pathlib import Path
-from new_scripts.core.common import WGSE_FP, OSTYPE, rmx, rmrx
-from new_scripts.core.logging import echo_tee, askyesno
+from core.common import WGSE_FP, OSTYPE, rmx, rmrx
+from core.logging import echo_tee, askyesno
 
 def run_uninstaller(reflibdir: Path):
     """Main uninstall logic (transliterated from zuninstall_common.sh)."""

@@ -21,4 +21,4 @@ fi
 # 3. Launch the new Python installer
 echo "Launching Python-based installer..."
 export macos_type="homebrew"
-python3 new_scripts/install_macos_brew.py "$@"
+python3 sandbox/python_scripts/install_macos_brew.py "$@"

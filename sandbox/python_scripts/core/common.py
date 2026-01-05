@@ -14,10 +14,7 @@ FAIL = 1
 def get_wgse_fp() -> Path:
     """Returns the base WGS Extract directory."""
     # Logic from zcommon.sh: determine based on script location or passed in value
-    # For now, we assume the script resides in new_scripts/core/ so the root is two levels up.
-    # However, we should also handle cases where it's run from elsewhere.
-    
-    res = Path(__file__).resolve().parent.parent.parent
+    res = Path(__file__).resolve().parent.parent.parent.parent
     return res
 
 WGSE_FP = get_wgse_fp()

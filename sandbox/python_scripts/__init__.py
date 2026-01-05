@@ -1,1 +1,1 @@
-# new_scripts package
+# python_scripts package

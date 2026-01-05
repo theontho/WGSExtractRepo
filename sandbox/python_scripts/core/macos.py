@@ -3,8 +3,8 @@ import subprocess
 import shutil
 from pathlib import Path
 from typing import List, Optional
-from new_scripts.core.common import WGSE_FP, OSTYPE, CPU_ARCH, rmx, rmrx, mvx, ver_comp
-from new_scripts.core.logging import logger, echo_tee
+from core.common import WGSE_FP, OSTYPE, CPU_ARCH, rmx, rmrx, mvx, ver_comp
+from core.logging import logger, echo_tee
 
 def install_homebrew():
     """Installs or updates Homebrew and required packages."""

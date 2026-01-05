@@ -2,8 +2,8 @@ import csv
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any
-from new_scripts.core.common import WGSE_FP, OSTYPE, get_reflib_dir, rmx, cpx, BASHX
-from new_scripts.core.logging import logger, echo_tee
+from core.common import WGSE_FP, OSTYPE, get_reflib_dir, rmx, cpx, BASHX
+from core.logging import logger, echo_tee
 
 def read_genomes_file() -> List[Dict[str, str]]:
     """Reads genomes.csv and returns a list of dictionaries."""

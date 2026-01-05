@@ -24,7 +24,7 @@ if ERRORLEVEL 1 (
 
 REM 3. Launch the new Python uninstaller
 echo Launching Python-based uninstaller...
-%py% new_scripts\uninstall_windows.py %*
+%py% sandbox\python_scripts\uninstall_windows.py %*
 if ERRORLEVEL 1 (
     echo Uninstallation failed.
     pause

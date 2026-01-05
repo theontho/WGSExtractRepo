@@ -8,7 +8,7 @@ def run_brew_install_test(test_name: str, is_new_installer: bool):
     zip_glob_pattern = "*_macos_brew_installer.zip"
     
     if is_new_installer:
-        installer_cmd = [sys.executable, "new_scripts/install_macos_brew.py"]
+        installer_cmd = [sys.executable, "sandbox/python_scripts/install_macos_brew.py"]
     else:
         installer_cmd = ["bash", "Install_macos_brew.command"]
         

@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 # Paths
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 BUILD_DIR = REPO_ROOT / "out" / "installer_builds"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 

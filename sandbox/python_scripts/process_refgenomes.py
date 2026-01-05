@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import List, Optional
 
 # Add project root to sys.path
-root_dir = Path(__file__).resolve().parent.parent
+root_dir = Path(__file__).resolve().parent.parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-from new_scripts.core.logging import logger, echo_tee
-from new_scripts.core.common import WGSE_FP, BASHX, rmx, rmrx, mvx
+from core.logging import logger, echo_tee
+from core.common import WGSE_FP, BASHX, rmx, rmrx, mvx
 
 # Build MD5 Mapping (transliterated from shell)
 BUILD_MAP = {

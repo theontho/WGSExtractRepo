@@ -15,4 +15,4 @@ fi
 
 # 3. Launch the new Python uninstaller
 echo "Launching Python-based uninstaller..."
-python3 new_scripts/uninstall_macos.py "$@"
+python3 sandbox/python_scripts/uninstall_macos.py "$@"

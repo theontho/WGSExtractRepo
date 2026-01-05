@@ -26,7 +26,7 @@ if ERRORLEVEL 1 (
 
 REM 3. Launch the new Python installer
 echo Launching Python-based installer...
-%py% new_scripts\install_windows.py %*
+%py% sandbox\python_scripts\install_windows.py %*
 if ERRORLEVEL 1 (
     echo Installation failed.
     pause

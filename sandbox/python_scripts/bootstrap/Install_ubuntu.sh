@@ -23,4 +23,4 @@ fi
 # 3. Launch the new Python installer
 echo "Launching Python-based installer..."
 export linux_type="ubuntu"
-python3 new_scripts/install_ubuntu.py "$@"
+python3 sandbox/python_scripts/install_ubuntu.py "$@"

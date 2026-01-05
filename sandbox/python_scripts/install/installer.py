@@ -2,20 +2,20 @@ import os
 import subprocess
 from pathlib import Path
 from typing import List, Optional
-from new_scripts.core.common import (
+from core.common import (
     WGSE_FP, OSTYPE, CPU_ARCH, SUCCESS, FAIL,
     get_latest_release_info, read_current_release_info,
     ver_comp, get_reflib_dir, rmx, rmrx, mvx, cpx,
     get_latest_json
 )
-from new_scripts.core.logging import echo_tee, logger
-from new_scripts.install.pip_utils import pip_install
+from core.logging import echo_tee, logger
+from install.pip_utils import pip_install
 
 # Platform-specific imports
 if OSTYPE == "linux":
-    from new_scripts.core.linux import setup_micromamba, install_micromamba_tools, ubuntu_setup, install_manual_tools
+    from core.linux import setup_micromamba, install_micromamba_tools, ubuntu_setup, install_manual_tools
 elif OSTYPE == "darwin":
-    from new_scripts.core.macos import apple_cli_install, java_setup, macports_setup, bwa_setup, homebrew_setup
+    from core.macos import apple_cli_install, java_setup, macports_setup, bwa_setup, homebrew_setup
 
 def install_or_upgrade(package: str, verbose: bool = False):
     """Orchestrates install/upgrade for a specific WGSE package."""
@@ -37,7 +37,7 @@ def install_or_upgrade(package: str, verbose: bool = False):
                         dst.chmod(item.stat().st_mode)
                     except: pass
 
-    from new_scripts.core.common import download_file, extract_zip, change_release_json
+    from core.common import download_file, extract_zip, change_release_json
 
     echo_tee(f"\nChecking package: {package}")
     

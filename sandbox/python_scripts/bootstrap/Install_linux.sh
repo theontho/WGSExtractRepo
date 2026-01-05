@@ -15,7 +15,7 @@ if ! command -v python3 &> /dev/null; then
     echo "Python 3 not found. Attempting to use bundled Micromamba..."
     # If we are in a fresh install, we might need to bootstrap Micromamba first 
     # to get a Python version we can use.
-    # However, for Linux, the goal is often to use the new_scripts/core/linux.py 
+    # However, for Linux, the goal is often to use the sandbox/python_scripts/core/linux.py 
     # setup which downloads Micromamba itself.
     
     # We'll try to use a simple approach: if python3 is missing, 
@@ -28,4 +28,4 @@ fi
 # 3. Launch the new Python installer
 echo "Launching Python-based installer..."
 export linux_type="micromamba"
-python3 new_scripts/install_linux.py "$@"
+python3 sandbox/python_scripts/install_linux.py "$@"
