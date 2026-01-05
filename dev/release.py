@@ -68,7 +68,7 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False, ve
         include_dirs.append(os.path.join("sandbox", "python_scripts"))
     
     # Files to be moved into docs/ inside the ZIP
-    docs_files = ["LICENSE.txt", "CHANGELOG.md"]
+    docs_files = ["LICENSE.txt"]
 
     # Help determine ignored files using .gitignore
     def ignore_patterns(path: str, names: List[str]) -> List[str]:

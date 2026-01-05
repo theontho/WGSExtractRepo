@@ -1,6 +1,9 @@
 ## Content of the Reference Library provided with WGS Extract v4 Installation
 
-You can relocate the library (this folder) with a setting inside the program.
+> If your reading this from github, this folder is populated with various downloaded data files when you install the program incase you are confused about missing files.
+
+You can relocate the library (this `reference` folder) with a setting inside the program.
+
 It is often helpful to move the folder and its content before setting a new
 location in the program.  The installer will also pick up on this relocated
 setting and act accordingly. The majority of space will be taken up by the
@@ -49,7 +52,7 @@ Copied into `Genomes/` on first use. Used by `Library` and `get_and_process_refg
 
 * `seed_genomes.csv`
 
-### `Genomes/`
+### `genomes/`
 Starts as an empty folder.  Filled by `Library.***` command and Ref Genome Library scripts in `scripts/`:
 
 * `process_refgenomes.sh` -- sript to index any available reference genomes (called by `get_and_process_refgenomes.sh`)
@@ -57,7 +60,7 @@ Starts as an empty folder.  Filled by `Library.***` command and Ref Genome Libra
 * `get_and_process_refgenome.sh` -- script to individually download and process each reference genome for use in the program. Called by the `Library.*` tool and the WGS Extract program itself.
 * `bwa-kit-gen-ref.sh`   -- modified (updated, corrected) script from `bwa-kit` to make 1K Genome project reference models (aka `hsxxxx`)
 
-### `Microarray/`
+### `microarray/`
 * All Variants file to create CombinedKit from BAM; one for each build and naming style
 * Microarray RAW file templates for headers and bodies to target generating microarray files
 * Ploidy definition file
