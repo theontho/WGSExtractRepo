@@ -19,7 +19,7 @@ def run_brew_install_test(test_name: str, is_new_installer: bool):
     ]
     
     launch_cmd = ["bash", "WGSExtract.command", "--auto"]
-    launch_marker_text = "This command script window shows what WGSExtract is doing"
+    launch_marker_text = "Starting WGS Extract"
 
     run_install_test(
         test_name=test_name,

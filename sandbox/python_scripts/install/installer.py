@@ -17,6 +17,13 @@ if OSTYPE == "linux":
 elif OSTYPE == "darwin":
     from core.macos import apple_cli_install, java_setup, macports_setup, bwa_setup, homebrew_setup
 
+def get_effective_src_dir(temp_extract: Path) -> Path:
+    """If temp_extract contains exactly one directory and no files, return that directory."""
+    items = list(temp_extract.iterdir())
+    if len(items) == 1 and items[0].is_dir():
+        return items[0]
+    return temp_extract
+
 def install_or_upgrade(package: str, verbose: bool = False):
     """Orchestrates install/upgrade for a specific WGSE package."""
     
@@ -131,11 +138,12 @@ def install_or_upgrade(package: str, verbose: bool = False):
     rmx(zip_file)
 
     # Now copy from temp_extract to final destination
-    # The zip content is in temp_extract.
+    # The zip content might be in a subfolder (like WGSExtractv4/)
+    eff_src = get_effective_src_dir(temp_extract)
     
     if package == "installer":
         # Handle release.json
-        new_release_json = temp_extract / "release.json"
+        new_release_json = eff_src / "release.json"
         if change_release_json(new_release_json):
              if (WGSE_FP / "release.json").exists():
                  mvx(WGSE_FP / "release.json", WGSE_FP / "release-saved.json")
@@ -143,13 +151,13 @@ def install_or_upgrade(package: str, verbose: bool = False):
         else:
              rmx(new_release_json)
              
-        if (temp_extract / "release-override.json").exists():
+        if (eff_src / "release-override.json").exists():
              if (WGSE_FP / "release.json").exists():
                  mvx(WGSE_FP / "release.json", WGSE_FP / "release-overridden.json")
-             mvx(temp_extract / "release-override.json", WGSE_FP / "release.json")
+             mvx(eff_src / "release-override.json", WGSE_FP / "release.json")
         
         # Copy content
-        cprx(temp_extract, WGSE_FP)
+        cprx(eff_src, WGSE_FP)
         rmrx(temp_extract)
         
         echo_tee("... Restarting installer ...")
@@ -159,11 +167,11 @@ def install_or_upgrade(package: str, verbose: bool = False):
         os.execv(sys.executable, [sys.executable] + sys.argv)
         
     elif package == "program":
-        cprx(temp_extract, WGSE_FP)
+        cprx(eff_src, WGSE_FP)
         
     elif package == "reflib":
         # Copy reference/* to reflibdir
-        src_ref = temp_extract / "reference"
+        src_ref = eff_src / "reference"
         if src_ref.exists():
             cprx(src_ref, reflibdir)
         # Handle 00README
@@ -172,10 +180,11 @@ def install_or_upgrade(package: str, verbose: bool = False):
             mvx(base_readme, reflibdir / "genomes")
             
     elif package == "tools":
-        cprx(temp_extract, WGSE_FP)
+        cprx(eff_src, WGSE_FP)
         # chmod FastQC
         if (WGSE_FP / "FastQC" / "fastqc").exists():
              (WGSE_FP / "FastQC" / "fastqc").chmod(0o755)
+
 
     rmrx(temp_extract)
     echo_tee(f"... finished installing {longname} v{latest_ver}.")
