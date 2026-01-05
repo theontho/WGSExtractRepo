@@ -24,7 +24,7 @@ python3 scripts/install_test/vm_test.py --platform ubuntu
 ### Options
 
 - `--platform {ubuntu,fedora,macos,all}`: Specify which OS to test.
-- `--no-release`: Skip generating new release zips (uses existing ones in `build/`).
+- `--no-release`: Skip generating new release zips (uses existing ones in `out/installer_builds/`).
 - `--setup-only`: Only ensure Tart is installed and pull base images.
 
 ## Script Details

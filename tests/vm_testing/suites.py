@@ -309,7 +309,7 @@ def run_dev_scripts_test(platform):
         image = "wsl-image"
 
     # Prepare Repo Zip
-    zip_path = REPO_ROOT / "download_tmp" / "repo_test.zip"
+    zip_path = REPO_ROOT / "out" / "download_cache" / "repo_test.zip"
     zip_path.parent.mkdir(exist_ok=True)
     create_repo_zip(zip_path)
 

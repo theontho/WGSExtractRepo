@@ -9,7 +9,7 @@ from .core import IMAGES, REPO_ROOT
 class WSLImageManager:
     """Manages downloading and caching of rootfs tarballs for WSL."""
     
-    DOWNLOAD_DIR = REPO_ROOT / "download_tmp"
+    DOWNLOAD_DIR = REPO_ROOT / "out" / "download_cache"
     
     # URL mapping for rootfs tarballs
     # Ubuntu: Cloud images from cloud-images.ubuntu.com

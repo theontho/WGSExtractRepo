@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -147,10 +146,8 @@ cython_debug/
 
 # temporary / os / dev files
 .DS_Store
-tmp/
+out/
 temp/
-download_tmp/
-local_release/
 /release-override.json
 /devsettings.toml
 

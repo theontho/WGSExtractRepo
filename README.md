@@ -17,7 +17,7 @@ You might need to install python and uv in your local environment before this wo
 * Run `dev.py release-cache` to create a local release override cache so you don't have to redownload packages from the internet repeatedly during testing & development.
 * Edit - build - run: launch with `dev.py launch` (or `WGSExtract.*`), edit in your text editor, quit and launch again, etc.
 * Library updating: run `dev.py library` (or `Library.*`)
-* Build Release Installers: run `dev.py release` , see output zip files in the `build/` folder.  Use `release --release-override` or `release -ro` to use your local cache for the installer, makes things much faster for testing.  Users would download those zips and run the `Install*` scripts they see in the root.
+* Build Release Installers: run `dev.py release` , see output zip files in the `out/installer_builds/` folder.  Use `release --release-override` or `release -ro` to use your local cache for the installer, makes things much faster for testing.  Users would download those zips and run the `Install*` scripts they see in the root.
 * Installer Status
     * Test flow: install and download a genome (bash testing), MT Haplogroup (java testing), make a microarray file
     * Windows: Manually tested on a windows 11 machine to work
@@ -25,6 +25,7 @@ You might need to install python and uv in your local environment before this wo
     * MacOS MacPorts: Manually tested on a UTM vm macOS 26.2
     * Ubuntu Linux: Manually tested on a UTM arm64 vm and x86 WSL to work
     * Micromamba Linux: Tested with archlinux and openSUSE tumbleweed WSL.  Needed to install system packages for python & tk manually to get the app to launch, but the installer said it was successful. 
+
 
 ## Testing
 
@@ -39,11 +40,10 @@ Note: Ensure you have `uv` installed and have run `dev.py init` first.
 
 > ⚠️ **Currently a non  functional / buggy WIP**
 
-The `tests/vm_test.py` script allows you to test the installer in clean VM environments (Ubuntu, Fedora, macOS).
-
-**Prerequisites:**
-* MacOS: Requires `tart` (installed automatically via brew if missing).
-* Windows: Requires WSL2.
+Install & Launch Tests: Making install and launch tests that run natively on their platforms (ex an install and launch test for windows running on windows) is not too hard to make, but when you add running a vm to test other platforms running it from a host, there are many complications that add a lot of extra work.  If you manually test with the VM, it tends to work.
+    * Windows Native Test:  Works
+    * Macos brew test: works
+    * WSL linux (linux & ubuntu): kindof works
 
 ## Links
 

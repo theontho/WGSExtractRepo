@@ -22,9 +22,9 @@ def run_install_test(
     manual_kill: bool = False
 ):
     repo_root = Path(__file__).resolve().parent.parent
-    build_dir = repo_root / "build"
+    build_dir = repo_root / "out" / "installer_builds"
     test_dir_name = f"tmp_test_install_{test_name}"
-    test_dir = repo_root / "tmp" / test_dir_name
+    test_dir = repo_root / "out" / "tmp" / test_dir_name
     
     print(f"[*] Repo root: {repo_root}")
     print(f"[*] Test name: {test_name}")

@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, Union
 # Paths relative to the repository root
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 RELEASE_JSON_PATH = REPO_ROOT / "release.json"
-LOCAL_RELEASE_DIR = REPO_ROOT / "local_release"
+LOCAL_RELEASE_DIR = REPO_ROOT / "out" / "download_cache"
 OUTPUT_JSON_PATH = REPO_ROOT / "release-override.json"
 
 
@@ -38,7 +38,7 @@ def setup_local_release() -> None:
     with open(RELEASE_JSON_PATH, "r") as f:
         config = json.load(f)
 
-    # Ensure local_release directory exists
+    # Ensure download_cache directory exists
     LOCAL_RELEASE_DIR.mkdir(exist_ok=True)
 
     track = config.get("release", {}).get("track", "Dev")
@@ -76,7 +76,7 @@ def setup_local_release() -> None:
             if not local_path.exists():
                 download_file(url, local_path)
             else:
-                print(f"File {filename} already exists in local_release/")
+                print(f"File {filename} already exists in out/download_cache/")
             
             # Update the URL to a local file:// path
             new_config[key]["URL"] = f"file://{local_path.absolute()}"

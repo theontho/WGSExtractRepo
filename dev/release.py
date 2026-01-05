@@ -25,7 +25,7 @@ import argparse
 
 def create_release(use_override: bool = False, use_new_scripts: bool = False, verbose: bool = False) -> None:
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    build_dir = os.path.join(repo_root, "build")
+    build_dir = os.path.join(repo_root, "out", "installer_builds")
     
     if use_override:
         manifest_path = os.path.join(repo_root, "release-override.json")
@@ -92,7 +92,7 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False, ve
             if name.startswith('.') and name != ".": # . is not a name usually
                  pass # check specifically for .git, .DS_Store etc
             
-            if name in ["download_tmp", "build", "__pycache__", ".git", ".DS_Store", ".venv", "venv", ".idea", ".vscode"]:
+            if name in ["out", "__pycache__", ".git", ".DS_Store", ".venv", "venv", ".idea", ".vscode"]:
                 ignored.append(name)
                 continue
             
@@ -237,7 +237,7 @@ def create_release(use_override: bool = False, use_new_scripts: bool = False, ve
         print(f"Created {zip_name}")
         shutil.rmtree(temp_dir)
 
-    print("All releases created in build/ directory.")
+    print("All releases created in out/installer_builds/ directory.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create WGSExtract release packages.")

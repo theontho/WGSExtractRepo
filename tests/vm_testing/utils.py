@@ -81,7 +81,7 @@ def create_repo_zip(output_path):
     
     print(f"[*] Packaging repository to {output_path}...")
     
-    ignored_dirs = {'.git', 'build', 'tmp', 'download_tmp', '.venv', '__pycache__', 'disk_images', 'tests/vm_testing/__pycache__'}
+    ignored_dirs = {'.git', 'out', '.venv', '__pycache__', 'disk_images', 'tests/vm_testing/__pycache__'}
     ignored_files = {'.DS_Store'}
     
     with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
