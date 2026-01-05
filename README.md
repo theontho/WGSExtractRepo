@@ -16,6 +16,7 @@ You might need to install python and uv in your local environment before this wo
     * Linux: Not tested yet, maybe works? 
 * Run `dev.py release-cache` to create a local release override cache so you don't have to redownload packages from the internet repeatedly during testing & development.
 * Edit - build - run: launch with `dev.py launch` (or `WGSExtract.*`), edit in your text editor, quit and launch again, etc.
+* Run unit tests: `uv run pytest`
 * Library updating: run `dev.py library` (or `Library.*`)
 * Build Release Installers: run `dev.py release` , see output zip files in the `out/installer_builds/` folder.  Use `release --release-override` or `release -ro` to use your local cache for the installer, makes things much faster for testing.  Users would download those zips and run the `Install*` scripts they see in the root.
 * Installer Status
@@ -24,26 +25,30 @@ You might need to install python and uv in your local environment before this wo
     * MacOS Brew: Manually tested on an apple silicon mac with homebrew
     * MacOS MacPorts: Manually tested on a UTM vm macOS 26.2
     * Ubuntu Linux: Manually tested on a UTM arm64 vm and x86 WSL to work
-    * Micromamba Linux: Tested with archlinux and openSUSE tumbleweed WSL.  Needed to install system packages for python & tk manually to get the app to launch, but the installer said it was successful. 
+    * Micromamba Linux: Tested with archlinux and openSUSE tumbleweed WSL.  Needed to install system packages for python & tk manually to get the app to launch, but the installer said it was successful.  We got a WSL test vm working with this, so it might work with the next manual test. 
 
 
-## Testing
+## Repository Structure
 
-### Unit Tests
-We use `pytest` for unit testing. To run the tests, use:
-```bash
-uv run pytest
-```
-Note: Ensure you have `uv` installed and have run `dev.py init` first.
+### Git Tracked
+- `installer_scripts/`: Platform-specific scripts used during the (un)installation process.
+- `scripts/`: The bash scripts side of `program/`.
+- `program/`: Core Python source code for the WGSExtract application and GUI.
+- `base_reference/` -> becomes `reference/`, since `program/` expects that the `reference/` folder also exists but we want to `.gitignore` it because it has downloaded data we don't want to commit to git.
+- ⁠`dev/` -> handles all the non-user things like making release builds, dev init, dev util scripts, etc.  `dev.py` is the interface for that and it has a help with `./dev.py -h`
+- ⁠`docs/` - centralizes the docs into one spot for the most part.  We also converted to markdown in a semi automated way but also is txt friendly.
+- `sandbox/`: Experimental code and temporary development work you can ignore.
+- `tests/`: Where unit tests live
 
-### VM Installation Tests
+### Git Ignored
+- `out/`: Default output directory for build artifacts, download caches, tmp dirs for tests, etc.  Basically the output dir of dev actions.
+- `reference/`: Where downloaded genomes for the `program/` and such live.
+- `temp/`: Temporary files generated during execution of `program/` or `scripts/`.
 
-> ⚠️ **Currently a non  functional / buggy WIP**
-
-Install & Launch Tests: Making install and launch tests that run natively on their platforms (ex an install and launch test for windows running on windows) is not too hard to make, but when you add running a vm to test other platforms running it from a host, there are many complications that add a lot of extra work.  If you manually test with the VM, it tends to work.
-    * Windows Native Test:  Works
-    * Macos brew test: works
-    * WSL linux (linux & ubuntu): kindof works
+### Installed Standalone Packages
+- `FastQC/`: The FastQC quality control tool for sequence data.
+- `jartools/`: Java utility tools (JAR files) like GATK, Picard, and HaploGrep.
+- `yleaf/`: Integration with the Y-Leaf tool for Y-chromosome analysis.
 
 ## Links
 
