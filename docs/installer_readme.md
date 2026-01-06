@@ -4,12 +4,13 @@ There is more detailed information in the user manual available at [https://WGSE
 
 Click on the appropriate installer script for your computer:
 
-| Platform                | Installer Script        |
-| ----------------------- | ----------------------- |
-| Microsoft Win10/11      | `Install_windows.bat`   |
-| Apple MacOS X/11/12     | `Install_macos.command` |
-| Ubuntu Linux (18/20/22) | `Install_ubuntu.sh`     |
-| Generic Linux           | `Install_linux.sh`      |
+| Platform                                               | Installer Script             |
+| ------------------------------------------------------ | ---------------------------- |
+| Microsoft Win10/11                                     | `Install_windows.bat`        |
+| Apple MacOS X/11/12                                    | `Install_macos.command`      |
+| Apple MacOS 26 (Beta Homebrew Installer, Much Faster!) | `Install_macos_brew.command` |
+| Ubuntu Linux (18/20/22)                                | `Install_ubuntu.sh`          |
+| Generic Linux                                          | `Install_linux.sh`           |
 
 Right-Click (Windows) or CTRL-Click (MacOS) the first time to go though their approval process for your OS. After that, you can simply click the script file directly to start. Some OS's have this extra level of protection applied to applications not sourced through their app store.
 
@@ -32,7 +33,7 @@ Once installed successfully, start the WGS Extract program by clicking on the St
 | Platform             | Start Script         |
 | -------------------- | -------------------- |
 | Microsoft Win10/11   | `WGSExtract.bat`     |
-| Apple MacOS X/11/12  | `WGSExtract.command` |
+| Apple MacOS X/26     | `WGSExtract.command` |
 | Linux (& Ubuntu LTS) | `WGSExtract.sh`      |
 
 Make an alias / shortcut of the Start script file and put it wherever convenient (desktop, Application folder, Start menu, etc). You cannot copy it as the script location indicates where the installation is. How you make an alias / shortcut is different for each OS. Search the internet or see the Installation chapter in the WGS Extract Users Manual for more details: [https://WGSE.bio/](https://WGSE.bio/)

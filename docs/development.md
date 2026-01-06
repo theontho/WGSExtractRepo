@@ -40,11 +40,9 @@ I wanted to improve the app, so I'm proposing a new development situation.
 - create an automated release script that will create an end user installer script package for each platform.  
     - Each installer package will also include the necessary contents of the git repo.
     - Only reference the  `release_manifest.json` for where to get the `reflib`, `tools` & `bioinfo`, etc packages.
-    - output the installer packages into the `build/` directory.
+    - output the installer packages into the `out/installer_builds` directory.
 - make an `dev-init.sh` script that will download what is needed from `release_manifest.json` to enable full development of the app based on the platform of the user so that they don't need to install the app.
 - modernize to use uv / pyproject.toml
-
-### What will happen next (don't do now, i will tell you to do it later)
 - Use the release scripts to make a github action that publishes the packages to the releases page of the github repo.
     - also make a tag for new verisions
     - have a "package.json" for release versioning for the release page

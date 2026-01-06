@@ -1,3 +1,6 @@
+# This aims to be the source of truth for packages to install in an macOS environment 
+# install for dev.py and installers, so we don't have a list in a script somewhere.
+
 tap "homebrew/bundle"
 tap "brewsci/bio"
 

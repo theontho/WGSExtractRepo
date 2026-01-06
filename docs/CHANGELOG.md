@@ -9,7 +9,7 @@ v3 Alpha was first released Jun 2020, V2 from Dec 2019-Feb 2020, and v1 was firs
 
 # Version 4 release:
 
-## **01 Jan 2025** (4.45)
+## **01 Jan 2025** (44.12)
 * Should be functionally identical to 4.44
 * Mostly a dev release to move the latest program into a git repo and have a more streamlined release process so multiple developers can collaborate.  Lots of refactoring around that has been done.  Go see the git repo for more info if you are interested.
 * There is no more concepts of a separate Installer & Program version or packages, just one version now.  Installer zips come with the program & installer packages built in.
