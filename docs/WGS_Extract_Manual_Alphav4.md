@@ -364,13 +364,10 @@ Poz labeled buttons use a special defined BED region on the Y. This region is la
 
 This button will take your current BAM and realign it to the companion "build" reference genome model of the same class.  So Build 37 to Build 38.  Or Build 38 to Build 37.  If you recall, microarray files and most health sites are best generated from a Build 37 BAM file.  Y haplogroup and advanced medical analysis is best from Build 38. So this lets you generate the other BAM file based on the model you do not have.
 
-| Build
-Class  | Build 37 | Build 38 |
-|---|---|---|
+| &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Build <br> Class&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  | Build 37 | Build 38 |
+| :--- | --- | --- |
 | UCSC / HG | hg19 * / hg37 | hg38 |
-| 1K Genome | hs37d5human_g1k_v37 | hs38   
-(aka GCA_*GRCh38_no_*set)hs38DH *
-(aka GRCh38_full_analysis_set_...) |
+| 1K Genome | hs37d5<br>human_g1k_v37 | hs38<br>(aka GCA_*GRCh38_no_*set)<br>hs38DH *<br>(aka GRCh38_full_analysis_set_...) |
 | EBI / GRCh | Homo_sapiens.GRCh37 | Homo_sapiens.GRCh38 |
 
 **Figure 1.10: Companion Reference Models**
@@ -412,15 +409,30 @@ As to which option(s) you select, well, that is a longer discussion and [given i
 
 Not all vendors can read all the file formats from all the companies.  You have to experiment to see what works.  We have a table below to show you what works and how well.
 
-| Test File to Create → | Combined | 23andMe |  |  |  | Ancestry |  | FamilyTreeDNA |  | LivingDNA |  | My Heritage |  | Nat Geo Geno(TBD) |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ImportSite↓ | vE | v3 | v4 | v5 | vE | v1 | v2 | v2 | v3 | v1 | v2 | v1 | v2 | 2+ |
-| FTDNA | 🆇 | ✅ | ☑ | ✅ |  | ☑ | ☑ | 🆇 | 🆇 | 🆇 | 🆇 | ☑1 | ☑1 | 🆇:2 |
-| LivingD | 🆇 | ✅ |  | ✅ |  |  |  |  |  | 🆇 | 🆇 |  |  | 🆇:2 |
-| MyHerit | 🆇 | ✅ |  | ✅ |  |  |  |  |  |  |  | 🆇 | 🆇 | 🆇:2 |
-| GEDMat | ✅ | ✅ |  | ✅ |  |  |  |  |  |  |  |  |  | 🆇:2 |
-| Genea |  |  |  |  |  |  |  |  |  |  |  |  |  | 🆇:2 |
-
+<table>
+  <thead>
+    <tr>
+      <th> Test File to Create → </th>
+      <th> Combined </th>
+      <th colspan="4"> 23andMe </th>
+      <th colspan="2"> Ancestry </th>
+      <th colspan="2"> Family TreeDNA </th>
+      <th colspan="2"> Living DNA </th>
+      <th colspan="2"> My Heritage </th>
+      <th> Nat Geo Geno (TBD) </th>
+    </tr>
+    <tr>
+      <td>Import Site↓ </td><td> vE </td><td> v3 </td><td> v4 </td><td> v5 </td><td> vE </td><td> v1 </td><td> v2 </td><td> v2 </td><td> v3 </td><td> v1 </td><td> v2 </td><td> v1 </td><td> v2 </td><td> 2+ </td>
+    </tr>
+  </thead>
+  <tbody>
+   <tr><td> FTDNA </td><td> 🆇 </td><td> ✅ </td><td> ☑ </td><td> ✅ </td><td>  </td><td> ☑ </td><td> ☑ </td><td> 🆇 </td><td> 🆇 </td><td> 🆇 </td><td> 🆇 </td><td> ☑1 </td><td> ☑1 </td><td> 🆇:2 </td></tr>
+   <tr><td> LivingD </td><td> 🆇 </td><td> ✅ </td><td>  </td><td> ✅ </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td> 🆇 </td><td> 🆇 </td><td>  </td><td>  </td><td> 🆇:2 </td></tr>
+   <tr><td> MyHerit </td><td> 🆇 </td><td> ✅ </td><td>  </td><td> ✅ </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td> 🆇 </td><td> 🆇 </td><td> 🆇:2 </td></tr>
+   <tr><td> GEDMat </td><td> ✅ </td><td> ✅ </td><td>  </td><td> ✅ </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td> 🆇:2 </td></tr>
+   <tr><td> Genea </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td>  </td><td> 🆇:2 </td></tr>
+  </tbody>
+</table>
 ✅: Recommended, Supported, ☑ Supported, 🆇:Claimed no support,  🆇: NOT Supported^ ^
 
 **Figure 1.13: Microarray File Compatibility for Different Import Sites**
@@ -457,8 +469,7 @@ The next Frame is covering Mitochondrial DNA.
 
 The main function here is to create a mitochondrial FASTA file from the aligned BAM content. This file is simply a single segment of the whole 16K+ base-pairs found in the mtDNA. The FASTA file can be imported to many other mtDNA sites and is the more universal, complete way to specify the mitochondrial sequencing results; although still dependent on an underlying genome reference model.  FASTA-style formats are common for Final Assembly genome reference models.
 
-* \
-*Sites that accept the mitochondrial FASTA file are:
+Sites that accept the mitochondrial FASTA file are:
 
 - James Lick’s [mtDNA Haplogroup Analysis](https://dna.jameslick.com/mthap/) \
 (looking for no mismatches, most matches, and least extras)
@@ -964,25 +975,13 @@ This particular one was a bit easy.  SNPs with aliases were listed in both sites
 So we see SNPs can have aliases (or equivalent names).  And that different trees will have different haplogroups / branch points in different places based on data they have.  But there are even cases where the trees have unique SNP names not found in the other.  Either because it has not been determined an equivalent name exists (so they are cross listed on both trees) or they are too new and not divulged yet.  Add to this that the different trees have access to different samples and data; thus allowing them to infer different branching. And they are changing daily.  Well, you can begin to see why it is a wild and wacky world in the phylogenetic tree community.  It is not that anyone is necessarily more wrong or right. Just different due to their myopic views and procedures to create and maintain their tree.
 
 For other Y Phylogenetic Trees of Haplogroups (and their SNP lists to search), see:
-
-| ISOGG Tree
-(https://isogg.org/tree/) | Search ISOGG for SNP
-(https://isogg.org/tree/ISOGG_YDNA_SNP_Index.html) |
-|---|---|
-| yFull
-(https://yFull.com/tree) | Search yFull for SNP
-(https://yfull.com/search-snp-in-tree/) |
-| FamilyTreeDNA
-(https://familytreedna.com/public/y-dna-haplotree/)BigY Blocktree (requires their BigY test to see their BigY Block tree) | Search FTDNA for SNP
-(https://familytreedna.com/public/y-dna-haplotree/)
-Note: Change from "View by Country" to "View by Variants" once on the page and then do a browser search for the SNP name |
-| yTree BigTree (https://ytree.net/)(only R1b-P312 and below) | Search yTree for SNP
-(https://www.ytree.net/SNPIndex.php)
- |
-| Haplogroup-R
-(http://haplogroup-r.org/tree/R.html)(currently, only R and below but expected to expand to a full tree) | Search Rtree for SNP
-(https://haplogroup-r.org/variants.html)
- |
+| Tree | SNP Search |
+| --- | --- |
+| [ISOGG Tree](https://isogg.org/tree/) | [Search ISOGG for SNP](https://isogg.org/tree/ISOGG_YDNA_SNP_Index.html) |
+| [yFull](https://yFull.com/tree) | [Search yFull for SNP](https://yfull.com/search-snp-in-tree/) |
+| [FamilyTreeDNA](https://familytreedna.com/public/y-dna-haplotree/)<br>BigY Blocktree (requires their BigY test to see their BigY Block tree) | [Search FTDNA for SNP](https://familytreedna.com/public/y-dna-haplotree/)<br>Note: Change from "View by Country" to "View by Variants" once on the page and then do a browser search for the SNP name |
+| [yTree BigTree](https://ytree.net/)<br>(only R1b-P312 and below) | [Search yTree for SNP](https://www.ytree.net/SNPIndex.php) |
+| [Haplogroup-R](http://haplogroup-r.org/tree/R.html)<br>(currently, only R and below but expected to expand to a full tree) | [Search Rtree for SNP](https://haplogroup-r.org/variants.html) |
 
 **Figure 4.8: Y Phylogenetic Trees**
 
@@ -1018,10 +1017,9 @@ James Lick[ mtdna Haplogroup analysis site](https://dna.jameslick.com/mthap/)
 Here is a rough summary table of the models:
 
 | Model | Year Introduced | Length (in base-pairs) | Reference Sequence | Models Used | Notes |
-|---|---|---|---|---|---|
-| rCRS / CRS | 1999 / 1981 | 16,569 | H2a2a1 | GRCh38, HG38,
-(hs37d5) | 3107N in rCRS |
-| Yoruba |  | 16,571 | L3e2b1a1(African Yoruba) | GRCh36, HG18, HG19 | In Yoruba, 310, 317 and 16961 are insertions compared to rCRS. 3107 from rCRS (a deletion and N value) does not exist. |
+| --- | --- | --- | --- | --- | --- |
+| rCRS / CRS | 1999 / 1981 | 16,569 | H2a2a1 | GRCh38, HG38,<br>(hs37d5) | 3107N in rCRS |
+| Yoruba |  | 16,571 | L3e2b1a1<br>(African Yoruba) | GRCh36, HG18, HG19 | In Yoruba, 310, 317 and 16961 are insertions compared to rCRS. 3107 from rCRS (a deletion and N value) does not exist. |
 | RSRS | 2012 | 16,569 | mito Eve (root) | none | 523N, 524N and 3107N |
 
 **Figure 4.9: Mitochondrial Reference Models**
@@ -1164,17 +1162,13 @@ You can get an estimate of your expected time from the periodic messages from BW
 
 A large job before you even start may be to index the human genome reference file you will use for the alignment process.  A human genome reference is about 1 gigabyte in size.  Its indices needed for the aligner are another 5.5 GB and take over an hour to create.  The files created and their approximate size are shown below (example for the hs37d5 reference):
 
-<span style="text - decoration: underline;">Index File Name	Size (MB)</span>
-
-hs37d5.fa.gz.bwt	       3,138
-
-hs37d5.fa.gz.sa	       1,570
-
-hs37d5.fa.gz.pac	          784
-
-hs37d5.fa.gz.amb	              0
-
-hs37d5.fa.gz.ann	              0
+| Index File Name	| Size (MB) |
+| :--- | ---: |
+| hs37d5.fa.gz.bwt	| 3,138 |
+| hs37d5.fa.gz.sa  | 1,570 |
+| hs37d5.fa.gz.pac	|   784 |
+| hs37d5.fa.gz.amb	|     0 |
+| hs37d5.fa.gz.ann	|     0 |
 
 **Figure 5.3: Reference Genome Indices for Alignment**
 
@@ -1296,12 +1290,10 @@ This expansion of information on the reference genome types is to help explain t
 
 We start by giving a chart of how reference models are automatically selected by the Realign button. Table 6.1 below is a rough summary.
 
-| Build
-Class | Build 37 | Build 38 |
-|---|---|---|
+| &nbsp;&nbsp;&nbsp;&nbsp;Build<br>Class&nbsp;&nbsp; | Build 37 | Build 38 |
+| --- | --- | --- |
 | UCSC / HG | hg19 *,  hg37 | hg38 |
-| 1K Genome | hs37d5, 
-human_v37_g1k, hs37 | hs38,hs38a, hs38d1, hs38d1a, hs38DH |
+| 1K Genome | hs37d5,<br>human_v37_g1k, hs37 | hs38,<br>hs38a, hs38d1, hs38d1a, hs38DH |
 | EBI / GRCh | Homo_sapiens.GRCh37... | Homo_sapiens.GRCh38... |
 
 **Figure 6.1: Mated Reference Model Classifications**
@@ -1330,13 +1322,11 @@ All 1K Genome models are generated by the <span style="text - decoration: underl
 
 The recommended reference genome models in the WGSE v4 Reference Library are as follows:
 
-| File Name | Class | Num of SN’s | Notes |
-|---|---|---|---|
+| File Name | Class | Num of<br>SN’s | Notes |
+| --- | --- | --- | --- |
 | hs37d5.fa.gz | 1k37g | 86 | 1K Genome project model for Build 37 (with EBV) |
-| hs38.fa.gz | 1k38h  | 195
- | 1K Genome project model for Build 38 (aka GCA_000001405.15_GRCh38_no_alt_analysis_set) |
-| chm13_v2.0.fna.gz
- | T2Tv20h | 25 | A unique, experimental model from the Telomere to Telomere consortium (New) |
+| hs38.fa.gz | 1k38h  | 195 | 1K Genome project model for Build 38 (aka GCA_000001405.15_GRCh38_no_alt_analysis_set) |
+| chm13_v2.0.fna.gz | T2Tv20h | 25 | A unique, experimental model from the Telomere to Telomere consortium (New) |
 
 **Figure 6.2: Details on Recommended Reference Genome Models**
 
@@ -1835,32 +1825,28 @@ Python occasionally core dumps due to a MacOS library incompatibility inside tki
 See the folder `open_source_libraries` in the **WGS Extract** release home location.
 
 | Tool | Author / Institution | Where Used | Notes |
-|---|---|---|---|
-| Samtools, BCFTools, htsLib | Sanger Institute (Cambridge, et al) (original)License | Throughout (pretty much every function) | Installed with package managers at install time for MacOS and Linux. Custom CygWin port for Win10 release  |
+| --- | --- | --- | --- |
+| Samtools, BCFTools, htsLib | Sanger Institute (Cambridge, et al) (original) License | Throughout (pretty much every function) | Installed with package managers at install time for MacOS and Linux. Custom CygWin port for Win10 release  |
 | BWA MEM, BWAMEM2  |  | Re-alignment | Installed with package managers; Custom CygWin port. |
-| Extract23 v0.0(inspired code in WGSExtract) | Thomas Khran, ySeq.net | Autosomal File Generator | Inspired by; not just the single 23andMe v3 output |
-| Haplogrep2 .xx(distributed with WGSExtract) | Medical University of Innsbruck; 
-Institute of Genetic Epidemiology | Mitochondrial 
-haplogroup determination | JAR file redistributable |
-| yLeaf v2.x(distributed with WGSExtract) |  | Y haplogroup determination | Python scripts modified to relax standards so dives deeper into the tree; moderate cleanup |
-| Picard, GATK3 exec / docs, Picard, GATK4, IGV(not currently used) | Broad Institute (MIT, Harvard) | TBD | JAR file redistribute. (note: future release, not currently used) |
-| Python3,CygWin64,MinGW64 | VariousPython LicenseCygWin64 License | Everywhere (Win10 compiled versions of Unix utilities and libraries to support Win10 compiled bioinformatic tools) | Win10 release only (for Cygwin64) |
-| PyLiftover(installed via Pip; Python module) | Konstantin Tretyakov | Autosomal extraction | Python library. To convert coordinates of extracted SNPs from GRCh38 to 37; when needed. Py library pulled in at install with Pip. |
+| Extract23 v0.0 (inspired code in WGSExtract) | Thomas Khran, ySeq.net | Autosomal File Generator | Inspired by; not just the single 23andMe v3 output |
+| Haplogrep2 .xx (distributed with WGSExtract) | Medical University of Innsbruck; Institute of Genetic Epidemiology | Mitochondrial haplogroup determination | JAR file redistributable |
+| yLeaf v2.x (distributed with WGSExtract) |  | Y haplogroup determination | Python scripts modified to relax standards so dives deeper into the tree; moderate cleanup |
+| Picard, GATK3 exec / docs, Picard, GATK4, IGV (not currently used) | Broad Institute (MIT, Harvard) | TBD | JAR file redistribute (note: future release, not currently used) |
+| Python3, CygWin64, MinGW64 | Various Python License; CygWin64 License | Everywhere (Win10 compiled versions of Unix utilities and libraries to support Win10 compiled bioinformatic tools) | Win10 release only (for Cygwin64) |
+| PyLiftover (installed via Pip; Python module) | Konstantin Tretyakov | Autosomal extraction | Python library. To convert coordinates of extracted SNPs from GRCh38 to 37; when needed. Py library pulled in at install with Pip. |
 | WGS Extract Manual | Randy Harr | Documentation | Available with the tool under the same license arrangement |
 
 These are not incorporated into the tool but are more general inspirations or companion tools.
 
-| BAM Analysis Kit and others
-(note used by inspired by) | Felix Chandrashakar / Immanuel, y-str.org(or (re-port by Teepean) | Initial idea for Haplogroup caller inclusion; and general tool flow effort | Not directly incorporated; but many tool flows and features inspired by this very early work |
-|---|---|---|---|
-| DNA Kit Studio(note used but useful to use in conjunction) | Wilhelm H-O | Manipulating microarray RAW data files (of autosomal and X data, primarily) | Not incorporated but inspired by what it does for microarray result files |
+| Tool | Author / Institution | Where Used | Notes |
+| --- | --- | --- | --- |
+| BAM Analysis Kit and others (note: used by, inspired by) | Felix Chandrashakar / Immanuel, y-str.org (or (re-port by Teemu) | Initial idea for Haplogroup caller inclusion; and general tool flow effort | Not directly incorporated; but many tool flows and features inspired by this very early work |
+| DNA Kit Studio <br>(note used but useful to use in conjunction) | Wilhelm H-O | Manipulating microarray RAW data files (of autosomal and X data, primarily) | Not incorporated but inspired by what it does for microarray result files |
 
 As of this WGSExtract BetaV4 release, here are the tool versions you get with the various platforms:
 
-| Platform
-
-Tool | Win10/11 WGSE v3 | Win10/11 WGSE v4 | MacOS MacPorts 2.6.2WGSE v3 | MacOS MacPorts 2.7.2 WGSE v4 | LinuxUbuntu 18.04(drop) | LinuxUbuntu 20.04 | Linux Ubuntu 22.04 | Latest Avail-able |
-|---|---|---|---|---|---|---|---|---|
+| Platform<br>Tool | Win 10/11 <br> WGSE v3 | Win 10/11 <br> WGSE v4 | MacOS MacPorts 2.6.2 <br> WGSE v3 | MacOS MacPorts 2.7.2 <br>WGSE v4 | Linux Ubuntu 18.04 (drop) | Linux Ubuntu 20.04 | Linux Ubuntu 22.04 | Latest Available |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | SAMTools | 1.12 | 1.15 | 1.10 | 1.15.1 | 1.7 | 1.10 | 1.13 | 1.15 |
 | BCFTools | 1.12 | 1.15 | 1.10-2 | 1.15.1 | 1.7 | 1.10 | 1.13 | 1.15 |
 | htslib | 1.12 | 1.15 | 1.10-2 | 1.15.1 | 1.7.2 | 1.10-3 | 1.13 | 1.15 |
