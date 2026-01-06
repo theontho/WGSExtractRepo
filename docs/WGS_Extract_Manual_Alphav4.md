@@ -125,8 +125,9 @@ The first thing to note about this main window is that there are Tabs across the
 
 The banner across the top is always visible in the main window.  Included there is a link to this manual.  As well as an indication of the program version you are running. The **Exit** button is there for convenience.  When a BAM / CRAM file is selected, the file name will appear in the banner so you are always reminded of what you selected when in the other tabs.
 
-![Enter image alt description](Images/nVv_Image_5.png)
-
+<div align="center">
+   <img src="Images/KOK_Image_3.png" width="30%" /><img src="Images/rt2_Image_4.png" width="30%" /><img src="Images/nVv_Image_5.png" width="30%" />
+</div>
 **Figure 1.3: Main Window with each of the three tabs shown**
 
 Above in **figure 1.3** is a capture of each tab in the main window before having entered any other settings. Most buttons are grayed out until key button selections are made. Within each Tab are named Frames. Each Frame has one or more buttons and possibly some informative fields.
