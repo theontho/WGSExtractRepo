@@ -982,10 +982,31 @@ def _adjust_mem_threads(file_size, file_type, sort_type):
     # Let user know how much free file space we need; giving them a chance to make it available or cancel out
     app = f'{sort_type} Sort'
     isize = file_size * cram_mult / 10**9               # Nominal size of final BAM (in GB)
-    tempsize = str(int(isize * name_mult + isize))      # Size of raw BAM from aligner + coord sorted BAM pre-final (GB)
-    outsize = str(int(isize))                           # Size of final BAM (assume BAM always for worst case) (GB)
+    tempsize_gb = int(isize * name_mult + isize)
+    outsize_gb = int(isize)
+    tempsize = str(tempsize_gb)      # Size of raw BAM from aligner + coord sorted BAM pre-final (GB)
+    outsize = str(outsize_gb)                           # Size of final BAM (assume BAM always for worst case) (GB)
+
+    # Check free space and provide an "extra large warning" if insufficient space detected
+    from utilities import get_free_space_gb
+    free_temp_gb = get_free_space_gb(wgse.tempf.oFP) if wgse.tempf else 0
+    free_out_gb = get_free_space_gb(wgse.outdir.oFP) if wgse.outdir and wgse.outdir.oFP else 0
+
+    extra_warning = ""
+    if (tempsize_gb > 0 and free_temp_gb < tempsize_gb) or (outsize_gb > 0 and free_out_gb < outsize_gb):
+        extra_warning = "\n\n*** EXTRA LARGE WARNING: Insufficient Disk Space Detected! ***\n"
+        if tempsize_gb > 0 and free_temp_gb < tempsize_gb:
+            extra_warning += f"\n- Temporary area ({wgse.tempf.oFP}) only has {free_temp_gb:.1f} GB available, but we estimate {tempsize_gb} GB is needed."
+        if outsize_gb > 0 and free_out_gb < outsize_gb:
+            extra_warning += f"\n- Output area ({wgse.outdir.oFP if wgse.outdir and wgse.outdir.oFP else 'N/A'}) only has {free_out_gb:.1f} GB available, but we estimate {outsize_gb} GB is needed."
+        extra_warning += "\n\nThis operation will likely consume more space than you have available. Are you sure you want to continue?"
+
     message = wgse.lang.i18n["infoFreeSpace"].replace(
         "{{APP}}", app).replace("{{SIZE}}", tempsize).replace("{{FINAL}}", outsize)
+
+    if extra_warning:
+        message += extra_warning
+
     if not wgse_message("okcancel", "infoFreeSpaceTitle", True, message):
         return "0M", 0
 

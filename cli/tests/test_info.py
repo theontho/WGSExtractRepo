@@ -11,6 +11,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../s
 from wgsextract_cli.main import main
 
 class TestInfoCommand(unittest.TestCase):
+    """
+    Unit testing for the 'info' metric calculation and rendering logic.
+    
+    Goal: Verify that the info command correctly parses genomic metadata (MD5, sorting, 
+    indexing) and accurately calculates/formats detailed metrics like read length, 
+    insert size, and sequencer type across different output formats (text and CSV).
+    """
 
     @patch('wgsextract_cli.commands.info.verify_dependencies')
     @patch('wgsextract_cli.commands.info.calculate_bam_md5')

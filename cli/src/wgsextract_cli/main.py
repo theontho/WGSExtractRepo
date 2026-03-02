@@ -22,15 +22,16 @@ from .commands import (
 def main():
     # Load environment variables from the cli project directory base
     # Find the 'cli' directory (two levels up from this file in src/wgsextract_cli/)
-    cli_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-    
-    env_local = os.path.join(cli_root, ".env.local")
-    env_std = os.path.join(cli_root, ".env")
-    
-    if os.path.exists(env_local):
-        load_dotenv(dotenv_path=env_local)
-    if os.path.exists(env_std):
-        load_dotenv(dotenv_path=env_std)
+    if os.environ.get("WGSE_SKIP_DOTENV") != "1":
+        cli_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        
+        env_local = os.path.join(cli_root, ".env.local")
+        env_std = os.path.join(cli_root, ".env")
+        
+        if os.path.exists(env_local):
+            load_dotenv(dotenv_path=env_local)
+        if os.path.exists(env_std):
+            load_dotenv(dotenv_path=env_std)
 
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     parser = argparse.ArgumentParser(

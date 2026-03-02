@@ -179,13 +179,17 @@ def resolve_reference(ref_path, md5_sig):
 
 def verify_paths_exist(paths_dict):
     """
-    Verify that multiple paths exist.
+    Verify that multiple paths exist and are files.
     paths_dict: { '--arg-name': 'path/to/file' }
     """
     for arg, path in paths_dict.items():
-        if path and not os.path.exists(path):
-            logging.error(f"Required file for {arg} not found: {path}")
-            return False
+        if path:
+            if not os.path.exists(path):
+                logging.error(f"Required file for {arg} not found: {path}")
+                return False
+            if os.path.isdir(path):
+                logging.error(f"Required file for {arg} is a directory: {path}")
+                return False
     return True
 
 def run_command(cmd_list, capture_output=False, check=True, **kwargs):

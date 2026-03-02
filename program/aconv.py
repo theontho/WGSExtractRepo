@@ -241,6 +241,10 @@ def convert_adna():
     template_body_oFN = f'{templates_oFP}body/{target_type_name}{target_type_suffix}'
     with open(template_body_oFN, "r") as f_template_body:
         for template_line in f_template_body:
+            template_line = template_line.strip()
+            if not template_line:
+                continue
+
             # Get template position
             get_template_elements(template_line)    # Side effect: sets global templ_chrom, templ_pos, templ_id
             
@@ -254,16 +258,10 @@ def convert_adna():
             result = chrom_variants.get(templ_pos)
             
             if result is not None:
-                # Write the original template line plus the result
-                template_no_newline = template_line.rstrip('\n\r')
-                output = f"{template_no_newline}\t{result}\n"
-                f_targetfile.write(output.encode())
+                write_line_output_file(result)
             else:
-                # Write the original template line plus default value
-                template_no_newline = template_line.rstrip('\n\r')
                 default_value = "00" if "Ancestry" in target_type_name_all else "--"
-                output = f"{template_no_newline}\t{default_value}\n"
-                f_targetfile.write(output.encode())
+                write_line_output_file(default_value)
 
     # Close files
     f_source_file_called.close()

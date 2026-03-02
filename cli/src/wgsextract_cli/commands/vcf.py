@@ -145,17 +145,22 @@ def cmd_indel(args):
 
 def cmd_annotate(args):
     verify_dependencies(["bcftools"])
+    if not args.input: return logging.error("--input is required.")
     
-    if not verify_paths_exist({'--ann-vcf': args.ann_vcf}): return
+    if not verify_paths_exist({'--input': args.input, '--ann-vcf': args.ann_vcf}): return
 
     outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     out_vcf = os.path.join(outdir, "annotated.vcf.gz")
     
     logging.info(f"Annotating {args.input} to {out_vcf}")
-    subprocess.run(["bcftools", "annotate", "-a", args.ann_vcf, "-c", args.cols, "-Oz", "-o", out_vcf, args.input], check=True)
+    try:
+        subprocess.run(["bcftools", "annotate", "-a", args.ann_vcf, "-c", args.cols, "-Oz", "-o", out_vcf, args.input], check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Annotation failed: {e}")
 
 def cmd_filter(args):
     verify_dependencies(["bcftools"])
+    if not args.input: return logging.error("--input is required.")
     
     if not verify_paths_exist({'--input': args.input}): return
 
@@ -163,10 +168,16 @@ def cmd_filter(args):
     out_vcf = os.path.join(outdir, "filtered.vcf.gz")
     
     logging.info(f"Filtering {args.input} to {out_vcf}")
-    subprocess.run(["bcftools", "filter", "-i", args.expr, "-Oz", "-o", out_vcf, args.input], check=True)
+    try:
+        subprocess.run(["bcftools", "filter", "-i", args.expr, "-Oz", "-o", out_vcf, args.input], check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Filtering failed: {e}")
 
 def cmd_qc(args):
     verify_dependencies(["bcftools"])
+    if not args.input:
+        logging.error("--input is required.")
+        return
     
     if not verify_paths_exist({'--input': args.input}): return
 
@@ -174,5 +185,8 @@ def cmd_qc(args):
     out_stats = os.path.join(outdir, "vcf_stats.txt")
     
     logging.info(f"Running bcftools stats on {args.input} to {out_stats}")
-    with open(out_stats, "w") as f:
-        subprocess.run(["bcftools", "stats", args.input], stdout=f, check=True)
+    try:
+        with open(out_stats, "w") as f:
+            subprocess.run(["bcftools", "stats", args.input], stdout=f, check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"VCF stats failed: {e}")

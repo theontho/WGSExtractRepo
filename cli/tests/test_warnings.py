@@ -10,6 +10,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../s
 from wgsextract_cli.core.warnings import print_warning, check_free_space, format_time, EXPECTED_TIME, MESSAGES, get_free_space_needed
 
 class TestWarnings(unittest.TestCase):
+    """
+    Verification of user communication and safety utilities.
+    
+    Goal: Ensure the correctness of time-estimation logic for long tasks, accurate 
+    formatting of wait times, and precise calculation of disk space requirements 
+    to prevent process failure due to insufficient storage.
+    """
 
     def test_format_time(self):
         self.assertEqual(format_time(30), "30 seconds")

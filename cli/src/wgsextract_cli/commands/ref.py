@@ -2,7 +2,7 @@ import os
 import subprocess
 import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference
+from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, verify_paths_exist
 
 def register(subparsers):
     parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
@@ -25,27 +25,35 @@ def cmd_identify(args):
         logging.error("--input is required.")
         return
     
+    if not verify_paths_exist({'--input': args.input}): return
+
     # Auto-resolve ref if a directory was provided
     resolved_ref = resolve_reference(args.ref, "")
         
     md5_sig = calculate_bam_md5(args.input, resolved_ref)
     logging.info(f"MD5 Signature for {args.input}: {md5_sig}")
-    # In a full implementation, match against genome DB
 
 def cmd_download(args):
     verify_dependencies(["wget"])
     logging.info(f"Downloading {args.url} to {args.out}")
-    subprocess.run(["wget", "-O", args.out, args.url], check=True)
+    try:
+        subprocess.run(["wget", "-O", args.out, args.url], check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Download failed: {e}")
 
 def cmd_index(args):
     verify_dependencies(["samtools"])
     if not args.ref:
         logging.error("--ref is required.")
         return
+    
+    if not verify_paths_exist({'--ref': args.ref}): return
         
     logging.info(f"Indexing {args.ref} with faidx")
-    subprocess.run(["samtools", "faidx", args.ref], check=True)
-    
-    out_dict = os.path.splitext(args.ref)[0] + ".dict"
-    logging.info(f"Creating dict {out_dict}")
-    subprocess.run(["samtools", "dict", args.ref, "-o", out_dict], check=True)
+    try:
+        subprocess.run(["samtools", "faidx", args.ref], check=True)
+        out_dict = os.path.splitext(args.ref)[0] + ".dict"
+        logging.info(f"Creating dict {out_dict}")
+        subprocess.run(["samtools", "dict", args.ref, "-o", out_dict], check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Indexing failed: {e}")

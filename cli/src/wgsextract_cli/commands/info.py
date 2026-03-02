@@ -24,8 +24,13 @@ def register(subparsers):
     parser.add_argument("--csv", action="store_true", help="Output the table as CSV instead of formatted text")
     
     info_subs = parser.add_subparsers(dest="info_cmd", required=False)
-    info_subs.add_parser("calculate-coverage", help="Calculate FULL breadth coverage using samtools depth (1-3 hours)")
-    info_subs.add_parser("coverage-sample", help="Estimate coverage using random sampling (under 10 seconds), it doesn't work properly")
+    calc_cov = info_subs.add_parser("calculate-coverage", help="Calculate FULL breadth coverage using samtools depth (1-3 hours)")
+    calc_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
+    calc_cov.set_defaults(func=run)
+
+    samp_cov = info_subs.add_parser("coverage-sample", help="Estimate coverage using random sampling (under 10 seconds)")
+    samp_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
+    samp_cov.set_defaults(func=run)
     
     parser.set_defaults(func=run)
 
@@ -185,7 +190,7 @@ def render_info(data):
     output_lines.append(f"{'File Stats':<28}{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs")
     return "\n".join(output_lines) + "\n"
 
-def run_full_coverage(input_p, ref_p, out_p):
+def run_full_coverage(input_p, ref_p, out_p, region=None):
     """Long-running full breadth coverage pipeline."""
     if os.path.exists(out_p) and os.path.getsize(out_p) > 120: return
     print(f"Calculating full coverage (1-3 hours)... saving to {out_p}")
@@ -197,18 +202,24 @@ def run_full_coverage(input_p, ref_p, out_p):
             opts = ["--reference", str(ref_p)]
             
     try:
-        cmd = ["samtools", "depth", "-aa"] + opts + [input_p]
+        region_args = ["-r", region] if region else []
+        cmd = ["samtools", "depth", "-aa"] + region_args + opts + [input_p]
         cmd = [x for x in cmd if x is not None]
         p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         p2 = subprocess.Popen(["awk", awk], stdin=p1.stdout, stdout=open(out_p, "w"))
         p1.stdout.close(); p2.communicate()
     except Exception as e: logging.error(f"Coverage failed: {e}")
 
-def run_sampled_coverage(input_p, ref_p, idx_stats, out_p):
+def run_sampled_coverage(input_p, ref_p, idx_stats, out_p, region=None):
     """Fast sampling-based coverage estimation."""
     import random
     print("Estimating coverage using random sampling..."); sample_results, total_b, covered_b = {}, 0, 0
-    chroms = [(s["name"], s["length"], s["name"].upper().replace("CHR", "").replace("MT", "M")) for s in idx_stats if s["length"] > 100_000 and (s["name"].upper().replace("CHR", "").isdigit() or s["name"].upper().replace("CHR", "") in ["X", "Y"])]
+    
+    if region:
+        chroms = [(s["name"], s["length"], s["name"].upper().replace("CHR", "").replace("MT", "M")) for s in idx_stats if s["name"] == region]
+    else:
+        chroms = [(s["name"], s["length"], s["name"].upper().replace("CHR", "").replace("MT", "M")) for s in idx_stats if s["length"] > 100_000 and (s["name"].upper().replace("CHR", "").isdigit() or s["name"].upper().replace("CHR", "") in ["X", "Y"])]
+    
     if not chroms: return
     
     opts = []
@@ -284,8 +295,9 @@ def run(args):
     
     cov_file, sample_file = os.path.join(outdir, f"{os.path.basename(args.input)}_bincvg.csv"), os.path.join(outdir, f"{os.path.basename(args.input)}_samplecvg.json")
     
-    if getattr(args, "info_cmd", None) == "calculate-coverage": run_full_coverage(args.input, resolved_ref, cov_file)
-    elif getattr(args, "info_cmd", None) == "coverage-sample": run_sampled_coverage(args.input, resolved_ref, idx_stats, sample_file)
+    region = getattr(args, "region", None)
+    if getattr(args, "info_cmd", None) == "calculate-coverage": run_full_coverage(args.input, resolved_ref, cov_file, region=region)
+    elif getattr(args, "info_cmd", None) == "coverage-sample": run_sampled_coverage(args.input, resolved_ref, idx_stats, sample_file, region=region)
 
     coverage_map = {}
     if os.path.exists(cov_file) and os.path.getsize(cov_file) > 120:

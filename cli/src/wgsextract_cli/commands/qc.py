@@ -57,18 +57,25 @@ def cmd_fastp(args):
     cmd.extend(["-h", html_out, "-j", json_out])
     
     logging.info(f"Running fastp QC to {html_out}")
-    run_command(cmd)
+    try:
+        run_command(cmd)
+    except Exception as e:
+        logging.error(f"fastp failed: {e}")
 
 def cmd_fastqc(args):
     verify_dependencies(["fastqc"])
-    outdir = get_base_args(args)
+    if not args.fastq: return logging.error("--fastq is required.")
     
     if not verify_paths_exist({'--fastq': args.fastq}): return
 
+    outdir = get_base_args(args)
     print_warning('ButtonFastqc')
 
     logging.info(f"Running FastQC on {args.fastq}")
-    run_command(["fastqc", "-o", outdir, args.fastq])
+    try:
+        run_command(["fastqc", "-o", outdir, args.fastq])
+    except Exception as e:
+        logging.error(f"FastQC failed: {e}")
 
 def cmd_cov_wgs(args):
     verify_dependencies(["samtools", "awk"])
@@ -97,11 +104,14 @@ def cmd_cov_wgs(args):
     """
     
     logging.info(f"Calculating WGS coverage to {out_csv}")
-    region_args = ["-r", args.region] if args.region else []
-    p1 = subprocess.Popen(["samtools", "depth", "-aa"] + region_args + [args.input], stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(["awk", awk_script], stdin=p1.stdout, stdout=open(out_csv, "w"))
-    p1.stdout.close()
-    p2.communicate()
+    try:
+        region_args = ["-r", args.region] if args.region else []
+        p1 = subprocess.Popen(["samtools", "depth", "-aa"] + region_args + [args.input], stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(["awk", awk_script], stdin=p1.stdout, stdout=open(out_csv, "w"))
+        p1.stdout.close()
+        p2.communicate()
+    except Exception as e:
+        logging.error(f"Coverage calculation failed: {e}")
 
 def cmd_cov_wes(args):
     verify_dependencies(["samtools", "awk"])
@@ -130,8 +140,11 @@ def cmd_cov_wes(args):
     """
     
     logging.info(f"Calculating WES coverage to {out_csv}")
-    region_args = ["-r", args.region] if args.region else []
-    p1 = subprocess.Popen(["samtools", "depth", "-a", "-b", args.bed] + region_args + [args.input], stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(["awk", awk_script], stdin=p1.stdout, stdout=open(out_csv, "w"))
-    p1.stdout.close()
-    p2.communicate()
+    try:
+        region_args = ["-r", args.region] if args.region else []
+        p1 = subprocess.Popen(["samtools", "depth", "-a", "-b", args.bed] + region_args + [args.input], stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(["awk", awk_script], stdin=p1.stdout, stdout=open(out_csv, "w"))
+        p1.stdout.close()
+        p2.communicate()
+    except Exception as e:
+        logging.error(f"Coverage calculation failed: {e}")

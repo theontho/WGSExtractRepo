@@ -140,6 +140,9 @@ def check_free_space(path, required_gb):
     total, used, free = shutil.disk_usage(path)
     free_gb = free / (1024**3)
     if free_gb < required_gb:
-        logging.warning(f"!!! LOW DISK SPACE: Only {free_gb:.1f} GB available on {path}, but {required_gb} GB may be needed. !!!")
+        logging.warning("!!! EXTRA LARGE WARNING: Insufficient Disk Space Detected! !!!")
+        logging.warning(f"!!! Detected: {free_gb:.1f} GB available on {path} !!!")
+        logging.warning(f"!!! Estimated: {required_gb} GB needed !!!")
+        logging.warning("!!! This operation will likely consume more space than you have available. !!!")
         return False
     return True

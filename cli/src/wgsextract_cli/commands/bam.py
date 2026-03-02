@@ -48,13 +48,20 @@ def get_base_args(args):
         logging.error("--input is required.")
         return None
     
+    if not verify_paths_exist({'--input': args.input}):
+        return None
+
     threads, memory = get_resource_defaults(args.threads, args.memory)
     outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     
-    md5_sig = calculate_bam_md5(args.input, None)
-    resolved_ref = resolve_reference(args.ref, md5_sig)
+    try:
+        md5_sig = calculate_bam_md5(args.input, None)
+        resolved_ref = resolve_reference(args.ref, md5_sig)
+    except Exception as e:
+        logging.error(f"Failed to initialize reference resolution: {e}")
+        return None
 
-    paths_to_check = {'--input': args.input}
+    paths_to_check = {}
     if resolved_ref:
         paths_to_check['--ref'] = resolved_ref
         
@@ -87,24 +94,41 @@ def cmd_sort(args):
         sort_cmd = ["samtools", "sort", "-T", tempdir, "-m", memory, "-@", threads, "-o", out_file]
         
         logging.info(f"Sorting {args.input} to {out_file}")
-        p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout)
-        p1.stdout.close()
-        p2.communicate()
-        if p2.returncode != 0:
-            logging.error("Sort failed.")
+        try:
+            p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
+            p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout)
+            p1.stdout.close()
+            p2.communicate()
+            if p2.returncode != 0:
+                logging.error("Sort failed.")
+        except Exception as e:
+            logging.error(f"Execution failed: {e}")
 
 def cmd_index(args):
     verify_dependencies(["samtools"])
-    if not args.input: return
+    if not args.input:
+        logging.error("--input is required.")
+        return
+    
+    if not verify_paths_exist({'--input': args.input}): return
     
     print_warning('GenBAMIndex')
 
     logging.info(f"Indexing {args.input}")
-    run_command(["samtools", "index", args.input])
+    try:
+        run_command(["samtools", "index", args.input])
+    except Exception as e:
+        logging.error(f"Indexing failed: {e}")
 
 def cmd_unindex(args):
-    if not args.input: return
+    if not args.input:
+        logging.error("--input is required.")
+        return
+    
+    if not os.path.exists(args.input) or os.path.isdir(args.input):
+        logging.error(f"Input is not a valid file: {args.input}")
+        return
+
     bai = args.input + ".bai"
     crai = args.input + ".crai"
     if os.path.exists(bai):
@@ -125,14 +149,18 @@ def cmd_unsort(args):
         newhead = os.path.join(tempdir, "newhead.sam")
         
         view_cmd = ["samtools", "view", "-H"] + cram_opt + [args.input]
-        header = subprocess.run(view_cmd, capture_output=True, text=True, check=True).stdout
-        header = header.replace("SO:coordinate", "SO:unsorted")
-        
-        with open(newhead, "w") as f:
-            f.write(header)
+        try:
+            res = subprocess.run(view_cmd, capture_output=True, text=True, check=True)
+            header = res.stdout
+            header = header.replace("SO:coordinate", "SO:unsorted")
             
-        logging.info(f"Unsorting to {out_file}")
-        run_command(["samtools", "reheader", newhead, args.input], stdout=open(out_file, "w"))
+            with open(newhead, "w") as f:
+                f.write(header)
+                
+            logging.info(f"Unsorting to {out_file}")
+            run_command(["samtools", "reheader", newhead, args.input], stdout=open(out_file, "w"))
+        except (subprocess.CalledProcessError, Exception) as e:
+            logging.error(f"Failed to unsort {args.input}: {e}")
 
 def cmd_tocram(args):
     verify_dependencies(["samtools"])
@@ -144,9 +172,12 @@ def cmd_tocram(args):
 
     out_file = os.path.join(outdir, os.path.basename(args.input).replace(".bam", "") + ".cram")
     logging.info(f"Converting to {out_file}")
-    region_args = [args.region] if args.region else []
-    run_command(["samtools", "view", "-Ch"] + cram_opt + ["-@", threads, "-o", out_file, args.input] + region_args)
-    run_command(["samtools", "index", out_file])
+    try:
+        region_args = [args.region] if args.region else []
+        run_command(["samtools", "view", "-Ch"] + cram_opt + ["-@", threads, "-o", out_file, args.input] + region_args)
+        run_command(["samtools", "index", out_file])
+    except Exception as e:
+        logging.error(f"Conversion to CRAM failed: {e}")
 
 def cmd_tobam(args):
     verify_dependencies(["samtools"])
@@ -158,9 +189,12 @@ def cmd_tobam(args):
 
     out_file = os.path.join(outdir, os.path.basename(args.input).replace(".cram", "") + ".bam")
     logging.info(f"Converting to {out_file}")
-    region_args = [args.region] if args.region else []
-    run_command(["samtools", "view", "-bh"] + cram_opt + ["-@", threads, "-o", out_file, args.input] + region_args)
-    run_command(["samtools", "index", out_file])
+    try:
+        region_args = [args.region] if args.region else []
+        run_command(["samtools", "view", "-bh"] + cram_opt + ["-@", threads, "-o", out_file, args.input] + region_args)
+        run_command(["samtools", "index", out_file])
+    except Exception as e:
+        logging.error(f"Conversion to BAM failed: {e}")
 
 def cmd_unalign(args):
     verify_dependencies(["samtools"])
@@ -184,17 +218,18 @@ def cmd_unalign(args):
         region_args = [args.region] if args.region else []
         view_cmd = ["samtools", "view", "-uh", "--no-PG"] + cram_opt + [args.input] + region_args
         sort_cmd = ["samtools", "sort", "-n", "-T", tempdir, "-m", memory, "-@", threads, "-O", "sam"]
-        # In samtools fastq, the input is stdin if not specified, or a file if specified as last arg.
-        # When using pipes, we don't need the input filename again if it's coming via stdin.
         fastq_cmd = ["samtools", "fastq", "-1", args.r1, "-2", args.r2] + se_arg + ["-s", "/dev/null", "-n", "-@", threads, "-"]
         
         logging.info("Unaligning reads to FASTQ...")
-        p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout, stdout=subprocess.PIPE)
-        p1.stdout.close()
-        p3 = subprocess.Popen(fastq_cmd, stdin=p2.stdout)
-        p2.stdout.close()
-        p3.communicate()
+        try:
+            p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
+            p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout, stdout=subprocess.PIPE)
+            p1.stdout.close()
+            p3 = subprocess.Popen(fastq_cmd, stdin=p2.stdout)
+            p2.stdout.close()
+            p3.communicate()
+        except Exception as e:
+            logging.error(f"Unalign failed: {e}")
 
 def cmd_subset(args):
     verify_dependencies(["samtools"])
@@ -204,5 +239,8 @@ def cmd_subset(args):
     
     out_file = os.path.join(outdir, os.path.basename(args.input).replace(".bam", "").replace(".cram", "") + "_subset.bam")
     logging.info(f"Subsetting {args.fraction} of reads to {out_file}")
-    region_args = [args.region] if args.region else []
-    run_command(["samtools", "view", "-bh", "-s", str(args.fraction)] + cram_opt + ["-o", out_file, args.input] + region_args)
+    try:
+        region_args = [args.region] if args.region else []
+        run_command(["samtools", "view", "-bh", "-s", str(args.fraction)] + cram_opt + ["-o", out_file, args.input] + region_args)
+    except Exception as e:
+        logging.error(f"Subsetting failed: {e}")

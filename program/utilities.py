@@ -132,6 +132,26 @@ def check_exists(file_oFN, error_mesg):
     return exists
 
 
+def get_free_space_gb(path_oFP):
+    """ Get free disk space in GB for the given path """
+    import shutil
+    import os
+
+    # If path doesn't exist, check parent
+    path = path_oFP
+    while path and not os.path.exists(path):
+        path = os.path.dirname(path)
+    
+    if not path:
+        return 0
+    
+    try:
+        usage = shutil.disk_usage(path)
+        return usage.free / (10**9)
+    except Exception:
+        return 0
+
+
 class Error(Exception):
     pass
 

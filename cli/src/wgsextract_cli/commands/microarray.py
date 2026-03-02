@@ -2,13 +2,35 @@ import os
 import subprocess
 import logging
 import tempfile
+import argparse
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary
 from wgsextract_cli.core.warnings import print_warning
 
 def register(subparsers):
-    parser = subparsers.add_parser("microarray", help="Generates microarray simulation CombinedKit.")
-    parser.add_argument("--formats", default="all", help="Comma-separated list of formats, e.g., 23andMe_v5,Ancestry_v2,all")
+    format_help = """Comma-separated list of formats to generate (default: all).
+Available formats:
+  Everything:
+    all (Combined file of ALL SNPs for GEDMATCH)
+  23andMe:
+    23andme_v3, 23andme_v4, 23andme_v5, 23andme_v3+v5, 23andme_api
+  AncestryDNA:
+    ancestry_v1, ancestry_v2
+  Family Tree DNA:
+    ftdna_v2, ftdna_v3
+  Living DNA:
+    ldna_v1, ldna_v2
+  MyHeritage:
+    myheritage_v1, myheritage_v2
+  Other Vendors:
+    mthfr_uk (MTHFR Genetics UK), genera_br (Genera BR), meudna_br (meuDNA BR)
+  Reich Lab:
+    reich_aadr (AADR 1240K), reich_human_origins (Human Origins v1), reich_combined
+"""
+    parser = subparsers.add_parser("microarray", 
+                                   help="Generates microarray simulation CombinedKit.",
+                                   formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--formats", default="all", help=format_help)
     parser.add_argument("--parallel", action="store_true", help="Enable per-chromosome parallel variant calling")
     parser.add_argument("--ref-vcf-tab", help="Master tabulated list of all consumer microarray SNPs (auto-resolved from --ref if possible)")
     parser.add_argument("--ploidy-file", help="File defining ploidy per chromosome (auto-resolved from --ref if possible)")

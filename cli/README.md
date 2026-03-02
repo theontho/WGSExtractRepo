@@ -2,11 +2,17 @@
 
 A completely independent, modern command-line interface for the WGS Extract application. This tool allows users to perform bioinformatics workflows (BAM/CRAM management, extraction, variant calling, microarray simulation, and lineage evaluation) directly from the terminal without relying on the legacy GUI environment.
 
+## Key Features
+
+*   **Zero-Config Startup**: Support for `cli/.env.local` allows you to set global defaults for your reference library and input files.
+*   **Automatic Resource Resolution**: The `ReferenceLibrary` engine automatically finds genomes, ploidy files, and microarray SNP tables from a single `--ref` directory.
+*   **Synchronized Testing**: A robust four-tier test suite (136 tests total) ensures plumbing, error handling, robustness, and E2E behavioral correctness.
+*   **Optimized for Speed**: Built-in `--region` support for heavy commands (sort, convert, coverage, variant calling) enables rapid processing of specific chromosomal regions like `chrM`.
+
 ## Requirements
 
-This CLI adheres to a **No Environment Provisioning** constraint. It assumes that you have standard bioinformatics tools installed and accessible on your system's `$PATH`.
+This CLI assumes that you have standard bioinformatics tools installed and accessible on your system's `$PATH`.
 
-Required Tools:
 *   **Core:** `samtools`, `bcftools`, `tabix`, `bgzip`
 *   **Aligners:** `bwa`, `minimap2`
 *   **QC Tools:** `fastp`, `fastqc` (requires `java`)
@@ -19,69 +25,79 @@ Required Tools:
 # Clone the repository and navigate into the CLI directory
 cd cli
 
-# Install using pip or uv
+# Install using uv (Recommended)
 uv pip install -e .
+
+# Or using standard pip
+pip install -e .
 ```
+
+## Environment Configuration
+
+Copy the template to create your local configuration:
+```bash
+cp cli/.env.example cli/.env.local
+```
+Edit `cli/.env.local` to set your paths:
+*   `WGSE_REF`: Path to your reference genome folder.
+*   `WGSE_INPUT`: Default BAM/CRAM file for testing/identification.
+
+Once set, global arguments like `--ref` and `--input` become optional for many commands.
 
 ## Usage
 
-### Installed Usage
-If you installed the package, the command is available directly:
+### Direct Command
 ```bash
-wgsextract-cli --help
+wgsextract-cli info --detailed
 ```
 
-### Running without installing
-If you prefer not to install the package, you can run it directly from the source code.
-
-**Using `uv` (Recommended):**
-`uv run` automatically sets up the environment and executes the code based on the `pyproject.toml` file in the current directory:
+### Module Mode (Advanced)
 ```bash
-uv run python -m wgsextract_cli.main --help
+# From project root
+PYTHONPATH=cli/src uv run python -m wgsextract_cli.main ref identify
 ```
 
-**Using standard Python:**
-You can tell Python to look in the `src` folder before executing the module:
+### All Subcommands (34 Combinations)
+*   `info`: plain, `--detailed`, `calculate-coverage`, `coverage-sample`
+*   `bam`: `sort`, `index`, `unindex`, `unsort`, `to-cram`, `to-bam`, `unalign`, `subset`
+*   `extract`: `mito`, `ydna`, `unmapped`
+*   `vcf`: `snp`, `indel`, `annotate`, `filter`, `qc`
+*   `microarray`: Generate simulation kit
+*   `lineage`: `mt-dna` (Haplogrep), `y-dna` (Yleaf)
+*   `repair`: `ftdna-bam`, `ftdna-vcf`
+*   `qc`: `fastp`, `fastqc`, `coverage-wgs`, `coverage-wes`
+*   `ref`: `identify`, `download`, `index`
+*   `align`: FASTQ to BAM/CRAM alignment
+
+## Testing Suite
+
+All tests are synchronized to cover the same 34 command combinations.
+
+### 1. Smoke Tests (Mocked Plumbing)
+Verifies subcommand registration and argument parsing in milliseconds.
 ```bash
-PYTHONPATH=src python3 -m wgsextract_cli.main --help
+uv run python cli/tests/test_smoke.py
 ```
 
-See the subcommands for details on running specific pipelines (`info`, `bam`, `extract`, `microarray`, `lineage`, `vcf`, `repair`, `qc`, `ref`, `align`).
-
-## Testing
-
-The CLI includes a comprehensive test suite ranging from fast logic checks to full end-to-end processing with real data.
-
-### 1. Fast logic and integration tests (Mocked)
-These tests use "mocks" to simulate bioinformatics tools. They are extremely fast and do not require real BAM/CRAM files.
-
+### 2. Graceful Exit Tests (Resilience)
+Ensures immediate exit (3s timeout) and informative errors for missing arguments.
 ```bash
-# Run from the cli/ directory
-export PYTHONPATH=$PYTHONPATH:$(pwd)/src
-python3 -m unittest discover tests
+uv run python cli/tests/test_graceful_exit.py
 ```
 
-Tests include:
-*   `test_warnings.py`: Time estimation and disk space logic.
-*   `test_info.py`: Reference model and gender detection logic.
-*   `test_commands_integration.py`: Verifies CLI subcommands trigger warnings correctly.
-*   `test_graceful_exit.py`: Ensures commands handle missing arguments without crashing.
-*   `test_robustness.py`: Checks directory-as-reference handling.
-
-### 2. Smoke Tests (Real Headers)
-Tests path resolution and `samtools view -H` against your real files, while mocking the heavy work.
-
+### 3. Robustness Tests (Stability)
+Verifies no tracebacks are generated when provided with invalid path types (e.g. directories instead of files).
 ```bash
-export WGSE_REF="path/to/reference/folder/"
-export WGSE_INPUT="path/to/your/sample.cram"
-python3 tests/test_real_data_smoke.py
+uv run python cli/tests/test_robustness.py
 ```
 
-### 3. End-to-End Tests (Full Processing)
-Runs actual `samtools` and `bcftools` pipelines on real data. This is slow and generates real output in a temporary directory.
-
+### 4. E2E Tests (Real Data & Benchmarks)
+Actual tool execution on `chrM` with performance reporting.
 ```bash
-export WGSE_REF="path/to/reference/folder/"
-export WGSE_INPUT="path/to/your/sample.cram"
-python3 tests/test_e2e_real_data.py
+uv run python cli/tests/test_e2e.py
 ```
+
+### 5. Unit Tests
+Specific logic for metrics and formatting.
+*   `cli/tests/test_info.py`
+*   `cli/tests/test_warnings.py`
