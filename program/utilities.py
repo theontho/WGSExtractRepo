@@ -377,7 +377,10 @@ class LanguageStrings:
         Called after loading settings from user file. If not set or not valid, query user.
         Local import to avoid loop. All GUI pushed to mainwindow module.
         """
-        from mainwindow import button_set_language
+        if wgse.gui:
+            from mainwindow import button_set_language
+        else:
+            button_set_language = None
 
         if not wgse.gui and (language is None or language not in self.avail_langs):
             # In auto / non-interactive mode, default to English if available, or first available
@@ -388,7 +391,11 @@ class LanguageStrings:
             return
 
         if language not in self.avail_langs:      # If requested language not set or not understand
-            button_set_language()           # Ask user for language; calls switch_language() directly
+            if button_set_language:
+                button_set_language()           # Ask user for language; calls switch_language() directly
+            else:
+                new_lang = 'English' if 'English' in self.avail_langs else self.avail_langs[0]
+                self.switch_language(new_lang)
         else:
             self.switch_language(language)  # Switch language
 
@@ -397,7 +404,10 @@ class LanguageStrings:
         Language Subsytem function to set/switch language; externally called to change language.
         May be called before initial window is setup; called as result of set_language pop-up dialog and buttons
         """
-        from mainwindow import mainwindow_reset, mainwindow_resume
+        if wgse.gui:
+            from mainwindow import mainwindow_reset, mainwindow_resume
+        else:
+            mainwindow_reset = mainwindow_resume = None
 
         # If got here from the Language Selection button; destroy its pop-up window (ignore errors)
         # We saved the window ID in the class' local variables

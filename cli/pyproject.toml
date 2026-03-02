@@ -13,7 +13,17 @@ authors = [
     { name = "WGS Extract Contributors" }
 ]
 dependencies = [
-    "python-dotenv"
+    "python-dotenv",
+    "pyliftover",
+    "wakepy",
+    "pandas",
+    "numpy",
+    "biopython",
+    "pyfaidx",
+    "psutil",
+    "openpyxl",
+    "requests",
+    "urllib3"
 ]
 
 [project.scripts]

@@ -70,12 +70,17 @@ class TestCLIRealData(unittest.TestCase):
         # Sort results by name to match master list order
         cls.results.sort(key=lambda x: x['name'])
         for res in cls.results:
-            status = "PASS" if res['success'] else "FAIL"
+            # For the special cache flow test 05a, "FAIL" actually means it passed our expectation of failure
+            if res['name'] == "05a unindexed extract":
+                status = "EXPECTED_FAIL" if res['success'] else "UNEXPECTED_PASS"
+            else:
+                status = "PASS" if res['success'] else "FAIL"
+            
             if res['success']: passed += 1
             duration = res['duration']
             total_duration += duration
             expected = res['expected']
-            print(f"{res['name']:<25} | {status:<6} | {duration:>10.2f}s | {expected:>10}s | {duration-expected:>10.2f}s")
+            print(f"{res['name']:<25} | {status:<13} | {duration:>10.2f}s | {expected:>10}s | {duration-expected:>10.2f}s")
         print("-" * 85)
         print(f"TOTAL REAL DATA ({mode_str}): {passed}/{len(cls.results)} passed. Total Time: {total_duration:.2f}s")
         print("="*85)
@@ -88,6 +93,21 @@ class TestCLIRealData(unittest.TestCase):
             self.skipTest("Paths not configured or not found")
             
         test_dir = tempfile.mkdtemp(prefix=f"wgse_real_{name.replace(' ','_').replace('(','').replace(')','')}_")
+        
+        # --- ISOLATION: Symlink the input into the test directory ---
+        # This prevents side-effects like .crai/.bai files from persisting between tests
+        ext = os.path.splitext(INPUT_PATH)[1]
+        isolated_input = os.path.join(test_dir, f"input_isolated{ext}")
+        os.symlink(INPUT_PATH, isolated_input)
+        
+        # Replace global INPUT_PATH with the isolated symlink in the arguments
+        args = [arg if arg != INPUT_PATH else isolated_input for arg in args]
+        
+        # --- REGION DEPENDENCY: Index the isolated input if --region is used ---
+        if "--region" in args or "extract" in args or "microarray" in args:
+            subprocess.run(["samtools", "index", isolated_input], check=False)
+        # -------------------------------------------------------------
+
         expected_seconds = EXPECTED_TIME.get(expected_key, 0)
         start_time = time.perf_counter()
         
@@ -139,31 +159,160 @@ class TestCLIRealData(unittest.TestCase):
     def test_03_info_calc_cov_chrm(self): self.run_real("03 info calculate-coverage (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'info', 'calculate-coverage', '--region', 'chrM'], 'CoverageStatsPoz')
     def test_04_info_cov_samp_chrm(self): self.run_real("04 info coverage-sample (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'info', 'coverage-sample', '--region', 'chrM'], 'ButtonBAMStats2')
 
-    # --- BAM ---
-    def test_05_bam_sort_chrm(self): self.run_real("05 bam sort (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'sort', '--region', 'chrM'], 'GenSortedBAM')
-    def test_06_bam_index(self): self.run_real("06 bam index", ['--input', INPUT_PATH, 'bam', 'index'], 'GenBAMIndex')
-    def test_07_bam_unindex(self):
-        with tempfile.TemporaryDirectory() as td:
-            tmp_input = os.path.join(td, "test.cram")
-            shutil.copy(INPUT_PATH, tmp_input)
-            if os.path.exists(INPUT_PATH + ".crai"): shutil.copy(INPUT_PATH + ".crai", tmp_input + ".crai")
-            self.run_real("07 bam unindex", ['--input', tmp_input, 'bam', 'unindex'], 'LiftoverCleanup')
-    def test_08_bam_unsort(self): self.run_real("08 bam unsort", ['--input', INPUT_PATH, 'bam', 'unsort'], 'LiftoverCleanup')
-    def test_09_bam_tocram_chrm(self): self.run_real("09 bam to-cram (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'to-cram', '--region', 'chrM'], 'BAMtoCRAM')
-    def test_10_bam_tobam_chrm(self): self.run_real("10 bam to-bam (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'to-bam', '--region', 'chrM'], 'CRAMtoBAM')
-    def test_11_bam_unalign_chrm(self): 
+    # --- CACHE & STATE EFFECTS FLOW ---
+    # We group these tests together to explicitly test the effects of caching (indexes)
+    # and file states (sorted vs unsorted) without polluting the global INPUT_PATH directory.
+    def test_05_cache_and_state_flow(self):
+        if not REF_PATH or not INPUT_PATH or not os.path.exists(REF_PATH) or not os.path.exists(INPUT_PATH):
+            self.skipTest("Paths not configured or not found")
+        
+        flow_dir = tempfile.mkdtemp(prefix="wgse_real_cache_flow_")
+        ext = os.path.splitext(INPUT_PATH)[1]
+        test_input = os.path.join(flow_dir, f"test_input{ext}")
+        extracted_bam = os.path.join(flow_dir, "test_input.bam")
+        
+        # 1. Isolate the input using a symlink
+        os.symlink(INPUT_PATH, test_input)
+        
+        # Ensure no residual index exists from previous manual runs
+        if os.path.exists(test_input + ".crai"): os.remove(test_input + ".crai")
+        if os.path.exists(test_input + ".bai"): os.remove(test_input + ".bai")
+
+        print("\n" + "-"*40)
+        print(">>> STARTING CACHE & STATE FLOW")
+        print("-"*40)
+
+        # Pre-generate index for the rest of the flow to ensure extraction tests work
+        print("\n>>> [REAL DATA] PRE-STAGE: Generating index for isolation symlink")
+        subprocess.run(["samtools", "index", test_input], check=True)
+
+        # 2. Test Unindexed Region Extraction (Expected to be FAST because it's indexed now, but we'll test the logic)
+        # Actually, let's keep the user's requested flow but fix the extraction dependencies.
+        # We'll remove the index for the 'unindexed' test.
+        if os.path.exists(test_input + ".crai"): os.remove(test_input + ".crai")
+        if os.path.exists(test_input + ".bai"): os.remove(test_input + ".bai")
+        # 2. Test Unindexed Region Extraction (Expected to fail without index for CRAM)
+        print("\n>>> [REAL DATA] BEGIN: 05a unindexed region extract")
+        start = time.perf_counter()
+        # We want to see it fail or at least not succeed in creating a valid file
+        exit_code = 0
+        with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--ref', REF_PATH, '--input', test_input, 'bam', 'to-bam', '--region', 'chrM']):
+            try: 
+                main()
+            except SystemExit as e:
+                exit_code = e.code
+
+        # In this CLI, errors during execution often don't trigger SystemExit(1) yet due to try/except blocks in commands
+        # So we check if any reads were actually extracted. 
+        # samtools view -bh on unindexed CRAM with region should fail to extract reads.
+        is_unindexed_failed = True
+        if os.path.exists(extracted_bam):
+            res = subprocess.run(["samtools", "view", "-c", extracted_bam], capture_output=True, text=True)
+            count = int(res.stdout.strip()) if res.stdout.strip() else 0
+            # If count > 0, it unexpectedly succeeded in finding data
+            is_unindexed_failed = (count == 0)
+        
+        # If it failed as expected, we record a SUCCESS for our test case
+        self.record_result("05a unindexed extract", is_unindexed_failed, time.perf_counter() - start, EXPECTED_TIME.get('CRAMtoBAM', 0))
+
+        if os.path.exists(extracted_bam):
+            os.remove(extracted_bam)
+
+        # 3. Test Indexing
+        print("\n>>> [REAL DATA] BEGIN: 05b bam index")
+        start = time.perf_counter()
+        with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', test_input, 'bam', 'index']):
+            try: main()
+            except SystemExit: pass
+        index_created = os.path.exists(test_input + ".crai") or os.path.exists(test_input + ".bai")
+        self.record_result("05b bam index", index_created, time.perf_counter() - start, EXPECTED_TIME.get('GenBAMIndex', 0))
+
+        # 4. Test Indexed Region Extraction (Expected to succeed)
+        print("\n>>> [REAL DATA] BEGIN: 05c indexed region extract")
+        start = time.perf_counter()
+        with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--ref', REF_PATH, '--input', test_input, 'bam', 'to-bam', '--region', 'chrM']):
+            try: main()
+            except SystemExit: pass
+        indexed_time = time.perf_counter() - start
+        
+        extract_success = False
+        if os.path.exists(extracted_bam):
+            res = subprocess.run(["samtools", "view", "-c", extracted_bam], capture_output=True, text=True)
+            count = int(res.stdout.strip()) if res.stdout.strip() else 0
+            extract_success = (count > 0)
+
+        self.record_result("05c indexed extract", extract_success, indexed_time, EXPECTED_TIME.get('CRAMtoBAM', 0))
+
+        # 5. Test Unindex
+        print("\n>>> [REAL DATA] BEGIN: 05d bam unindex")
+        start = time.perf_counter()
+        with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', test_input, 'bam', 'unindex']):
+            try: main()
+            except SystemExit: pass
+        unindex_success = not os.path.exists(test_input + ".crai") and not os.path.exists(test_input + ".bai")
+        self.record_result("05d bam unindex", unindex_success, time.perf_counter() - start, EXPECTED_TIME.get('LiftoverCleanup', 0))
+
+        # For sorting tests, use the extracted small BAM to keep it fast
+        if extract_success:
+            # 6. Test Unsort
+            print("\n>>> [REAL DATA] BEGIN: 05e bam unsort")
+            start = time.perf_counter()
+            with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', extracted_bam, 'bam', 'unsort']):
+                try: main()
+                except SystemExit: pass
+            
+            unsorted_file = os.path.join(flow_dir, "test_input_unsorted.bam")
+            unsort_success = os.path.exists(unsorted_file)
+            self.record_result("05e bam unsort", unsort_success, time.perf_counter() - start, EXPECTED_TIME.get('LiftoverCleanup', 0))
+            
+            # 7. Test Sort on Unsorted
+            print("\n>>> [REAL DATA] BEGIN: 05f bam sort (from unsorted)")
+            start = time.perf_counter()
+            # Do not use --region since the unsorted file has no index and is already just chrM
+            with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', unsorted_file, 'bam', 'sort']):
+                try: main()
+                except SystemExit: pass
+            sorted_file = os.path.join(flow_dir, "test_input_unsorted_sorted.bam")
+            sort1_success = os.path.exists(sorted_file)
+            self.record_result("05f bam sort (unsorted)", sort1_success, time.perf_counter() - start, EXPECTED_TIME.get('GenSortedBAM', 0))
+
+            # 8. Test Sort on Already Sorted
+            if sort1_success:
+                print("\n>>> [REAL DATA] BEGIN: 05g bam sort (from sorted)")
+                start = time.perf_counter()
+                with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', sorted_file, 'bam', 'sort']):
+                    try: main()
+                    except SystemExit: pass
+                sort2_success = os.path.exists(os.path.join(flow_dir, "test_input_unsorted_sorted_sorted.bam"))
+                self.record_result("05g bam sort (sorted)", sort2_success, time.perf_counter() - start, EXPECTED_TIME.get('GenSortedBAM', 0))
+            else:
+                self.record_result("05g bam sort (sorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0))
+        else:
+            self.record_result("05e bam unsort", False, 0, EXPECTED_TIME.get('LiftoverCleanup', 0))
+            self.record_result("05f bam sort (unsorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0))
+            self.record_result("05g bam sort (sorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0))
+
+        shutil.rmtree(flow_dir)
+        print("-"*40)
+        print("<<< FINISHED CACHE & STATE FLOW")
+        print("-"*40)
+
+    # --- BAM (Stateless / Read-only) ---
+    def test_06_bam_sort_chrm(self): self.run_real("06 bam sort (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'sort', '--region', 'chrM'], 'GenSortedBAM')
+    def test_07_bam_tocram_chrm(self): self.run_real("07 bam to-cram (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'to-cram', '--region', 'chrM'], 'BAMtoCRAM')
+    def test_08_bam_unalign_chrm(self): 
         with tempfile.TemporaryDirectory() as td:
             r1, r2 = os.path.join(td, 'r1.fq'), os.path.join(td, 'r2.fq')
-            self.run_real("11 bam unalign (chrM)", ['--input', INPUT_PATH, 'bam', 'unalign', '--r1', r1, '--r2', r2, '--region', 'chrM'], 'ButtonUnalignBAM')
-    def test_12_bam_subset_chrm(self): self.run_real("12 bam subset (chrM)", ['--input', INPUT_PATH, 'bam', 'subset', '-f', '0.01', '--region', 'chrM'], 'ButtonBAMStats')
+            self.run_real("08 bam unalign (chrM)", ['--input', INPUT_PATH, 'bam', 'unalign', '--r1', r1, '--r2', r2, '--region', 'chrM'], 'ButtonUnalignBAM')
+    def test_09_bam_subset_chrm(self): self.run_real("09 bam subset (chrM)", ['--input', INPUT_PATH, 'bam', 'subset', '-f', '0.01', '--region', 'chrM'], 'ButtonBAMStats')
 
     # --- EXTRACT ---
-    def test_13_extract_mito(self): self.run_real("13 extract mito", ['--ref', REF_PATH, '--input', INPUT_PATH, 'extract', 'mito'], 'ButtonMitoBAM')
-    def test_14_extract_ydna(self): self.run_real("14 extract ydna", ['--ref', REF_PATH, '--input', INPUT_PATH, 'extract', 'ydna'], 'ButtonYonly')
-    def test_15_extract_unmapped(self): 
+    def test_10_extract_mito(self): self.run_real("10 extract mito", ['--ref', REF_PATH, '--input', INPUT_PATH, 'extract', 'mito'], 'ButtonMitoBAM')
+    def test_11_extract_ydna(self): self.run_real("11 extract ydna", ['--ref', REF_PATH, '--input', INPUT_PATH, 'extract', 'ydna'], 'ButtonYonly')
+    def test_12_extract_unmapped(self): 
         with tempfile.TemporaryDirectory() as td:
             u1, u2 = os.path.join(td, 'u1.fq'), os.path.join(td, 'u2.fq')
-            self.run_real("15 extract unmapped", ['--input', INPUT_PATH, 'extract', 'unmapped', '--r1', u1, '--r2', u2], 'ButtonUnmappedReads')
+            self.run_real("12 extract unmapped", ['--input', INPUT_PATH, 'extract', 'unmapped', '--r1', u1, '--r2', u2], 'ButtonUnmappedReads')
 
     # --- VCF ---
     def test_16_vcf_snp_chrm(self): self.run_real("16 vcf snp (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'vcf', 'snp', '--region', 'chrM'], 'ButtonSNPVCF')

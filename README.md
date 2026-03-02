@@ -56,3 +56,4 @@ You might need to install python and uv in your local environment before this wo
 * [Development Notes](docs/development.md)
 * [Release](docs/release_process.md)
 * [Changelog](docs/CHANGELOG.md)
+* [Todo List](docs/TODO.md)

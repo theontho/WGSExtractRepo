@@ -18,16 +18,18 @@
     for the companion document developed with the work here.
 """
 import os.path
-# from tkinter.ttk import Button, Label
-from tkinter import Toplevel, Radiobutton, Label, StringVar
-try:
-    from tkmacosx import Button
-except (ImportError, TypeError):
-    from tkinter import Button
-
 from utilities import DEBUG, nativeOS, is_legal_path, unquote, wgse_message
 from commandprocessor import run_bash_script
 import settings as wgse
+
+if wgse.gui:
+    from tkinter import Toplevel, Radiobutton, Label, StringVar
+    try:
+        from tkmacosx import Button
+    except (ImportError, TypeError):
+        from tkinter import Button
+else:
+    Toplevel = Radiobutton = Label = StringVar = Button = None
 
 
 class ReferenceLibrary:

@@ -71,6 +71,10 @@ def main():
     
     args = parser.parse_args()
     
+    # Ensure output directory exists
+    if args.outdir:
+        os.makedirs(args.outdir, exist_ok=True)
+    
     # Call the appropriate handler
     if hasattr(args, "func"):
         args.func(args)

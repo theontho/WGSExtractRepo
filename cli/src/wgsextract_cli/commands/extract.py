@@ -22,6 +22,13 @@ def register(subparsers):
     unmapped_parser.add_argument("--r2", required=True, help="Output Read 2 FASTQ")
     unmapped_parser.set_defaults(func=cmd_unmapped)
 
+    wes_parser = ext_subs.add_parser("wes", help="Extracts Whole Exome Sequencing reads using a BED file.")
+    wes_parser.add_argument("--bed", help="BED file defining target regions (auto-resolved from --ref if possible)")
+    wes_parser.set_defaults(func=cmd_wes)
+
+    ymt_parser = ext_subs.add_parser("ymt", help="Extracts both Y and MT reads to a single BAM.")
+    ymt_parser.set_defaults(func=cmd_ymt)
+
 def get_base_args(args):
     if not args.input:
         logging.error("--input is required.")
@@ -131,3 +138,48 @@ def cmd_unmapped(args):
     p3 = subprocess.Popen(["samtools", "fastq", "-1", args.r1, "-2", args.r2, "-"], stdin=p2.stdout)
     p2.stdout.close()
     p3.communicate()
+
+def cmd_wes(args):
+    verify_dependencies(["samtools"])
+    base = get_base_args(args)
+    if not base: return
+    threads, memory, outdir, cram_opt, resolved_ref = base
+    
+    # Use ReferenceLibrary to resolve BED if not provided
+    md5_sig = calculate_bam_md5(args.input, None)
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    
+    bed = args.bed if args.bed else lib.wes_bed
+    
+    if not bed or not os.path.exists(bed):
+        logging.error("BED file is required for WES extraction and could not be auto-resolved.")
+        return
+
+    print_warning('ExtractWES', threads=threads)
+    
+    out_bam = os.path.join(outdir, "wes_extracted.bam")
+    logging.info(f"Extracting WES regions from {bed} to {out_bam}")
+    try:
+        run_command(["samtools", "view", "-bh", "-L", bed] + cram_opt + ["-@", threads, "-o", out_bam, args.input])
+        logging.info("Indexing...")
+        run_command(["samtools", "index", out_bam])
+    except Exception as e:
+        logging.error(f"WES extraction failed: {e}")
+
+def cmd_ymt(args):
+    verify_dependencies(["samtools"])
+    base = get_base_args(args)
+    if not base: return
+    threads, memory, outdir, cram_opt, resolved_ref = base
+    
+    chr_y = get_chr_name(args.input, "Y", cram_opt)
+    chr_m = get_chr_name(args.input, "MT", cram_opt)
+    
+    out_bam = os.path.join(outdir, "ymt_extracted.bam")
+    logging.info(f"Extracting {chr_y} and {chr_m} to {out_bam}")
+    try:
+        run_command(["samtools", "view", "-bh"] + cram_opt + ["-@", threads, "-o", out_bam, args.input, chr_y, chr_m])
+        logging.info("Indexing...")
+        run_command(["samtools", "index", out_bam])
+    except Exception as e:
+        logging.error(f"Y+MT extraction failed: {e}")

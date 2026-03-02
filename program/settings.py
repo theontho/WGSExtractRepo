@@ -459,7 +459,10 @@ def init(interactive=False):
     from utilities import TemporaryFiles, LanguageStrings, OutputDirectory, FontTypes       # subsystem classes
     from commandprocessor import is_command_available, simple_command
     from referencelibrary import ReferenceLibrary           # subsystem class
-    from mainwindow import mainwindow_init
+    if interactive:
+        from mainwindow import mainwindow_init
+    else:
+        mainwindow_init = None
 
     # Globals we want to access from in here
     global DEBUG_MODE, wsl_bwa_patch, prefserver, gui           # Some universal settings
@@ -954,7 +957,10 @@ def load_settings(gui=False):
     import json
     from utilities import DEBUG, wgse_message, nativeOS
     from bamfiles import BAMFile, BAMContentError, BAMContentErrorFile, BAMContentWarning
-    from mainwindow import update_action_buttons
+    if gui:
+        from mainwindow import update_action_buttons
+    else:
+        update_action_buttons = None
 
     global outdir, reflib, tempf, lang, BAM, fonts
     global wgseset_oFN, prefserver, os_threads, os_totmem, os_threads_saved, os_totmem_saved, os_mem

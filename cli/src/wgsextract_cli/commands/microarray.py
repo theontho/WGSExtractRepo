@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import logging
 import tempfile
@@ -6,6 +7,7 @@ import argparse
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary
 from wgsextract_cli.core.warnings import print_warning
+from wgsextract_cli.core.microarray_utils import liftover_hg38_to_hg19, convert_to_vendor_format
 
 def register(subparsers):
     format_help = """Comma-separated list of formats to generate (default: all).
@@ -60,12 +62,13 @@ def get_base_args(args):
     if not resolved_ref or not os.path.isfile(resolved_ref):
         logging.error("--ref is required (and must be a file) for microarray.")
         return None
-    return threads, outdir, resolved_ref
+    return threads, outdir, resolved_ref, lib
 
 def run(args):
     verify_dependencies(["bcftools", "tabix", "sed", "sort", "cat", "zip"])
     base = get_base_args(args)
     if not base: return
+    threads, outdir, ref, lib = base
     
     if not args.ref_vcf_tab:
         logging.error("--ref-vcf-tab is required and could not be auto-resolved from --ref.")
@@ -79,8 +82,6 @@ def run(args):
         '--ploidy-file': args.ploidy_file
     }): return
 
-    threads, outdir, ref = base
-    
     print_warning('ButtonCombinedKit', threads=threads)
 
     out_vcf = os.path.join(outdir, "CombinedKit.vcf.gz")
@@ -88,8 +89,6 @@ def run(args):
 
     if args.parallel:
         logging.info("Running parallel microarray generation...")
-        # Placeholder for complex parallel logic which would iterate chromosomes
-        # using -r $chrom and concatenate results
         logging.info("Parallel mode placeholder - executing standard instead")
     
     logging.info(f"Generating CombinedKit VCF at {out_vcf}...")
@@ -116,6 +115,62 @@ def run(args):
         p_sed.stdout.close()
         p_sort.communicate()
 
+    # Liftover if build 38
+    if lib.build in ['hg38', 'GRCh38', 'hs38DH'] or "38" in ref:
+        if lib.liftover_chain:
+            logging.info(f"Performing liftover to hg19 using {lib.liftover_chain}...")
+            liftover_hg38_to_hg19(out_txt, out_txt, lib.liftover_chain, lib.cma_dir)
+        else:
+            logging.warning("Liftover chain not found, skipping liftover.")
+
     logging.info(f"CombinedKit generation complete: {out_txt}")
-    # The actual format subsetting (23andMe, etc) logic goes here.
-    # We would write subset files depending on the --formats argument.
+    
+    # Subsetting logic
+    if args.formats == "none":
+        return
+
+    formats = []
+    if args.formats == "all":
+        formats = [
+            '23andMe_V3', '23andMe_V4', '23andMe_V5', '23andMe_SNPs_API', '23andMe_V35',
+            'Ancestry_V1', 'Ancestry_V2', 'FTDNA_V2', 'FTDNA_V3', 'LDNA_V1', 'LDNA_V2',
+            'MyHeritage_V1', 'MyHeritage_V2'
+        ]
+    else:
+        # Map user friendly names to kits names
+        format_map = {
+            '23andme_v3': '23andMe_V3', '23andme_v4': '23andMe_V4', '23andme_v5': '23andMe_V5',
+            '23andme_api': '23andMe_SNPs_API', '23andme_v35': '23andMe_V35',
+            'ancestry_v1': 'Ancestry_V1', 'ancestry_v2': 'Ancestry_V2',
+            'ftdna_v2': 'FTDNA_V2', 'ftdna_v3': 'FTDNA_V3',
+            'ldna_v1': 'LDNA_V1', 'ldna_v2': 'LDNA_V2',
+            'myheritage_v1': 'MyHeritage_V1', 'myheritage_v2': 'MyHeritage_V2'
+        }
+        for f in args.formats.split(","):
+            f = f.strip().lower()
+            if f in format_map:
+                formats.append(format_map[f])
+            elif f in [k.lower() for k in format_map.values()]:
+                # find the original casing
+                for k in format_map.values():
+                    if f == k.lower():
+                        formats.append(k)
+                        break
+
+    if not formats:
+        return
+
+    if not lib.cma_dir:
+        logging.error("Microarray template directory (cma_dir) not found. Cannot perform subsetting.")
+        return
+
+    for fmt in formats:
+        suffix = ".csv" if ("FTDNA" in fmt or "MyHeritage" in fmt) else ".txt"
+        out_fmt = os.path.join(outdir, f"CombinedKit_{fmt}{suffix}")
+        out_zip = os.path.join(outdir, f"CombinedKit_{fmt}.zip")
+        
+        logging.info(f"Generating microarray file for format {fmt}...")
+        convert_to_vendor_format(fmt, out_txt, out_fmt, lib.cma_dir)
+        
+        if os.path.exists(out_fmt):
+            subprocess.run(["zip", "-mj", out_zip, out_fmt])

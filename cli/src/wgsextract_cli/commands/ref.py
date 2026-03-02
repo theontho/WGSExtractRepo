@@ -19,6 +19,9 @@ def register(subparsers):
     index_parser = ref_subs.add_parser("index", help="Runs faidx and dict on reference FASTA.")
     index_parser.set_defaults(func=cmd_index)
 
+    cntns_parser = ref_subs.add_parser("count-ns", help="Analyzes reference FASTA to count N segments (using countingNs.py).")
+    cntns_parser.set_defaults(func=cmd_count_ns)
+
 def cmd_identify(args):
     verify_dependencies(["samtools"])
     if not args.input:
@@ -57,3 +60,23 @@ def cmd_index(args):
         subprocess.run(["samtools", "dict", args.ref, "-o", out_dict], check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"Indexing failed: {e}")
+
+def cmd_count_ns(args):
+    verify_dependencies(["python3"])
+    if not args.ref:
+        logging.error("--ref is required.")
+        return
+    
+    if not verify_paths_exist({'--ref': args.ref}): return
+        
+    prog_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../program"))
+    script = os.path.join(prog_dir, "countingNs.py")
+    if not os.path.exists(script):
+        logging.error("countingNs.py script not found.")
+        return
+
+    logging.info(f"Analyzing N segments in {args.ref}")
+    try:
+        subprocess.run([sys.executable, script, args.ref], check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"N-counting failed: {e}")

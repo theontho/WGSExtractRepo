@@ -72,6 +72,10 @@ class ReferenceLibrary:
         self.fasta = None
         self.ploidy_file = None
         self.ref_vcf_tab = None
+        self.wes_bed = None
+        self.ymt_bed = None
+        self.cma_dir = None
+        self.liftover_chain = None
         self.build = None
         
         if not ref_path:
@@ -83,10 +87,12 @@ class ReferenceLibrary:
             self._search_dir(os.path.dirname(ref_path))
         
         if os.path.isdir(ref_path):
-            self._search_dir(ref_path)
-            # Search subdirectories
-            for sub in ['genome', 'genomes', 'microarray', 'ref']:
+            # Search specialized subdirectories FIRST
+            for sub in ['microarray', 'genomes', 'genome', 'ref']:
                 self._search_dir(os.path.join(ref_path, sub))
+            
+            # Then search the root directory
+            self._search_dir(ref_path)
             
             # If we are inside 'genomes' or 'genome', also search the parent and its siblings
             # to handle cases where --ref points directly to the genomes folder.
@@ -157,7 +163,8 @@ class ReferenceLibrary:
 
             for b in search_builds:
                 if not b: continue
-                for pattern in [f"All_SNPs_{b}_ref.tab.gz", f"snps_{b}.vcf.gz", f"All_SNPs_{b.lower()}_ref.tab.gz", f"snps_{b.lower()}.vcf.gz"]:
+                # Prioritize All_SNPs patterns over snps patterns
+                for pattern in [f"All_SNPs_{b}_ref.tab.gz", f"All_SNPs_{b.lower()}_ref.tab.gz", f"snps_{b}.vcf.gz", f"snps_{b.lower()}.vcf.gz"]:
                     potential = os.path.join(d, pattern)
                     if os.path.exists(potential):
                         self.ref_vcf_tab = potential
@@ -171,6 +178,37 @@ class ReferenceLibrary:
                     if os.path.exists(potential):
                         self.ref_vcf_tab = potential
                         break
+
+        # 4. Look for WES BED
+        if not self.wes_bed:
+            for b in ['TruSeq_Exome_TargetedRegions_v1.2.bed', 'TruSeq_Exome_TargetedRegions_v1.2num.bed', 'xgen_plus_spikein.GRCh38.bed', 'xgen_plus_spikein.GRCh38num.bed']:
+                potential = os.path.join(d, b)
+                if os.path.exists(potential):
+                    self.wes_bed = potential
+                    break
+        
+        # 5. Look for Y/MT BED
+        if not self.ymt_bed:
+            for b in ['CombBED_McDonald_Poznik_Merged_hg37.bed', 'CombBED_McDonald_Poznik_Merged_hg37num.bed', 'CombBED_McDonald_Poznik_Merged_hg38.bed', 'CombBED_McDonald_Poznik_Merged_hg38num.bed']:
+                potential = os.path.join(d, b)
+                if os.path.exists(potential):
+                    self.ymt_bed = potential
+                    break
+
+        # 6. Look for cma_dir (directory containing raw_file_templates)
+        if not self.cma_dir:
+            if os.path.isdir(os.path.join(d, 'raw_file_templates')):
+                self.cma_dir = d + ('/' if not d.endswith('/') else '')
+            elif os.path.isdir(os.path.join(d, 'microarray', 'raw_file_templates')):
+                self.cma_dir = os.path.join(d, 'microarray') + '/'
+
+        # 5. Look for liftover chain
+        if not self.liftover_chain:
+            for c in ['hg38ToHg19.over.chain.gz', 'GRCh38ToGRCh37.over.chain.gz']:
+                potential = os.path.join(d, c)
+                if os.path.exists(potential):
+                    self.liftover_chain = potential
+                    break
 
 def resolve_reference(ref_path, md5_sig):
     """Find specific .fa.gz from directory or direct path."""
