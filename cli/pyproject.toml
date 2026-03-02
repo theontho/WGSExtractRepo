@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wgsextract-cli"
+version = "0.1.0"
+description = "A modern, standalone Command-Line Interface for WGS Extract."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+authors = [
+    { name = "WGS Extract Contributors" }
+]
+dependencies = [
+    "python-dotenv"
+]
+
+[project.scripts]
+wgsextract-cli = "wgsextract_cli.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wgsextract_cli"]

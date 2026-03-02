@@ -1,0 +1,7 @@
+{
+  "tools": {
+    "shell": {
+      "inactivityTimeout": 12000
+    }
+  }
+}

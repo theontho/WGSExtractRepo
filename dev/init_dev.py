@@ -26,7 +26,7 @@ def main() -> None:
     print("WGS Extract Development Environment Init")
     print("==========================================")
 
-    TMP_DIR.mkdir(exist_ok=True)
+    TMP_DIR.mkdir(parents=True, exist_ok=True)
     ensure_runtime_directories()
 
     if not os.path.exists(MANIFEST):

@@ -168,3 +168,5 @@ yleaf/
 # Root launch scripts
 /WGSExtract.*
 /Library.*
+.env.local
+cli/.env.local

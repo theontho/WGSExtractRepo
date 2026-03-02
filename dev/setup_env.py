@@ -237,7 +237,7 @@ def install_python_dependencies() -> None:
         
         if not Path("python").exists():
             print("Creating 'python' directory for wrapper...")
-            Path("python").mkdir(exist_ok=True)
+            Path("python").mkdir(parents=True, exist_ok=True)
             
         python_bat = Path("python/python.bat")
         print(f"Creating {python_bat} wrapper...")
