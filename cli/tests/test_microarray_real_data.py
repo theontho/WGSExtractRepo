@@ -9,9 +9,15 @@ from unittest.mock import patch
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Path to the directory where this test is located (cli/tests/)
+this_dir = Path(__file__).resolve().parent
+# cli/ root (parent of tests/)
+cli_root = this_dir.parent
+# repo root (parent of cli/)
+repo_root = cli_root.parent
+
 # Ensure cli/src is in sys.path
-repo_root = Path(__file__).resolve().parent.parent
-cli_src = repo_root / "cli" / "src"
+cli_src = cli_root / "src"
 if str(cli_src) not in sys.path:
     sys.path.insert(0, str(cli_src))
 
@@ -19,7 +25,6 @@ if str(cli_src) not in sys.path:
 ACONV_PY = repo_root / "program" / "aconv.py"
 
 # Load environment variables
-cli_root = repo_root / "cli"
 env_local = cli_root / ".env.local"
 env_std = cli_root / ".env"
 
@@ -34,6 +39,11 @@ from wgsextract_cli.main import main
 REF_PATH = os.environ.get('WGSE_REF')
 INPUT_PATH = os.environ.get('WGSE_INPUT')
 
+# Check for --full-data flag in sys.argv
+FULL_DATA = "--full-data" in sys.argv
+if FULL_DATA:
+    sys.argv.remove("--full-data")
+
 class TestMicroarrayRealData(unittest.TestCase):
     """
     End-to-end test for microarray command using real genomic data.
@@ -42,14 +52,16 @@ class TestMicroarrayRealData(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp(prefix="wgse_microarray_real_")
         if not REF_PATH or not INPUT_PATH or not os.path.exists(REF_PATH) or not os.path.exists(INPUT_PATH):
             self.skipTest(f"Real data paths not configured or missing: REF={REF_PATH}, INPUT={INPUT_PATH}")
+        if FULL_DATA:
+            print("\n!!! WARNING: Running in FULL DATA mode. This will be SLOW. !!!")
 
     def tearDown(self):
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
 
-    def test_microarray_generation_and_subsetting_chrm(self):
+    def test_microarray_generation_and_subsetting_real(self):
         """
-        Test generating CombinedKit for chrM using real BAM/CRAM,
+        Test generating CombinedKit using real BAM/CRAM,
         and then subsetting it using aconv.py.
         """
         # 1. Generate CombinedKit
@@ -59,10 +71,13 @@ class TestMicroarrayRealData(unittest.TestCase):
             '--ref', REF_PATH, 
             '--input', INPUT_PATH, 
             'microarray', 
-            '--region', 'chrM'
         ]
         
-        print(f"\n>>> Running microarray on real data (chrM)...")
+        mode_str = "Full Genome" if FULL_DATA else "chrM"
+        if not FULL_DATA:
+            args.extend(['--region', 'chrM'])
+        
+        print(f"\n>>> Running microarray on real data ({mode_str})...")
         start_time = time.time()
         
         with patch.object(sys, 'argv', args):

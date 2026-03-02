@@ -31,14 +31,20 @@ from wgsextract_cli.core.warnings import EXPECTED_TIME
 REF_PATH = os.environ.get('WGSE_REF')
 INPUT_PATH = os.environ.get('WGSE_INPUT')
 
+# Check for --full-data flag in sys.argv
+FULL_DATA = "--full-data" in sys.argv
+if FULL_DATA:
+    sys.argv.remove("--full-data")
+
 class TestCLIRealData(unittest.TestCase):
     """
     Behavioral validation using real genomic data and actual tool execution.
     
     Goal: Verify the end-to-end correctness of the CLI on real CRAM/BAM files. 
-    By targeting the small chrM region, this suite confirms that automatic resource 
-    resolution, file conversions, variant calling, and alignment chains function 
-    perfectly in a real-world environment while providing execution benchmarks.
+    By targeting the small chrM region (by default) or the full genome (if --full-data),
+    this suite confirms that automatic resource resolution, file conversions, 
+    variant calling, and alignment chains function perfectly in a real-world 
+    environment while providing execution benchmarks.
     """
     @classmethod
     def setUpClass(cls):
@@ -47,12 +53,15 @@ class TestCLIRealData(unittest.TestCase):
             print(f"\n!!! WARNING: Configuration not found in environment or cli/.env.local")
             print(f"!!! REF_PATH: {REF_PATH}")
             print(f"!!! INPUT_PATH: {INPUT_PATH}")
+        if FULL_DATA:
+            print("\n!!! WARNING: Running in FULL DATA mode. This will be SLOW. !!!")
 
     @classmethod
     def tearDownClass(cls):
         if not cls.results: return
+        mode_str = "FULL GENOME" if FULL_DATA else "CHRM"
         print(f"\n" + "="*85)
-        print(f"{'E2E CHRM EXECUTION & BENCHMARK REPORT':^85}")
+        print(f"{f'E2E {mode_str} EXECUTION & BENCHMARK REPORT':^85}")
         print("="*85)
         print(f"{'Command':<25} | {'Status':<6} | {'Duration':>11} | {'Expected':>11} | {'Diff':>11}")
         print("-" * 85)
@@ -68,7 +77,7 @@ class TestCLIRealData(unittest.TestCase):
             expected = res['expected']
             print(f"{res['name']:<25} | {status:<6} | {duration:>10.2f}s | {expected:>10}s | {duration-expected:>10.2f}s")
         print("-" * 85)
-        print(f"TOTAL REAL DATA: {passed}/{len(cls.results)} passed. Total Time: {total_duration:.2f}s")
+        print(f"TOTAL REAL DATA ({mode_str}): {passed}/{len(cls.results)} passed. Total Time: {total_duration:.2f}s")
         print("="*85)
 
     def record_result(self, name, success, duration, expected):
@@ -82,6 +91,22 @@ class TestCLIRealData(unittest.TestCase):
         expected_seconds = EXPECTED_TIME.get(expected_key, 0)
         start_time = time.perf_counter()
         
+        # Strip --region chrM if FULL_DATA is enabled
+        if FULL_DATA:
+            new_args = []
+            skip_next = False
+            for i, arg in enumerate(args):
+                if skip_next:
+                    skip_next = False
+                    continue
+                if arg == "--region":
+                    skip_next = True
+                    continue
+                new_args.append(arg)
+            args = new_args
+            name = name.replace("(chrM)", "(Full)")
+            name = name.replace("mito", "mito (Full)")
+
         print(f"\n>>> [REAL DATA] BEGIN: {name} (Expected: ~{expected_seconds}s)")
 
         success = False
