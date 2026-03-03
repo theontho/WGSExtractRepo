@@ -16,7 +16,8 @@ from .commands import (
     repair,
     qc,
     ref,
-    align
+    align,
+    vep
 )
 
 def main():
@@ -68,6 +69,7 @@ def main():
     qc.register(subparsers)
     ref.register(subparsers)
     align.register(subparsers)
+    vep.register(subparsers)
     
     args = parser.parse_args()
     

@@ -1,0 +1,135 @@
+name: Verify CLI Installation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  macos-homebrew:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: bash cli/dep_scripts/install_macos.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        run: bash cli/dep_scripts/uninstall_macos.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  macos-conda:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          channels: bioconda,conda-forge,defaults
+      - name: Install Dependencies
+        run: bash cli/dep_scripts/install_macos_conda.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        run: bash cli/dep_scripts/uninstall_macos_conda.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  macos-hybrid:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          channels: bioconda,conda-forge,defaults
+      - name: Install Dependencies (Hybrid Brew+VEP Conda)
+        run: bash cli/dep_scripts/install_macos_hybrid.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies (Hybrid)
+        run: bash cli/dep_scripts/uninstall_macos_hybrid.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  ubuntu-apt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: bash cli/dep_scripts/install_ubuntu.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        run: bash cli/dep_scripts/uninstall_ubuntu.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  linux-conda:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          channels: bioconda,conda-forge,defaults
+      - name: Install Dependencies
+        run: bash cli/dep_scripts/install_linux_conda.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        run: bash cli/dep_scripts/uninstall_linux_conda.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  fedora-dnf:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: bash cli/dep_scripts/install_fedora.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        run: bash cli/dep_scripts/uninstall_fedora.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  arch-pacman:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Dependencies
+        run: bash cli/dep_scripts/install_arch.sh
+      - name: Verify Tools
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        run: bash cli/dep_scripts/uninstall_arch.sh
+      - name: Verify Uninstalled
+        run: bash cli/dep_scripts/verify_uninstalled.sh
+
+  windows-conda:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          channels: bioconda,conda-forge,defaults
+      - name: Install Dependencies
+        shell: pwsh
+        run: ./cli/dep_scripts/install_windows_conda.ps1
+      - name: Verify Tools
+        shell: bash
+        run: bash cli/dep_scripts/verify_tools.sh
+      - name: Uninstall Dependencies
+        shell: pwsh
+        run: ./cli/dep_scripts/uninstall_windows_conda.ps1
+      - name: Verify Uninstalled
+        shell: bash
+        run: bash cli/dep_scripts/verify_uninstalled.sh

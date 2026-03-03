@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import run_command, get_resource_defaults, verify_paths_exist, calculate_bam_md5, resolve_reference
+from wgsextract_cli.core.utils import run_command, get_resource_defaults, verify_paths_exist, calculate_bam_md5, resolve_reference, get_chr_name
 from wgsextract_cli.core.warnings import print_warning, check_free_space
 
 def register(subparsers):
@@ -42,6 +42,9 @@ def register(subparsers):
     subset_parser.add_argument("--fraction", "-f", required=True, type=float, help="Decimal percentage (e.g. 0.1 for 10%%)")
     subset_parser.add_argument("-r", "--region", help="Chromosomal region")
     subset_parser.set_defaults(func=cmd_subset)
+
+    mtextract_parser = bam_subs.add_parser("mt-extract", help="Extract mitochondrial (mtDNA) reads to a separate BAM.")
+    mtextract_parser.set_defaults(func=cmd_mtextract)
 
 def get_base_args(args):
     if not args.input:
@@ -244,3 +247,20 @@ def cmd_subset(args):
         run_command(["samtools", "view", "-bh", "-s", str(args.fraction)] + cram_opt + ["-o", out_file, args.input] + region_args)
     except Exception as e:
         logging.error(f"Subsetting failed: {e}")
+
+def cmd_mtextract(args):
+    verify_dependencies(["samtools"])
+    base = get_base_args(args)
+    if not base: return
+    threads, memory, outdir, cram_opt, resolved_ref = base
+    
+    mt_chr = get_chr_name(args.input, "MT", cram_opt)
+    
+    out_file = os.path.join(outdir, os.path.basename(args.input).replace(".bam", "").replace(".cram", "") + "_mtDNA.bam")
+    
+    logging.info(f"Extracting mtDNA reads ({mt_chr}) to {out_file}")
+    try:
+        run_command(["samtools", "view", "-bh"] + cram_opt + ["-@", threads, "-o", out_file, args.input, mt_chr])
+        run_command(["samtools", "index", out_file])
+    except Exception as e:
+        logging.error(f"mtDNA extraction failed: {e}")

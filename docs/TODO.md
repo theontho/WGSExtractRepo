@@ -14,14 +14,14 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 *These features improve the underlying processing logic and should be implemented in the engine to be accessible via both CLI and GUI.*
 
 ### VCF & Variant Calling
-- [ ] **VCF Action Buttons (Backend)**: Complete the engine logic for InDel, CNV, SV, and Filtering.
-- [ ] **Robust InDel Support**: Properly call and include Insertions/Deletions in microarray and variant calling.
-- [ ] **VCF Annotator**: Implement engine-level annotation for rsIDs, SNP names, and gene info.
-- [ ] **Additional Variant Callers**: Integrate FreeBayes, Platypus, or Scalpel as engine options.
+- [x] **VCF Action Buttons (Backend)**: Complete the engine logic for InDel, CNV, SV, and Filtering.
+- [x] **Robust InDel Support**: Properly call and include Insertions/Deletions in microarray and variant calling.
+- [x] **VCF Annotator**: Implement engine-level annotation for rsIDs, SNP names, and gene info. (Added auto-resolution and VEP support).
+- [x] **Additional Variant Callers**: Integrate FreeBayes, Platypus, or Scalpel as engine options. (Added FreeBayes).
 - [ ] **DeepVariant/GATK Integration**: Add support for these industry-standard callers in the backend.
 
 ### BAM/CRAM Processing
-- [ ] **mtDNA BAM Extraction**: Add a dedicated engine command to generate and save mtDNA-only BAMs.
+- [x] **mtDNA BAM Extraction**: Add a dedicated engine command to generate and save mtDNA-only BAMs.
 - [ ] **BAM/CRAM Merging**: Add a utility to merge multiple alignment files.
 - [ ] **Unaligned BAM Creator**: Add a tool to create unaligned BAMs for specific pipelines.
 - [ ] **MD5 Integrity Checks**: Implement automated MD5sum checking for reference genome files.

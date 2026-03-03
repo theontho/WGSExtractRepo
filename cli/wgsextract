@@ -1,0 +1,10 @@
+#!/bin/bash
+# CLI wrapper for wgsextract-cli module
+# Usage: ./wgsextract [ARGS]
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Run the module using uv with PYTHONPATH set to the src directory
+# This ensures we're running the latest code without needing a full reinstall.
+cd "$SCRIPT_DIR" && PYTHONPATH=src uv run python -m wgsextract_cli.main "$@"

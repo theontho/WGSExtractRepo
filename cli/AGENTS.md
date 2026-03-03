@@ -1,0 +1,3 @@
+The cli re-implementaiton in the cli/ directory is a completely independent reimplementation of the legacy GUI application in the root directory.  Do not share or link code in it, instead reimplement it in ideally python, referencing the legacy app as a source of truth.
+
+We do not want to manage installing dependencies for users, just validate that they are installed before running the feature. You can add library dependencies as part of the pyproject.toml file.

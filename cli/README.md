@@ -9,15 +9,85 @@ A completely independent, modern command-line interface for the WGS Extract appl
 *   **Synchronized Testing**: A robust four-tier test suite (136 tests total) ensures plumbing, error handling, robustness, and E2E behavioral correctness.
 *   **Optimized for Speed**: Built-in `--region` support for heavy commands (sort, convert, coverage, variant calling) enables rapid processing of specific chromosomal regions like `chrM`.
 
-## Requirements
+## Dependencies
 
-This CLI assumes that you have standard bioinformatics tools installed and accessible on your system's `$PATH`.
+The `wgsextract-cli` relies on several industry-standard bioinformatics tools. 
 
-*   **Core:** `samtools`, `bcftools`, `tabix`, `bgzip`
+> ⚠️ **Platform Support Note**: macOS instructions have been verified on Apple Silicon. Windows (WSL2/Conda) and Linux instructions are currently **unverified** and provided as a best-effort guide.
+
+### Required Tools
+*   **Core:** `samtools`, `bcftools`, `htslib` (tabix/bgzip), `delly`, `freebayes`, `ensembl-vep`
 *   **Aligners:** `bwa`, `minimap2`
-*   **QC Tools:** `fastp`, `fastqc` (requires `java`)
-*   **Lineage Tools:** `java` (for Haplogrep), `python3` (for Yleaf)
-*   **System Utilities:** `awk`, `sed`, `zip`, `wget`
+*   **QC & Utils:** `fastp`, `fastqc`, `openjdk` (Java), `python3`, `pip`, `uv`
+
+### 🛠️ Installation Scripts
+
+You can find pre-written install/uninstall scripts for each platform in the [cli/dep_scripts/](dep_scripts/) directory.
+
+#### macOS (using Homebrew) — ✅ Verified
+```bash
+# Install (Note: VEP not available via brew, manual install required)
+bash cli/dep_scripts/install_macos.sh
+
+# Uninstall
+bash cli/dep_scripts/uninstall_macos.sh
+```
+
+#### macOS / Linux (using Conda/Mamba) — ⚠️ Unverified
+This is the recommended method for getting **Ensembl VEP** easily.
+```bash
+# Install (macOS)
+bash cli/dep_scripts/install_macos_conda.sh
+
+# Install (Linux)
+bash cli/dep_scripts/install_linux_conda.sh
+
+# Uninstall (macOS)
+bash cli/dep_scripts/uninstall_macos_conda.sh
+
+# Uninstall (Linux)
+bash cli/dep_scripts/uninstall_linux_conda.sh
+```
+
+#### Ubuntu / Debian / Mint — ⚠️ Unverified
+```bash
+# Install
+bash cli/dep_scripts/install_ubuntu.sh
+
+# Uninstall
+bash cli/dep_scripts/uninstall_ubuntu.sh
+```
+
+#### Fedora / RHEL / CentOS — ⚠️ Unverified
+```bash
+# Install
+bash cli/dep_scripts/install_fedora.sh
+
+# Uninstall
+bash cli/dep_scripts/uninstall_fedora.sh
+```
+
+#### Arch Linux / Manjaro — ⚠️ Unverified
+```bash
+# Install
+bash cli/dep_scripts/install_arch.sh
+
+# Uninstall
+bash cli/dep_scripts/uninstall_arch.sh
+```
+
+#### Windows (WSL2 / PowerShell) — ⚠️ Unverified
+We strongly recommend using **WSL2 (Ubuntu)** for the best experience. If using native Windows, you can use **Conda/Mamba**:
+
+```powershell
+# Install via Conda (PowerShell)
+./cli/dep_scripts/install_windows_conda.ps1
+
+# Uninstall
+./cli/dep_scripts/uninstall_windows_conda.ps1
+```
+
+---
 
 ## Installation
 
@@ -49,6 +119,12 @@ Once set, global arguments like `--ref` and `--input` become optional for many c
 ### Direct Command
 ```bash
 wgsextract-cli info --detailed
+```
+
+### Wrapper Script (Recommended for development)
+```bash
+# From within the cli directory
+./wgsextract info --detailed
 ```
 
 ### Module Mode (Advanced)

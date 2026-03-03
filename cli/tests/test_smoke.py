@@ -197,5 +197,10 @@ class TestCLISmoke(unittest.TestCase):
     def test_32_ref_index(self): self.run_sub("ref index", ['--ref', 'fake.fa', 'ref', 'index'])
     def test_33_align_bwa(self): self.run_sub("align bwa", ['--ref', REF_PATH, 'align', '--r1', self.dummy_fastq, '--r2', self.dummy_fastq])
 
+    @patch('builtins.input', side_effect=['0'])
+    @patch('wgsextract_cli.commands.ref.download_and_process_genome')
+    def test_34_ref_library(self, mock_dl, mock_input):
+        self.run_sub("ref library", ['ref', 'library'])
+
 if __name__ == '__main__':
     unittest.main()
