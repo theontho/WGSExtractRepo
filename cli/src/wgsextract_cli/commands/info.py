@@ -24,11 +24,11 @@ def register(subparsers, base_parser):
     parser.add_argument("--csv", action="store_true", help="Output the table as CSV instead of formatted text")
     
     info_subs = parser.add_subparsers(dest="info_cmd", required=False)
-    calc_cov = info_subs.add_parser("calculate-coverage", help="Calculate FULL breadth coverage using samtools depth (1-3 hours)")
+    calc_cov = info_subs.add_parser("calculate-coverage", parents=[base_parser], help="Calculate FULL breadth coverage using samtools depth (1-3 hours)")
     calc_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     calc_cov.set_defaults(func=run)
 
-    samp_cov = info_subs.add_parser("coverage-sample", help="Estimate coverage using random sampling (under 10 seconds)")
+    samp_cov = info_subs.add_parser("coverage-sample", parents=[base_parser], help="Estimate coverage using random sampling (under 10 seconds)")
     samp_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     samp_cov.set_defaults(func=run)
     

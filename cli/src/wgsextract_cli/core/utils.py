@@ -215,6 +215,26 @@ def resolve_reference(ref_path, md5_sig):
     lib = ReferenceLibrary(ref_path, md5_sig)
     return lib.fasta if lib.fasta else ref_path
 
+def calculate_bsd_sum(file_path):
+    """
+    Calculates BSD-style checksum and 1K block count.
+    Matches the 'sum' command (without -s) on many systems and Ensembl CHECKSUMS.
+    """
+    checksum = 0
+    with open(file_path, 'rb') as f:
+        while True:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            for byte in chunk:
+                checksum = (checksum >> 1) + ((checksum & 1) << 15)
+                checksum += byte
+                checksum &= 0xffff
+    
+    size = os.path.getsize(file_path)
+    blocks = (size + 1023) // 1024
+    return checksum, blocks
+
 def verify_paths_exist(paths_dict):
     """
     Verify that multiple paths exist and are files.
@@ -240,7 +260,52 @@ def run_command(cmd_list, capture_output=False, check=True, **kwargs):
             logging.error(e.stderr)
         raise
 
-def get_bam_header(bam_path, cram_opt=None):
+def ensure_vcf_indexed(vcf_path):
+    """
+    Checks if a VCF/BCF file is indexed (.tbi or .csi). 
+    If not, and the file is bgzipped, it creates the index automatically.
+    """
+    if not vcf_path or not os.path.exists(vcf_path):
+        return False
+
+    # Standard index extensions
+    indices = [vcf_path + ".tbi", vcf_path + ".csi"]
+    if vcf_path.endswith(".gz"):
+        indices.append(vcf_path[:-3] + ".tbi")
+        indices.append(vcf_path[:-3] + ".csi")
+
+    if any(os.path.exists(i) for i in indices):
+        return True
+
+    # Check if bgzipped (magic bytes 1f 8b 08)
+    is_bgzipped = False
+    try:
+        with open(vcf_path, 'rb') as f:
+            header = f.read(3)
+            if header == b'\x1f\x8b\x08':
+                is_bgzipped = True
+    except Exception:
+        pass
+
+    if is_bgzipped:
+        logging.info(f"Auto-indexing VCF: {vcf_path}")
+        try:
+            # Try tbi first, fall back to csi if needed (csi supports larger chromosomes)
+            subprocess.run(["tabix", "-p", "vcf", vcf_path], check=True)
+            return True
+        except subprocess.CalledProcessError:
+            try:
+                subprocess.run(["bcftools", "index", vcf_path], check=True)
+                return True
+            except Exception as e:
+                logging.warning(f"Failed to auto-index {vcf_path}: {e}")
+    else:
+        logging.debug(f"Skipping auto-index for non-bgzipped file: {vcf_path}")
+
+    return False
+
+def get_bam_header(bam_path, cram_opt=[]):
+
     """Fetch BAM/CRAM header using samtools view -H."""
     # Attempt 1: As provided
     cmd = ["samtools", "view", "-H"]

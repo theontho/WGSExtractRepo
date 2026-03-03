@@ -12,13 +12,13 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 
 # Reference genome data from base_reference/seed_genomes.csv
 GENOME_DATA = [
-    {"code": "T2Tv20", "source": "AWS", "final": "chm13v2.0.fa.gz", "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz", "label": "T2T_v2.0 (PGP/HPP chrN) (Rec)"},
-    {"code": "hs37d5", "source": "NIH-Alt", "final": "hs37d5.fa.gz", "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz", "label": "hs37d5 (Dante) (NIH) (Rec)"},
-    {"code": "hs38", "source": "NIH-Alt", "final": "hs38.fa.gz", "url": "https://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz", "label": "hs38 (Nebula) (NIH) (Rec)"},
-    {"code": "hs37d5", "source": "EBI-Alt", "final": "hs37d5.fa.gz", "url": "https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz", "label": "hs37d5 (Dante) (EBI) (Rec)"},
-    {"code": "hs38", "source": "EBI-Alt", "final": "hs38.fa.gz", "url": "https://get.wgse.io/hs38.fa.gz", "label": "hs38 (Nebula) (EBI) (Rec)"},
-    {"code": "hg38", "source": "UCSC", "final": "hg38.fa.gz", "url": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz", "label": "hg38 (YSEQ)"},
-    {"code": "hs37", "source": "WGSE", "final": "hs37.fa.gz", "url": "https://get.wgse.io/hs37.fa.gz", "label": "hs37 (1K Gen)"},
+    {"code": "T2Tv20", "source": "AWS", "final": "chm13v2.0.fa.gz", "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz", "label": "T2T_v2.0 (PGP/HPP chrN) (Rec)", "md5": "7cee777f1939f4028926017158ed5512"},
+    {"code": "hs37d5", "source": "NIH-Alt", "final": "hs37d5.fa.gz", "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz", "label": "hs37d5 (Dante) (NIH) (Rec)", "md5": "5a23f5a85bd78221010561466907bf7d"},
+    {"code": "hs38", "source": "NIH-Alt", "final": "hs38.fa.gz", "url": "https://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz", "label": "hs38 (Nebula) (NIH) (Rec)", "md5": "eec5eb2eeae44c48a31eb32647cd04f6"},
+    {"code": "hs37d5", "source": "EBI-Alt", "final": "hs37d5.fa.gz", "url": "https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz", "label": "hs37d5 (Dante) (EBI) (Rec)", "md5": "5a23f5a85bd78221010561466907bf7d"},
+    {"code": "hs38", "source": "EBI-Alt", "final": "hs38.fa.gz", "url": "https://get.wgse.io/hs38.fa.gz", "label": "hs38 (Nebula) (EBI) (Rec)", "md5": "eec5eb2eeae44c48a31eb32647cd04f6"},
+    {"code": "hg38", "source": "UCSC", "final": "hg38.fa.gz", "url": "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.gz", "label": "hg38 (YSEQ)", "md5": "4bdbf8a3761d0cd03b53a398b6da026d"},
+    {"code": "hs37", "source": "WGSE", "final": "hs37.fa.gz", "url": "https://get.wgse.io/hs37.fa.gz", "label": "hs37 (1K Gen)", "md5": "f7c76dbcf8cf8b41d2c1d05c1ed58a75"},
 ]
 
 # Chromosome length sets for build identification
@@ -104,6 +104,48 @@ def load_genomes_from_csv(csv_path):
         logging.error(f"Error reading {csv_path}: {e}")
     return genomes
 
+def verify_genome_checksum(final_path: str, genome: Dict) -> bool:
+    """Helper to verify checksum of a local file against static or remote metadata."""
+    expected_sum = genome.get('md5')
+    
+    if genome.get('checksum_url'):
+        logging.info(f"Fetching remote checksums from {genome['checksum_url']}...")
+        try:
+            res = subprocess.run(["curl", "-s", "-L", genome['checksum_url']], capture_output=True, text=True)
+            if res.returncode == 0:
+                for line in res.stdout.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 2 and (parts[-1].endswith(genome['final']) or parts[-1] == genome['final']):
+                        expected_sum = parts[0]
+                        logging.info(f"Found remote checksum for {genome['final']}: {expected_sum}")
+                        break
+        except Exception as e:
+            logging.debug(f"Failed to fetch remote checksum: {e}")
+
+    if not expected_sum:
+        return True # Can't verify, assume OK or handled by gzip -t elsewhere
+
+    logging.info(f"Verifying integrity of {os.path.basename(final_path)}...")
+    if len(expected_sum) == 32:
+        hash_md5 = hashlib.md5()
+        with open(final_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        calculated = hash_md5.hexdigest()
+    else:
+        from wgsextract_cli.core.utils import calculate_bsd_sum
+        calculated_sum, _ = calculate_bsd_sum(final_path)
+        calculated = str(calculated_sum)
+
+    if calculated == expected_sum:
+        logging.info("Checksum verification successful.")
+        return True
+    else:
+        logging.error(f"Checksum verification FAILED for {os.path.basename(final_path)}!")
+        logging.error(f"Expected: {expected_sum}")
+        logging.error(f"Calculated: {calculated}")
+        return False
+
 def download_and_process_genome(genome_index: int, reflib_dir: str, genomes_list: List[Dict] = None):
     verify_dependencies(["curl", "samtools", "bgzip", "gzip"])
     data = genomes_list if genomes_list else GENOME_DATA
@@ -121,9 +163,19 @@ def download_and_process_genome(genome_index: int, reflib_dir: str, genomes_list
     final_path = os.path.join(target_dir, genome['final'])
     
     if os.path.exists(final_path):
-        print(f"\n{genome['final']} already exists at {final_path}")
-        choice = input("Re-download anyway? [y/N]: ").strip().lower()
-        if choice == 'y':
+        # Check integrity of EXISTING file
+        if verify_genome_checksum(final_path, genome):
+            print(f"\n{genome['final']} is already present and VERIFIED.")
+            choice = input("Re-download anyway? [y/N]: ").strip().lower()
+            if choice != 'y':
+                return process_reference_file(final_path)
+            os.remove(final_path)
+        else:
+            print(f"\nExisting file {genome['final']} is CORRUPTED.")
+            choice = input("Download a fresh copy to fix it? [Y/n]: ").strip().lower()
+            if choice == 'n':
+                logging.warning("Proceeding with corrupted file (not recommended).")
+                return process_reference_file(final_path)
             os.remove(final_path)
     
     if not os.path.exists(final_path):
@@ -137,6 +189,12 @@ def download_and_process_genome(genome_index: int, reflib_dir: str, genomes_list
     if not os.path.exists(final_path) or os.path.getsize(final_path) < 1000000:
         logging.error(f"Download failed or file too small: {final_path}")
         return False
+
+    # Verify NEW download
+    if not verify_genome_checksum(final_path, genome):
+        choice = input("The new download also appears corrupted. Continue processing anyway? [y/N]: ").strip().lower()
+        if choice != 'y':
+            return False
 
     return process_reference_file(final_path)
 

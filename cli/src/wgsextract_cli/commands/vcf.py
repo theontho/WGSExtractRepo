@@ -2,7 +2,7 @@ import os
 import subprocess
 import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary
+from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary, ensure_vcf_indexed
 from wgsextract_cli.core.warnings import print_warning
 
 def register(subparsers, base_parser):
@@ -120,7 +120,7 @@ def cmd_snp(args):
             logging.error(stderr.decode())
         return
 
-    subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+    ensure_vcf_indexed(out_vcf)
 
 def cmd_indel(args):
     verify_dependencies(["bcftools", "tabix"])
@@ -164,7 +164,7 @@ def cmd_indel(args):
         logging.error(f"bcftools norm failed with return code {p3.returncode}")
         return
 
-    subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+    ensure_vcf_indexed(out_vcf)
 
 def cmd_annotate(args):
     verify_dependencies(["bcftools"])
@@ -196,9 +196,13 @@ def cmd_annotate(args):
 
     if not verify_paths_exist({'--input': args.input, '--ann-vcf': ann_vcf}): return
 
+    ensure_vcf_indexed(args.input)
+    ensure_vcf_indexed(ann_vcf)
+
     logging.info(f"Annotating {args.input} to {out_vcf}")
     try:
         subprocess.run(["bcftools", "annotate", "-a", ann_vcf, "-c", cols, "-Oz", "-o", out_vcf, args.input], check=True)
+        ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"Annotation failed: {e}")
 
@@ -232,10 +236,11 @@ def cmd_filter(args):
     region_args = ["-r", region] if region else []
     expr_args = ["-i", args.expr] if args.expr else []
     
+    ensure_vcf_indexed(args.input)
     logging.info(f"Filtering {args.input} to {out_vcf}")
     try:
         subprocess.run(["bcftools", "view"] + region_args + expr_args + ["-Oz", "-o", out_vcf, args.input], check=True)
-        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"Filtering failed: {e}")
 
@@ -249,13 +254,12 @@ def cmd_trio(args):
     
     logging.info(f"Performing Trio Analysis ({args.mode}) to {out_vcf}")
     
-    # 1. Merge the three VCFs (requires them to be indexed)
+    # 1. Merge the three VCFs (ensures they are indexed)
     for f in [args.proband, args.mother, args.father]:
-        if not os.path.exists(f + ".tbi"):
-            subprocess.run(["tabix", "-p", "vcf", f], check=True)
+        ensure_vcf_indexed(f)
             
     merged_vcf = os.path.join(outdir, "merged_trio.vcf.gz")
-    subprocess.run(["bcftools", "merge", "-Oz", "-o", merged_vcf, args.proband, args.mother, args.father], check=True)
+    subprocess.run(["bcftools", "merge", "--force-samples", "-Oz", "-o", merged_vcf, args.proband, args.mother, args.father], check=True)
     
     # 2. Apply Inheritance Filters
     # [0] = proband, [1] = mother, [2] = father
@@ -272,7 +276,7 @@ def cmd_trio(args):
 
     try:
         subprocess.run(["bcftools", "view", "-i", filter_expr, "-Oz", "-o", out_vcf, merged_vcf], check=True)
-        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
         logging.info(f"Trio analysis complete. Results: {out_vcf}")
     finally:
         if os.path.exists(merged_vcf): os.remove(merged_vcf)
@@ -310,7 +314,7 @@ def cmd_cnv(args):
         subprocess.run(["delly", "cnv", "-g", ref, "-o", out_bcf, args.input], check=True)
         # convert bcf to vcf.gz
         subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
-        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
         if os.path.exists(out_bcf): os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"CNV calling failed: {e}")
@@ -330,7 +334,7 @@ def cmd_sv(args):
         subprocess.run(["delly", "call", "-g", ref, "-o", out_bcf, args.input], check=True)
         # convert bcf to vcf.gz
         subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
-        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
         if os.path.exists(out_bcf): os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"SV calling failed: {e}")
@@ -357,6 +361,6 @@ def cmd_freebayes(args):
             logging.error(f"Freebayes/bcftools failed with return code {p2.returncode}")
             return
 
-        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
     except Exception as e:
         logging.error(f"Freebayes failed: {e}")

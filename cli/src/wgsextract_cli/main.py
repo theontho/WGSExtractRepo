@@ -52,7 +52,8 @@ def main():
 
     # 2. Main parser
     parser = argparse.ArgumentParser(
-        description="WGS Extract Command-Line Interface (CLI)"
+        description="WGS Extract Command-Line Interface (CLI)",
+        parents=[base_parser]
     )
     subparsers = parser.add_subparsers(dest="command", required=True, title="subcommands")
     

@@ -2,7 +2,7 @@ import os
 import subprocess
 import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import run_command, get_chr_name, get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, get_ref_mito
+from wgsextract_cli.core.utils import run_command, get_chr_name, get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, get_ref_mito, ensure_vcf_indexed
 from wgsextract_cli.core.warnings import print_warning
 
 def register(subparsers, base_parser):
@@ -75,7 +75,7 @@ def cmd_mito(args):
         p2 = subprocess.Popen(["bcftools", "call", "-mv", "-Oz", "-o", out_vcf], stdin=p1.stdout)
         p1.stdout.close()
         p2.communicate()
-        run_command(["tabix", "-p", "vcf", out_vcf])
+        ensure_vcf_indexed(out_vcf)
         
         # Generate Consensus FASTA
         # Need to handle rCRS/Yoruba variants from VCF
@@ -116,7 +116,7 @@ def cmd_y(args):
         p2 = subprocess.Popen(["bcftools", "call", "-mv", "-Oz", "-o", out_vcf], stdin=p1.stdout)
         p1.stdout.close()
         p2.communicate()
-        run_command(["tabix", "-p", "vcf", out_vcf])
+        ensure_vcf_indexed(out_vcf)
         
     except Exception as e:
         logging.error(f"Y extraction failed: {e}")

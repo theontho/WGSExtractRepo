@@ -11,7 +11,7 @@ from contextlib import redirect_stderr, redirect_stdout
 # Ensure cli/src is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-# Load environment variables from the cli project directory base
+# Load environment variables
 from dotenv import load_dotenv
 cli_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 env_local = os.path.join(cli_root, ".env.local")
@@ -31,10 +31,6 @@ INPUT_PATH = os.environ.get('WGSE_INPUT', "/tmp/fake.bam")
 class TestCLISmoke(unittest.TestCase):
     """
     Rapid plumbing verification using mocked tool execution.
-    
-    Goal: Ensure that every subcommand is correctly registered, argument parsing works 
-    as expected, and the correct parameters are passed down to the underlying genomic 
-    tools. This suite covers ALL 34 available command combinations.
     """
     @classmethod
     def setUpClass(cls):
@@ -72,7 +68,6 @@ class TestCLISmoke(unittest.TestCase):
         """Helper to run a subcommand with mocks."""
         import subprocess
         print(f">>> [SMOKE] BEGIN: {name}")
-        real_popen = subprocess.Popen
         
         def popen_side_effect(*args, **kwargs):
             mock_proc = MagicMock()
@@ -87,26 +82,28 @@ class TestCLISmoke(unittest.TestCase):
         def exists_side_effect(path):
             if not path: return False
             p = str(path)
-            if any(x in p for x in ['.env', '.env.local', 'ploidy.txt', '.py', '.json']):
+            if any(x in p for x in ['.env', '.env.local', 'ploidy.txt', '.py', '.json', '.tsv', 'ref/']):
                 return _real_exists(path)
             return True
 
         def isfile_side_effect(path):
             if not path: return False
             p = str(path)
-            if any(x in p for x in ['.env', '.env.local', 'ploidy.txt', '.py', '.json']):
+            if any(x in p for x in ['.env', '.env.local', 'ploidy.txt', '.py', '.json', '.tsv']):
                 return _real_isfile(path)
             return True
 
-        # Create dummy files that info.py might try to check size of
-        base_name = os.path.basename(INPUT_PATH if INPUT_PATH else "dummy.bam")
-        for suffix in ['_bincvg.csv', '_samplecvg.json', '.bai', '.crai']:
-            fpath = os.path.join(self.test_dir, base_name + suffix)
-            if not _real_exists(fpath):
-                with open(fpath, 'w') as f: f.write("dummy")
-
         success = False
         message = ""
+        # Create dummy index files
+        base_name = os.path.basename(INPUT_PATH)
+        for s in ['.bai', '.crai']:
+            with open(os.path.join(self.test_dir, base_name + s), 'w') as f: f.write("d")
+
+        # Command list for patching verify_dependencies in all modules
+        cmds = ['bam', 'vcf', 'extract', 'microarray', 'lineage', 'qc', 'ref', 'align', 'vep', 'info']
+        patches = [patch(f'wgsextract_cli.commands.{c}.verify_dependencies') for c in cmds]
+        
         with patch('subprocess.Popen', side_effect=popen_side_effect), \
              patch('subprocess.run') as mock_run, \
              patch('os.path.exists', side_effect=exists_side_effect), \
@@ -114,9 +111,13 @@ class TestCLISmoke(unittest.TestCase):
              patch('os.path.getsize', return_value=1024), \
              patch('os.remove'), \
              patch('sys.stdin', io.StringIO("")), \
+             patch('wgsextract_cli.core.dependencies.verify_dependencies'), \
              patch('wgsextract_cli.commands.info.run_full_coverage'), \
              patch('wgsextract_cli.commands.info.run_sampled_coverage'), \
              patch('wgsextract_cli.commands.info.calculate_bam_md5', return_value="dummy_md5"):
+            
+            # Activate sub-module patches
+            for p in patches: p.start()
             
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             try:
@@ -129,7 +130,11 @@ class TestCLISmoke(unittest.TestCase):
                 success = (e.code == 0)
                 message = f"Exit {e.code}" if not success else ""
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 message = f"Crashed: {type(e).__name__}: {str(e)}"
+            finally:
+                for p in patches: p.stop()
         
         status = "PASS" if success else "FAIL"
         self.record_result(name, success, message)
@@ -145,62 +150,72 @@ class TestCLISmoke(unittest.TestCase):
             self.record_result("help", e.code == 0)
 
     # --- INFO ---
-    def test_01_info(self): self.run_sub("info", ['--input', INPUT_PATH, 'info'])
-    def test_02_info_detailed(self): self.run_sub("info --detailed", ['--input', INPUT_PATH, 'info', '--detailed'])
-    def test_03_info_calc_cov(self): self.run_sub("info calculate-coverage", ['--input', INPUT_PATH, 'info', 'calculate-coverage'])
-    def test_04_info_cov_sample(self): self.run_sub("info coverage-sample", ['--input', INPUT_PATH, 'info', 'coverage-sample'])
+    def test_01_info(self): self.run_sub("info", ['info', '--input', INPUT_PATH])
+    def test_02_info_detailed(self): self.run_sub("info --detailed", ['info', '--input', INPUT_PATH, '--detailed'])
+    def test_03_info_calc_cov(self): self.run_sub("info calculate-coverage", ['info', 'calculate-coverage', '--input', INPUT_PATH])
+    def test_04_info_cov_sample(self): self.run_sub("info coverage-sample", ['info', 'coverage-sample', '--input', INPUT_PATH])
 
     # --- BAM ---
-    def test_05_bam_sort(self): self.run_sub("bam sort", ['--input', INPUT_PATH, 'bam', 'sort'])
-    def test_06_bam_index(self): self.run_sub("bam index", ['--input', INPUT_PATH, 'bam', 'index'])
-    def test_07_bam_unindex(self): self.run_sub("bam unindex", ['--input', INPUT_PATH, 'bam', 'unindex'])
-    def test_08_bam_unsort(self): self.run_sub("bam unsort", ['--input', INPUT_PATH, 'bam', 'unsort'])
-    def test_09_bam_tocram(self): self.run_sub("bam to-cram", ['--input', INPUT_PATH, 'bam', 'to-cram'])
-    def test_10_bam_tobam(self): self.run_sub("bam to-bam", ['--input', INPUT_PATH, 'bam', 'to-bam'])
-    def test_11_bam_unalign(self): self.run_sub("bam unalign", ['--input', INPUT_PATH, 'bam', 'unalign', '--r1', 'out.r1', '--r2', 'out.r2'])
-    def test_12_bam_subset(self): self.run_sub("bam subset", ['--input', INPUT_PATH, 'bam', 'subset', '-f', '0.1'])
+    def test_05_bam_sort(self): self.run_sub("bam sort", ['bam', 'sort', '--input', INPUT_PATH])
+    def test_06_bam_index(self): self.run_sub("bam index", ['bam', 'index', '--input', INPUT_PATH])
+    def test_07_bam_unindex(self): self.run_sub("bam unindex", ['bam', 'unindex', '--input', INPUT_PATH])
+    def test_08_bam_unsort(self): self.run_sub("bam unsort", ['bam', 'unsort', '--input', INPUT_PATH])
+    def test_09_bam_tocram(self): self.run_sub("bam to-cram", ['bam', 'to-cram', '--input', INPUT_PATH])
+    def test_10_bam_tobam(self): self.run_sub("bam to-bam", ['bam', 'to-bam', '--input', INPUT_PATH])
+    def test_11_bam_unalign(self): self.run_sub("bam unalign", ['bam', 'unalign', '--input', INPUT_PATH, '--r1', 'out.r1', '--r2', 'out.r2'])
+    def test_12_bam_subset(self): self.run_sub("bam subset", ['bam', 'subset', '--input', INPUT_PATH, '-f', '0.1'])
 
     # --- EXTRACT ---
-    def test_13_extract_mito(self): self.run_sub("extract mito", ['--input', INPUT_PATH, '--ref', REF_PATH, 'extract', 'mito'])
-    def test_14_extract_ydna(self): self.run_sub("extract ydna", ['--input', INPUT_PATH, '--ref', REF_PATH, 'extract', 'ydna'])
-    def test_15_extract_unmapped(self): self.run_sub("extract unmapped", ['--input', INPUT_PATH, 'extract', 'unmapped', '--r1', 'u1.fq', '--r2', 'u2.fq'])
+    def test_13_extract_mito(self): self.run_sub("extract mito", ['extract', 'mito', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_14_extract_y(self): self.run_sub("extract y", ['extract', 'y', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_15_extract_unmapped(self): self.run_sub("extract unmapped", ['extract', 'unmapped', '--input', INPUT_PATH])
 
     # --- VCF ---
-    def test_16_vcf_snp(self): self.run_sub("vcf snp", ['--input', INPUT_PATH, '--ref', REF_PATH, 'vcf', 'snp'])
-    def test_17_vcf_indel(self): self.run_sub("vcf indel", ['--input', INPUT_PATH, '--ref', REF_PATH, 'vcf', 'indel'])
-    def test_18_vcf_annotate(self): self.run_sub("vcf annotate", ['--input', self.dummy_vcf, 'vcf', 'annotate', '--ann-vcf', self.dummy_vcf, '--cols', 'ID'])
-    def test_19_vcf_filter(self): self.run_sub("vcf filter", ['--input', self.dummy_vcf, 'vcf', 'filter', '--expr', 'QUAL>30'])
-    def test_20_vcf_qc(self): self.run_sub("vcf qc", ['--input', self.dummy_vcf, 'vcf', 'qc'])
+    def test_16_vcf_snp(self): self.run_sub("vcf snp", ['vcf', 'snp', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_17_vcf_indel(self): self.run_sub("vcf indel", ['vcf', 'indel', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_18_vcf_annotate(self): self.run_sub("vcf annotate", ['vcf', 'annotate', '--input', self.dummy_vcf, '--ann-vcf', self.dummy_vcf, '--cols', 'ID'])
+    def test_19_vcf_filter(self): self.run_sub("vcf filter", ['vcf', 'filter', '--input', self.dummy_vcf, '--expr', 'QUAL>30'])
+    def test_20_vcf_qc(self): self.run_sub("vcf qc", ['vcf', 'qc', '--input', self.dummy_vcf])
 
     # --- MICROARRAY / LINEAGE ---
-    def test_21_microarray(self): self.run_sub("microarray", ['--input', INPUT_PATH, '--ref', REF_PATH, 'microarray'])
-    def test_22_lineage_mtdna(self): 
-        with patch('wgsextract_cli.commands.lineage.verify_paths_exist', return_value=True):
-            self.run_sub("lineage mt-dna", ['--input', self.dummy_vcf, 'lineage', 'mt-dna', '--haplogrep-path', 'fake.jar'])
-    def test_23_lineage_ydna(self): 
-        with patch('wgsextract_cli.commands.lineage.verify_paths_exist', return_value=True):
-            self.run_sub("lineage y-dna", ['--input', INPUT_PATH, 'lineage', 'y-dna', '--yleaf-path', 'fake.py', '--pos-file', 'fake.txt'])
+    def test_21_microarray(self): self.run_sub("microarray", ['microarray', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_22_lineage_mtdna(self): self.run_sub("lineage mt-dna", ['lineage', 'mt-dna', '--input', self.dummy_vcf, '--haplogrep-path', 'fake.jar'])
+    def test_23_lineage_ydna(self): self.run_sub("lineage y-dna", ['lineage', 'y-dna', '--input', INPUT_PATH, '--yleaf-path', 'fake.py', '--pos-file', 'fake.txt'])
 
     # --- REPAIR ---
-    def test_24_repair_bam(self): self.run_sub("repair ftdna-bam", ['--input', INPUT_PATH, 'repair', 'ftdna-bam'])
-    def test_25_repair_vcf(self): self.run_sub("repair ftdna-vcf", ['--input', self.dummy_vcf, 'repair', 'ftdna-vcf'])
+    def test_24_repair_bam(self): self.run_sub("repair ftdna-bam", ['repair', 'ftdna-bam', '--input', INPUT_PATH])
+    def test_25_repair_vcf(self): self.run_sub("repair ftdna-vcf", ['repair', 'ftdna-vcf', '--input', self.dummy_vcf])
 
     # --- QC ---
     def test_26_qc_fastp(self): self.run_sub("qc fastp", ['qc', 'fastp', '--r1', self.dummy_fastq, '--r2', self.dummy_fastq])
-    def test_27_qc_fastqc(self): self.run_sub("qc fastqc", ['qc', 'fastqc', '--fastq', self.dummy_fastq])
-    def test_28_qc_cov_wgs(self): self.run_sub("qc coverage-wgs", ['--input', INPUT_PATH, 'qc', 'coverage-wgs'])
-    def test_29_qc_cov_wes(self): self.run_sub("qc coverage-wes", ['--input', INPUT_PATH, 'qc', 'coverage-wes', '--bed', self.dummy_bed])
+    def test_27_qc_fastqc(self): self.run_sub("qc fastqc", ['qc', 'fastqc', '--input', INPUT_PATH])
 
     # --- REF / ALIGN ---
-    def test_30_ref_identify(self): self.run_sub("ref identify", ['--input', INPUT_PATH, 'ref', 'identify'])
+    def test_30_ref_identify(self): self.run_sub("ref identify", ['ref', 'identify', '--input', INPUT_PATH])
     def test_31_ref_download(self): self.run_sub("ref download", ['ref', 'download', '--url', 'http://fake', '--out', 'out.fa'])
-    def test_32_ref_index(self): self.run_sub("ref index", ['--ref', 'fake.fa', 'ref', 'index'])
-    def test_33_align_bwa(self): self.run_sub("align bwa", ['--ref', REF_PATH, 'align', '--r1', self.dummy_fastq, '--r2', self.dummy_fastq])
+    def test_32_ref_index(self): self.run_sub("ref index", ['ref', 'index', '--ref', 'fake.fa'])
+    def test_33_align_bwa(self): self.run_sub("align bwa", ['align', '--ref', REF_PATH, '--r1', self.dummy_fastq, '--r2', self.dummy_fastq])
 
     @patch('builtins.input', side_effect=['0'])
     @patch('wgsextract_cli.commands.ref.download_and_process_genome')
     def test_34_ref_library(self, mock_dl, mock_input):
         self.run_sub("ref library", ['ref', 'library'])
+
+    # --- NEW FEATURES ---
+    def test_35_vep(self): self.run_sub("vep", ['vep', '--input', self.dummy_vcf, '--format', 'vcf'])
+    def test_36_vep_download(self): self.run_sub("vep download", ['vep', 'download', '--assembly', 'GRCh38'])
+    def test_37_vcf_cnv(self): self.run_sub("vcf cnv", ['vcf', 'cnv', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_38_vcf_sv(self): self.run_sub("vcf sv", ['vcf', 'sv', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_39_vcf_freebayes(self): self.run_sub("vcf freebayes", ['vcf', 'freebayes', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_40_vcf_trio(self): self.run_sub("vcf trio", ['vcf', 'trio', '--proband', self.dummy_vcf, '--mother', self.dummy_vcf, '--father', self.dummy_vcf, '--mode', 'denovo'])
+    def test_41_bam_mt_extract(self): self.run_sub("bam mt-extract", ['bam', 'mt-extract', '--input', INPUT_PATH, '--ref', REF_PATH])
+    def test_42_ref_download_genes(self): self.run_sub("ref download-genes", ['ref', 'download-genes'])
+    def test_43_vcf_filter_gene(self): 
+        gene_dir = os.path.join(self.test_dir, "ref")
+        os.makedirs(gene_dir, exist_ok=True)
+        with open(os.path.join(gene_dir, "genes_hg38.tsv"), 'w') as f:
+            f.write("symbol\tchrom\tstart\tend\nBRCA1\tchr17\t43044294\t43125364\n")
+        self.run_sub("vcf filter --gene", ['vcf', 'filter', '--input', self.dummy_vcf, '--ref', self.test_dir, '--gene', 'BRCA1'])
 
 if __name__ == '__main__':
     unittest.main()

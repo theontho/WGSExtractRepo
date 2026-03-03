@@ -1,3 +1,4 @@
+import os
 import subprocess
 import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
@@ -32,7 +33,8 @@ def cmd_mtdna(args):
     if not verify_paths_exist({'--input': args.input, '--haplogrep-path': args.haplogrep_path}):
         return
 
-    out_file = os.path.join(args.outdir, "haplogrep_results.txt")
+    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
+    out_file = os.path.join(outdir, "haplogrep_results.txt")
     logging.info(f"Running Haplogrep lineage analysis on {args.input}")
     try:
         run_command(["java", "-jar", args.haplogrep_path, "classify", "--format", "vcf", "--in", args.input, "--out", out_file])

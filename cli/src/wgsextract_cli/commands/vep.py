@@ -5,7 +5,7 @@ import tempfile
 import shlex
 import shutil
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, verify_paths_exist, ReferenceLibrary, run_command
+from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, verify_paths_exist, ReferenceLibrary, run_command, ensure_vcf_indexed, calculate_bsd_sum
 from wgsextract_cli.core.warnings import print_warning
 
 def register(subparsers, base_parser):
@@ -18,7 +18,15 @@ def register(subparsers, base_parser):
     dl_parser.add_argument("--species", default="homo_sapiens", help="Species name (default: homo_sapiens)")
     dl_parser.add_argument("--assembly", choices=["GRCh37", "GRCh38"], default="GRCh38", help="Assembly (default: GRCh38)")
     dl_parser.add_argument("--vep-version", default="115", help="Ensembl release version (default: 115)")
+    dl_parser.add_argument("--mirror", choices=["us-east", "uk", "asia", "aws"], default="uk", help="Ensembl mirror to use (default: uk)")
     dl_parser.set_defaults(func=cmd_vep_download)
+
+    # Verify helper
+    verify_parser = vep_subs.add_parser("verify", parents=[base_parser], help="Verify existing VEP cache integrity.")
+    verify_parser.add_argument("--species", default="homo_sapiens", help="Species name (default: homo_sapiens)")
+    verify_parser.add_argument("--assembly", choices=["GRCh37", "GRCh38"], default="GRCh38", help="Assembly (default: GRCh38)")
+    verify_parser.add_argument("--vep-version", default="115", help="Ensembl release version (default: 115)")
+    verify_parser.set_defaults(func=cmd_vep_verify)
 
     # Main run arguments
     parser.add_argument("--vep-cache", help="Path to VEP cache directory (e.g., $HOME/.vep)")
@@ -39,28 +47,143 @@ def cmd_vep_download(args):
     vep_version = args.vep_version
     species = args.species
     assembly = args.assembly
+    mirror = args.mirror
+    
+    # Map mirrors to hosts
+    mirror_hosts = {
+        "us-east": "useast.ensembl.org",
+        "uk": "ftp.ensembl.org",
+        "asia": "asia.ensembl.org",
+        "aws": "annotation-cache"
+    }
+    host = mirror_hosts.get(mirror, "useast.ensembl.org")
     
     cache_root = args.vep_cache if args.vep_cache else os.path.expanduser("~/.vep")
     os.makedirs(cache_root, exist_ok=True)
     
-    # Construct URL for the indexed cache (faster)
+    # Construct URL for the indexed cache
     filename = f"{species}_vep_{vep_version}_{assembly}.tar.gz"
-    url = f"https://ftp.ensembl.org/pub/release-{vep_version}/variation/indexed_vep_cache/{filename}"
+    url = f"https://{host}/pub/release-{vep_version}/variation/indexed_vep_cache/{filename}"
     
     target_path = os.path.join(cache_root, filename)
     
-    logging.info(f"Starting resumable VEP cache download...")
-    logging.info(f"URL: {url}")
-    logging.info(f"Target: {target_path}")
+    # Check for rsync availability
+    rsync_path = shutil.which("rsync")
+    use_rsync = rsync_path is not None
     
-    # Use curl with resume (-C -) and standard progress meter (default)
-    # We remove -# to get speed and ETA info
-    curl_cmd = ["curl", "-L", "-C", "-", "-o", target_path, url]
-    
-    try:
-        # We don't use run_command here because we want the user to see the curl progress bar
-        subprocess.run(curl_cmd, check=True)
+    # Check if a partial download exists and ask how to proceed
+    curl_args = ["-L", "-o", target_path]
+    choice = "1" # Default to resume
+    if os.path.exists(target_path):
+        size_mb = os.path.getsize(target_path) / (1024*1024)
+        print(f"\nFound existing partial/complete download: {filename} ({size_mb:.1f} MB)")
+        print("How would you like to proceed?")
+        print(" 1) Resume download (default)")
+        print(" 2) Restart from scratch (delete existing)")
+        print(" 3) Skip download (attempt extraction of current file)")
         
+        try:
+            choice = input("\nEnter choice [1-3]: ").strip()
+            if choice == "2":
+                logging.info("Deleting existing file and starting fresh...")
+                os.remove(target_path)
+            elif choice == "3":
+                logging.info("Skipping download, proceeding to extraction...")
+            else:
+                logging.info("Resuming download...")
+                curl_args.insert(0, "-C")
+                curl_args.insert(1, "-")
+        except (EOFError, KeyboardInterrupt):
+            print("\nDownload cancelled.")
+            return
+
+    # 1. Download if needed
+    if not (os.path.exists(target_path) and choice == "3"):
+        download_success = False
+        
+        # Try AWS S3 if requested
+        if mirror == "aws":
+            aws_path = shutil.which("aws")
+            if aws_path:
+                s3_url = f"s3://annotation-cache/vep_cache/{species}/{vep_version}_{assembly}/{filename}"
+                logging.info(f"Starting VEP cache download via AWS S3 (Fastest)...")
+                aws_cmd = ["aws", "s3", "cp", s3_url, target_path, "--no-sign-request"]
+                try:
+                    subprocess.run(aws_cmd, check=True)
+                    download_success = True
+                except subprocess.CalledProcessError:
+                    logging.warning("AWS S3 download failed. Falling back to other methods...")
+            else:
+                logging.warning("AWS CLI not found. Cannot use AWS mirror.")
+
+        # Try RSYNC if available and not already succeeded
+        if not download_success and use_rsync:
+            # Regional mirrors often don't support rsync, so we use the master UK server
+            # which we KNOW supports rsync and is reliable.
+            rsync_url = f"rsync://ftp.ensembl.org/ensembl/pub/release-{vep_version}/variation/indexed_vep_cache/{filename}"
+            logging.info(f"Starting VEP cache download via RSYNC (Master Server)...")
+            logging.info(f"Source: {rsync_url}")
+            rsync_cmd = ["rsync", "-av", "--progress", rsync_url, target_path]
+            try:
+                subprocess.run(rsync_cmd, check=True)
+                download_success = True
+            except subprocess.CalledProcessError:
+                logging.warning("RSYNC failed on master server. Falling back to CURL...")
+        
+        # Fallback to CURL
+        if not download_success:
+            # Regional host for CURL (HTTP/HTTPS)
+            logging.info(f"Starting VEP cache download via CURL (Mirror: {mirror})...")
+            logging.info(f"URL: {url}")
+            curl_cmd = ["curl"] + curl_args + [url]
+            try:
+                subprocess.run(curl_cmd, check=True)
+                download_success = True
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Download failed. You can re-run this command to resume.")
+                logging.error(f"Error: {e}")
+                return
+
+    try:
+        # Verify checksum
+        checksum_url = f"https://{host}/pub/release-{vep_version}/variation/indexed_vep_cache/CHECKSUMS"
+        checksum_path = target_path + ".CHECKSUMS"
+        checksum_path = target_path + ".CHECKSUMS"
+        logging.info("Verifying download against Ensembl CHECKSUMS...")
+        
+        try:
+            # Download CHECKSUMS file (quietly)
+            subprocess.run(["curl", "-s", "-L", "-o", checksum_path, checksum_url], check=True)
+            
+            # Parse CHECKSUMS for our filename
+            found_sum = None
+            found_blocks = None
+            with open(checksum_path, "r") as f:
+                for line in f:
+                    # Ensembl format: 'checksum block_count file_path filename'
+                    parts = line.split()
+                    if len(parts) >= 4 and parts[-1] == filename:
+                        found_sum = int(parts[0])
+                        found_blocks = int(parts[1])
+                        break
+            
+            if found_sum is not None:
+                local_sum, local_blocks = calculate_bsd_sum(target_path)
+                if local_sum == found_sum and local_blocks == found_blocks:
+                    logging.info(f"Checksum verification successful: {local_sum} {local_blocks}")
+                else:
+                    logging.warning(f"Checksum verification FAILED!")
+                    logging.warning(f"Expected: {found_sum} {found_blocks}")
+                    logging.warning(f"Calculated: {local_sum} {local_blocks}")
+                    logging.warning("Proceeding anyway, but the file may be corrupted.")
+            else:
+                logging.warning(f"Entry for {filename} not found in CHECKSUMS. Skipping verification.")
+        except Exception as e:
+            logging.debug(f"Checksum verification failed or skipped: {e}")
+        finally:
+            if os.path.exists(checksum_path):
+                os.remove(checksum_path)
+
         logging.info(f"Download complete. Extracting {filename}...")
         # Extract to the cache root
         # The tarball usually contains a directory structure like 'homo_sapiens/115_GRCh38/...'
@@ -78,6 +201,104 @@ def cmd_vep_download(args):
     except Exception as e:
         logging.error(f"An unexpected error occurred: {e}")
 
+def cmd_vep_verify(args):
+    vep_version = args.vep_version
+    species = args.species
+    assembly = args.assembly
+    
+    cache_root = args.vep_cache if args.vep_cache else os.path.expanduser("~/.vep")
+    species_dir = os.path.join(cache_root, species)
+    version_dir = os.path.join(species_dir, f"{vep_version}_{assembly}")
+    
+    logging.info(f"Verifying VEP cache for {species} {vep_version} {assembly}...")
+    logging.info(f"Location: {version_dir}")
+    
+    if not os.path.exists(version_dir):
+        logging.error(f"Cache directory not found: {version_dir}")
+        filename = f"{species}_vep_{vep_version}_{assembly}.tar.gz"
+        tarball_path = os.path.join(cache_root, filename)
+        if os.path.exists(tarball_path):
+            logging.info(f"Found tarball at {tarball_path}. Checking its integrity...")
+            try:
+                checksum_url = f"https://ftp.ensembl.org/pub/release-{vep_version}/variation/indexed_vep_cache/CHECKSUMS"
+                checksum_path = tarball_path + ".CHECKSUMS"
+                subprocess.run(["curl", "-s", "-L", "-o", checksum_path, checksum_url], check=True)
+                
+                found_sum = None
+                found_blocks = None
+                with open(checksum_path, "r") as f:
+                    for line in f:
+                        parts = line.split()
+                        if len(parts) >= 4 and parts[-1] == filename:
+                            found_sum = int(parts[0])
+                            found_blocks = int(parts[1])
+                            break
+                
+                if found_sum is not None:
+                    local_sum, local_blocks = calculate_bsd_sum(tarball_path)
+                    if local_sum == found_sum and local_blocks == found_blocks:
+                        logging.info(f"Tarball checksum OK. It is safe to extract.")
+                    else:
+                        logging.error(f"Tarball checksum FAILED!")
+                        logging.error(f"Expected: {found_sum} {found_blocks}, Got: {local_sum} {local_blocks}")
+                else:
+                    logging.warning("Tarball found but no checksum entry found in Ensembl CHECKSUMS.")
+            except Exception as e:
+                logging.error(f"Failed to verify tarball: {e}")
+            finally:
+                if os.path.exists(checksum_path): os.remove(checksum_path)
+        return
+
+    # 1. Check for basic files
+    info_file = os.path.join(version_dir, "info.txt")
+    if os.path.exists(info_file):
+        logging.info("Found info.txt")
+    else:
+        logging.warning("info.txt missing - cache might be incomplete.")
+
+    # 2. Check for chromosomal directories
+    missing_chrs = []
+    for c in list(range(1, 23)) + ['X', 'Y', 'MT']:
+        chr_dir = os.path.join(version_dir, str(c))
+        if not os.path.exists(chr_dir):
+            missing_chrs.append(str(c))
+    
+    if missing_chrs:
+        logging.warning(f"Missing chromosomal data for: {', '.join(missing_chrs)}")
+    else:
+        logging.info("All primary chromosomal directories (1-22, X, Y, MT) present.")
+
+    # 3. Test VEP offline detection
+    vep_path = shutil.which("vep")
+    if vep_path:
+        try:
+            logging.info(f"Testing VEP offline cache detection (using {vep_path})...")
+            # We use --help as a way to trigger cache initialization without running a full analysis
+            test_cmd = ["vep", "--dir_cache", cache_root, "--species", species, "--assembly", assembly, "--offline", "--help"]
+            res = subprocess.run(test_cmd, capture_output=True, text=True)
+            
+            # VEP often outputs its main header to STDOUT and errors/warnings to STDERR
+            if "ERROR: Cache directory" in res.stderr:
+                logging.error("VEP failed to detect the cache directory correctly.")
+                logging.error(res.stderr.strip())
+            elif "ERROR" in res.stderr:
+                logging.warning("VEP reported an error during initialization:")
+                logging.warning(res.stderr.strip())
+            else:
+                logging.info("VEP successfully detected and validated the offline cache.")
+        except Exception as e:
+            logging.warning(f"Failed to execute VEP test command: {e}")
+    else:
+        logging.warning("The 'vep' command was not found in your PATH.")
+        logging.warning("Verification of actual cache loading skipped. Is VEP installed and available?")
+
+    # 4. Also verify reference if provided or auto-resolved
+    if args.ref:
+        logging.info("-" * 40)
+        from wgsextract_cli.commands.ref import cmd_ref_verify
+        cmd_ref_verify(args)
+
+    logging.info("Verification complete.")
 def cmd_vep(args):
     if getattr(args, 'vep_cmd', None) == 'download':
         return # Already handled by subcommand func
@@ -93,6 +314,9 @@ def cmd_vep(args):
     if not is_vcf and not is_bam:
         logging.error("Input must be a VCF, BAM, or CRAM file.")
         return
+
+    if is_vcf:
+        ensure_vcf_indexed(args.input)
 
     # Check dependencies
     deps = ["vep"]
@@ -147,7 +371,7 @@ def cmd_vep(args):
                 logging.error(f"Variant calling failed: {stderr.decode() if stderr else 'Unknown error'}")
                 return
             
-            subprocess.run(["tabix", "-f", "-p", "vcf", temp_vcf], check=True)
+            ensure_vcf_indexed(temp_vcf)
             input_vcf = temp_vcf
             logging.info(f"Variant calling complete. VCF generated at {temp_vcf}")
         except Exception as e:

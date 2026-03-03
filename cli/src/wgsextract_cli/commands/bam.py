@@ -261,6 +261,6 @@ def cmd_mtextract(args):
     logging.info(f"Extracting mtDNA reads ({mt_chr}) to {out_file}")
     try:
         run_command(["samtools", "view", "-bh"] + cram_opt + ["-@", threads, "-o", out_file, args.input, mt_chr])
-        run_command(["samtools", "index", out_file])
+        run_command(["samtools", "index", "-f", out_file])
     except Exception as e:
         logging.error(f"mtDNA extraction failed: {e}")

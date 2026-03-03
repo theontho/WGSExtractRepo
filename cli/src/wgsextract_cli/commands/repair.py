@@ -1,5 +1,7 @@
 import sys
 import os
+import subprocess
+import logging
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("repair", help="Repair formatting violations in FTDNA files.")
@@ -8,26 +10,27 @@ def register(subparsers, base_parser):
     bam_parser = repair_subs.add_parser("ftdna-bam", parents=[base_parser], help="Fix QNAME spaces in FTDNA BigY BAM files (reads/writes SAM on stdin/stdout).")
     bam_parser.set_defaults(func=repair_bam)
     
-    vcf_parser = repair_subs.add_parser("ftdna-vcf", parents=[base_parser], help="Fix malformed genotype lines in FTDNA VCF files.")
+    vcf_parser = repair_subs.add_parser("ftdna-vcf", parents=[base_parser], help="Fix malformed genotype lines in FTDNA VCF files (reads/writes VCF on stdin/stdout).")
     vcf_parser.set_defaults(func=repair_vcf)
 
-def repair_bam(args):
+def get_script_path(script_name):
     prog_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../program"))
-    sys.path.append(prog_dir)
-    from fixFTDNAbam import fix_ftdna_bam
-    fix_ftdna_bam()
+    return os.path.join(prog_dir, script_name)
+
+def repair_bam(args):
+    script = get_script_path("fixFTDNAbam.py")
+    logging.info("Repairing FTDNA BAM (SAM) from stdin to stdout...")
+    try:
+        # Note: This is designed to be part of a pipe: samtools view -h in.bam | wgsextract-cli repair ftdna-bam | samtools view -b > out.bam
+        subprocess.run([sys.executable, script], check=True)
+    except Exception as e:
+        logging.error(f"Repair failed: {e}")
 
 def repair_vcf(args):
-    if not args.input:
-        print("Error: --input is required for VCF repair.")
-        return
-    
-    prog_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../program"))
-    sys.path.append(prog_dir)
-    from fixFTDNAvcf import fix_ftdna_vcf
-    
-    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
-    base_name = os.path.basename(args.input).replace(".vcf", "")
-    out_vcf = os.path.join(outdir, f"{base_name}_fixed.vcf")
-    
-    fix_ftdna_vcf(args.input, out_vcf)
+    script = get_script_path("fixFTDNAvcf.py")
+    logging.info("Repairing FTDNA VCF from stdin to stdout...")
+    try:
+        # Note: Designed to be part of a pipe: bcftools view in.vcf | wgsextract-cli repair ftdna-vcf > out.vcf
+        subprocess.run([sys.executable, script], check=True)
+    except Exception as e:
+        logging.error(f"Repair failed: {e}")

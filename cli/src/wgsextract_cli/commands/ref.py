@@ -2,9 +2,10 @@ import os
 import subprocess
 import logging
 import sys
+import hashlib
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, verify_paths_exist
-from wgsextract_cli.core.ref_library import download_and_process_genome, get_available_genomes, load_genomes_from_csv
+from wgsextract_cli.core.ref_library import download_and_process_genome, get_available_genomes, load_genomes_from_csv, GENOME_DATA
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
@@ -23,6 +24,9 @@ def register(subparsers, base_parser):
 
     cntns_parser = ref_subs.add_parser("count-ns", parents=[base_parser], help="Analyzes reference FASTA to count N segments (using countingNs.py).")
     cntns_parser.set_defaults(func=cmd_count_ns)
+
+    verify_parser = ref_subs.add_parser("verify", parents=[base_parser], help="Verify integrity of reference FASTA file.")
+    verify_parser.set_defaults(func=cmd_ref_verify)
 
     lib_parser = ref_subs.add_parser("library", parents=[base_parser], help="Interactive reference library manager to download genomes.")
     lib_parser.set_defaults(func=cmd_library)
@@ -88,6 +92,76 @@ def cmd_count_ns(args):
         subprocess.run([sys.executable, script, args.ref], check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"N-counting failed: {e}")
+
+def cmd_ref_verify(args):
+    verify_dependencies(["gzip", "samtools"])
+    if not args.ref:
+        logging.error("--ref is required.")
+        return
+    
+    # Auto-resolve ref if a directory was provided
+    resolved_ref = resolve_reference(args.ref, "")
+    if not os.path.exists(resolved_ref):
+        logging.error(f"Reference file not found: {resolved_ref}")
+        return
+
+    logging.info(f"Verifying integrity of {resolved_ref}...")
+    
+    # 1. MD5 Checksum (if known)
+    filename = os.path.basename(resolved_ref)
+    expected_md5 = None
+    for g in GENOME_DATA:
+        if g['final'] == filename:
+            expected_md5 = g.get('md5')
+            break
+    
+    if expected_md5:
+        logging.info(f"Verifying MD5 checksum for {filename}...")
+        hash_md5 = hashlib.md5()
+        try:
+            with open(resolved_ref, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            calculated = hash_md5.hexdigest()
+            if calculated == expected_md5:
+                logging.info("MD5 checksum: OK")
+            else:
+                logging.error(f"MD5 checksum FAILED!")
+                logging.error(f"Expected: {expected_md5}")
+                logging.error(f"Calculated: {calculated}")
+                # We continue to show other potential errors (like gzip eof)
+        except Exception as e:
+            logging.error(f"MD5 verification failed to run: {e}")
+
+    # 2. Check gzip integrity
+    if resolved_ref.endswith(".gz"):
+        logging.info("Running gzip integrity test...")
+        try:
+            subprocess.run(["gzip", "-t", resolved_ref], check=True, stderr=subprocess.PIPE)
+            logging.info("Gzip integrity: OK")
+        except subprocess.CalledProcessError as e:
+            msg = e.stderr.decode() if e.stderr else "Unexpected end of file"
+            logging.error(f"Gzip integrity FAILED: {msg}")
+            return
+        except Exception as e:
+            logging.error(f"Gzip test failed: {e}")
+            return
+
+    # 2. Check samtools faidx
+    logging.info("Running samtools faidx check...")
+    try:
+        # Check if index exists, if not try to create/verify
+        res = subprocess.run(["samtools", "faidx", resolved_ref], capture_output=True, text=True)
+        if res.returncode == 0:
+            logging.info("Samtools faidx: OK")
+        else:
+            logging.error(f"Samtools faidx FAILED: {res.stderr}")
+            return
+    except Exception as e:
+        logging.error(f"Samtools faidx check failed: {e}")
+        return
+
+    logging.info(f"Reference {os.path.basename(resolved_ref)} appears to be valid.")
 
 def cmd_library(args):
     """Interactive library manager."""

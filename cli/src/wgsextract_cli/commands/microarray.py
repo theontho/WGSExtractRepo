@@ -3,7 +3,7 @@ import subprocess
 import logging
 import argparse
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary
+from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary, ensure_vcf_indexed
 from wgsextract_cli.core.warnings import print_warning
 from wgsextract_cli.core.microarray_utils import liftover_hg38_to_hg19, convert_to_vendor_format
 
@@ -81,7 +81,7 @@ def run(args):
         p1.stdout.close()
         p2.communicate()
         
-        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
     except Exception as e:
         logging.error(f"Variant calling failed: {e}")
         return
@@ -90,7 +90,7 @@ def run(args):
     # The All_SNPs tab file is usually build-specific. 
     # If the input was hg38, we might need to liftover the results to hg19.
     final_vcf = out_vcf
-    if "38" in lib.build:
+    if lib.build and "38" in lib.build:
         logging.info("Input build is hg38. Liftover to hg19 may be required for some formats.")
         # liftover_hg38_to_hg19(out_vcf, ...)
 
