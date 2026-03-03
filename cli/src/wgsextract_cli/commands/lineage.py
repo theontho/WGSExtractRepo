@@ -4,8 +4,8 @@ import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, verify_paths_exist
 
-def register(subparsers):
-    parser = subparsers.add_parser("lineage", help="Executes Yleaf or Haplogrep.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("lineage", parents=[base_parser], help="Executes Yleaf or Haplogrep.")
     lin_subs = parser.add_subparsers(dest="lin_cmd", required=True)
 
     ydna_parser = lin_subs.add_parser("y-dna", help="Run Yleaf on Y-BAM.")

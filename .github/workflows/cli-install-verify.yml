@@ -30,11 +30,11 @@ jobs:
           auto-update-conda: true
           channels: bioconda,conda-forge,defaults
       - name: Install Dependencies
-        run: bash cli/dep_scripts/install_macos_conda.sh
+        run: bash cli/dep_scripts/install_macos_conda.sh --skip-conda
       - name: Verify Tools
         run: bash cli/dep_scripts/verify_tools.sh
       - name: Uninstall Dependencies
-        run: bash cli/dep_scripts/uninstall_macos_conda.sh
+        run: bash cli/dep_scripts/uninstall_macos_conda.sh --remove-conda
       - name: Verify Uninstalled
         run: bash cli/dep_scripts/verify_uninstalled.sh
 
@@ -47,11 +47,11 @@ jobs:
           auto-update-conda: true
           channels: bioconda,conda-forge,defaults
       - name: Install Dependencies (Hybrid Brew+VEP Conda)
-        run: bash cli/dep_scripts/install_macos_hybrid.sh
+        run: bash cli/dep_scripts/install_macos_hybrid.sh --skip-conda
       - name: Verify Tools
         run: bash cli/dep_scripts/verify_tools.sh
       - name: Uninstall Dependencies (Hybrid)
-        run: bash cli/dep_scripts/uninstall_macos_hybrid.sh
+        run: bash cli/dep_scripts/uninstall_macos_hybrid.sh --remove-conda
       - name: Verify Uninstalled
         run: bash cli/dep_scripts/verify_uninstalled.sh
 
@@ -77,11 +77,11 @@ jobs:
           auto-update-conda: true
           channels: bioconda,conda-forge,defaults
       - name: Install Dependencies
-        run: bash cli/dep_scripts/install_linux_conda.sh
+        run: bash cli/dep_scripts/install_linux_conda.sh --skip-conda
       - name: Verify Tools
         run: bash cli/dep_scripts/verify_tools.sh
       - name: Uninstall Dependencies
-        run: bash cli/dep_scripts/uninstall_linux_conda.sh
+        run: bash cli/dep_scripts/uninstall_linux_conda.sh --remove-conda
       - name: Verify Uninstalled
         run: bash cli/dep_scripts/verify_uninstalled.sh
 
@@ -123,13 +123,13 @@ jobs:
           channels: bioconda,conda-forge,defaults
       - name: Install Dependencies
         shell: pwsh
-        run: ./cli/dep_scripts/install_windows_conda.ps1
+        run: ./cli/dep_scripts/install_windows_conda.ps1 -SkipConda
       - name: Verify Tools
         shell: bash
         run: bash cli/dep_scripts/verify_tools.sh
       - name: Uninstall Dependencies
         shell: pwsh
-        run: ./cli/dep_scripts/uninstall_windows_conda.ps1
+        run: ./cli/dep_scripts/uninstall_windows_conda.ps1 -RemoveConda
       - name: Verify Uninstalled
         shell: bash
         run: bash cli/dep_scripts/verify_uninstalled.sh

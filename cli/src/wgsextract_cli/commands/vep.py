@@ -6,10 +6,18 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, verify_paths_exist, ReferenceLibrary, run_command
 from wgsextract_cli.core.warnings import print_warning
 
-def register(subparsers):
-    parser = subparsers.add_parser("vep", help="Run Ensembl Variant Effect Predictor (VEP) on VCF or BAM/CRAM.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("vep", parents=[base_parser], help="Run Ensembl Variant Effect Predictor (VEP) on VCF or BAM/CRAM.")
     
-    # Input/Output
+    vep_subs = parser.add_subparsers(dest="vep_cmd", required=False)
+    
+    # Download helper
+    dl_parser = vep_subs.add_parser("download", help="Download VEP cache for a specific assembly.")
+    dl_parser.add_argument("--species", default="homo_sapiens", help="Species name (default: homo_sapiens)")
+    dl_parser.add_argument("--assembly", choices=["GRCh37", "GRCh38"], default="GRCh38", help="Assembly (default: GRCh38)")
+    dl_parser.set_defaults(func=cmd_vep_download)
+
+    # Main run arguments
     parser.add_argument("--vep-cache", help="Path to VEP cache directory (e.g., $HOME/.vep)")
     parser.add_argument("--vep-assembly", choices=["GRCh37", "GRCh38"], help="Reference assembly for VEP (GRCh37 or GRCh38)")
     parser.add_argument("--vep-args", help="Additional raw arguments to pass to VEP (e.g., '--everything --pick')")
@@ -22,7 +30,24 @@ def register(subparsers):
     
     parser.set_defaults(func=cmd_vep)
 
+def cmd_vep_download(args):
+    verify_dependencies(["vep_install"])
+    out_dir = args.vep_cache if args.vep_cache else os.path.expanduser("~/.vep")
+    os.makedirs(out_dir, exist_ok=True)
+    
+    logging.info(f"Starting VEP cache download for {args.species} ({args.assembly}) to {out_dir}...")
+    # vep_install is the wrapper for INSTALL.pl in Conda environments
+    cmd = ["vep_install", "-a", "cf", "-s", args.species, "-y", args.assembly, "-c", out_dir, "--CONVERT"]
+    try:
+        run_command(cmd)
+        logging.info("VEP cache download and indexing complete.")
+    except Exception as e:
+        logging.error(f"Download failed: {e}")
+
 def cmd_vep(args):
+    if getattr(args, 'vep_cmd', None) == 'download':
+        return # Already handled by subcommand func
+
     # Determine input type
     if not args.input:
         logging.error("--input is required.")
@@ -109,9 +134,6 @@ def cmd_vep(args):
     else:
         vep_cmd.append("--tab")
 
-    if args.vep_cache:
-        vep_cmd.extend(["--dir_cache", args.vep_cache, "--cache"])
-    
     if args.vep_assembly:
         vep_cmd.extend(["--assembly", args.vep_assembly])
     elif lib.build:
@@ -126,7 +148,17 @@ def cmd_vep(args):
         vep_cmd.extend(shlex.split(args.vep_args))
     else:
         # Default helpful args if none provided
-        vep_cmd.extend(["--everything", "--offline"])
+        vep_cmd.append("--everything")
+        
+        # Smart detection of offline mode
+        cache_dir = args.vep_cache if args.vep_cache else os.path.expanduser("~/.vep")
+        if os.path.exists(cache_dir):
+            vep_cmd.extend(["--offline", "--dir_cache", cache_dir])
+            logging.info(f"Using VEP cache at {cache_dir}")
+        else:
+            logging.warning("VEP cache not found at ~/.vep. Attempting slow online mode (--database).")
+            logging.warning("Hint: Run './wgsextract vep download' to install local data for 100x faster processing.")
+            vep_cmd.append("--database")
 
     logging.info(f"Running VEP: {' '.join(vep_cmd)}")
     try:

@@ -9,7 +9,7 @@ from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, 
 from wgsextract_cli.core.warnings import print_warning
 from wgsextract_cli.core.microarray_utils import liftover_hg38_to_hg19, convert_to_vendor_format
 
-def register(subparsers):
+def register(subparsers, base_parser):
     format_help = """Comma-separated list of formats to generate (default: all).
 Available formats:
   Everything:
@@ -30,6 +30,7 @@ Available formats:
     reich_aadr (AADR 1240K), reich_human_origins (Human Origins v1), reich_combined
 """
     parser = subparsers.add_parser("microarray", 
+                                   parents=[base_parser],
                                    help="Generates microarray simulation CombinedKit.",
                                    formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--formats", default="all", help=format_help)

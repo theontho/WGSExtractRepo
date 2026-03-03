@@ -5,8 +5,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary
 from wgsextract_cli.core.warnings import print_warning
 
-def register(subparsers):
-    parser = subparsers.add_parser("vcf", help="Variant calling and processing using bcftools, delly, or freebayes.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("vcf", parents=[base_parser], help="Variant calling and processing using bcftools, delly, or freebayes.")
     vcf_subs = parser.add_subparsers(dest="vcf_cmd", required=True)
 
     snp_parser = vcf_subs.add_parser("snp", help="Generates a VCF file containing single nucleotide polymorphisms using bcftools.")

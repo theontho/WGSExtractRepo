@@ -31,9 +31,9 @@ from wgsextract_cli.core.warnings import EXPECTED_TIME
 REF_PATH = os.environ.get('WGSE_REF')
 INPUT_PATH = os.environ.get('WGSE_INPUT')
 
-# Check for --full-data flag in sys.argv
-FULL_DATA = "--full-data" in sys.argv
-if FULL_DATA:
+# Check for --full-data flag in sys.argv or environment variable
+FULL_DATA = "--full-data" in sys.argv or os.environ.get("WGSE_FULL_DATA") == "1"
+if "--full-data" in sys.argv:
     sys.argv.remove("--full-data")
 
 class TestCLIRealData(unittest.TestCase):

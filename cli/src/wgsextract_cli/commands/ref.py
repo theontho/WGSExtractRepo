@@ -6,8 +6,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, verify_paths_exist
 from wgsextract_cli.core.ref_library import download_and_process_genome, get_available_genomes, load_genomes_from_csv
 
-def register(subparsers):
-    parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("ref", parents=[base_parser], help="Reference Data Management commands.")
     ref_subs = parser.add_subparsers(dest="ref_cmd", required=True)
 
     ident_parser = ref_subs.add_parser("identify", help="Runs MD5 check on BAM header to identify reference genome.")

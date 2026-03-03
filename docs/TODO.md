@@ -20,6 +20,17 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 - [x] **Additional Variant Callers**: Integrate FreeBayes, Platypus, or Scalpel as engine options. (Added FreeBayes).
 - [ ] **DeepVariant/GATK Integration**: Add support for these industry-standard callers in the backend.
 
+### 🧬 Gene Analysis & Clinical Interpretation
+*Inspired by gene.iobio, these features focus on making variants actionable and medically relevant.*
+
+- [ ] **Population Frequency Integration**: Add engine support for annotating variants with gnomAD, ExAC, and 1000 Genomes frequencies.
+- [ ] **ClinVar clinical significance**: Automatically check and report if variants are listed as "Pathogenic" in ClinVar.
+- [ ] **Advanced Pathogenicity Scores**: Implement support for CADD, SIFT, and PolyPhen-2 score annotation.
+- [ ] **Gene-Centric Workflows**: Add a CLI command to filter VCFs by a specific Gene Name or HGNC ID.
+- [ ] **Inheritance & Trio Analysis**: Add logic to detect De Novo mutations and Compound Heterozygotes in family trios.
+- [ ] **Conservation Analysis**: Add annotation support for PhyloP and GERP++ conservation scores.
+- [ ] **Phenotype-to-Gene Ranking**: Integrate Phenolyzer or HPO-based gene prioritization into the engine.
+
 ### BAM/CRAM Processing
 - [x] **mtDNA BAM Extraction**: Add a dedicated engine command to generate and save mtDNA-only BAMs.
 - [ ] **BAM/CRAM Merging**: Add a utility to merge multiple alignment files.

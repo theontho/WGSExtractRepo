@@ -5,8 +5,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, get_chr_name, get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, get_ref_mito
 from wgsextract_cli.core.warnings import print_warning
 
-def register(subparsers):
-    parser = subparsers.add_parser("extract", help="Extract specific chromosomes or unmapped reads.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("extract", parents=[base_parser], help="Extract specific chromosomes or unmapped reads.")
     ext_subs = parser.add_subparsers(dest="ext_cmd", required=True)
 
     mito_parser = ext_subs.add_parser("mito", help="Extracts MT reads, generates VCF, and creates a consensus FASTA.")

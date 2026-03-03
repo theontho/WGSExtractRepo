@@ -5,8 +5,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist
 from wgsextract_cli.core.warnings import print_warning
 
-def register(subparsers):
-    parser = subparsers.add_parser("align", help="Align FASTQ reads to a reference model.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("align", parents=[base_parser], help="Align FASTQ reads to a reference model.")
     parser.add_argument("--r1", required=True, help="Read 1 FASTQ file")
     parser.add_argument("--r2", help="Read 2 FASTQ file (optional)")
     parser.add_argument("--long-read", action="store_true", help="Use minimap2 for long-read alignment")

@@ -1,8 +1,8 @@
 import sys
 import os
 
-def register(subparsers):
-    parser = subparsers.add_parser("repair", help="Repair formatting violations in FTDNA files.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("repair", parents=[base_parser], help="Repair formatting violations in FTDNA files.")
     repair_subs = parser.add_subparsers(dest="repair_cmd", required=True)
     
     bam_parser = repair_subs.add_parser("ftdna-bam", help="Fix QNAME spaces in FTDNA BigY BAM files (reads/writes SAM on stdin/stdout).")

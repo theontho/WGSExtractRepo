@@ -6,8 +6,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, get_resource_defaults, verify_paths_exist, calculate_bam_md5, resolve_reference, get_chr_name
 from wgsextract_cli.core.warnings import print_warning, check_free_space
 
-def register(subparsers):
-    parser = subparsers.add_parser("bam", help="BAM/CRAM management commands.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("bam", parents=[base_parser], help="BAM/CRAM management commands.")
     bam_subs = parser.add_subparsers(dest="bam_cmd", required=True)
 
     sort_parser = bam_subs.add_parser("sort", help="Sort a BAM or CRAM file by coordinate.")

@@ -18,8 +18,8 @@ def determine_sequencer(qname):
             return name
     return "Unknown"
 
-def register(subparsers):
-    parser = subparsers.add_parser("info", help="Parses header, verifies coordinate sorting, calculates stats and detects reference genome signature.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("info", parents=[base_parser], help="Parses header, verifies coordinate sorting, calculates stats and detects reference genome signature.")
     parser.add_argument("--detailed", action="store_true", help="Perform full index and body sample analysis (detailed mode)")
     parser.add_argument("--csv", action="store_true", help="Output the table as CSV instead of formatted text")
     

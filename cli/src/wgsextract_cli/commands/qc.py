@@ -5,8 +5,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, verify_paths_exist
 from wgsextract_cli.core.warnings import print_warning
 
-def register(subparsers):
-    parser = subparsers.add_parser("qc", help="Runs quality control or calculates coverage.")
+def register(subparsers, base_parser):
+    parser = subparsers.add_parser("qc", parents=[base_parser], help="Runs quality control or calculates coverage.")
     qc_subs = parser.add_subparsers(dest="qc_cmd", required=True)
 
     fastp_parser = qc_subs.add_parser("fastp", help="Rapid QC and preprocessing for FASTQ files.")
