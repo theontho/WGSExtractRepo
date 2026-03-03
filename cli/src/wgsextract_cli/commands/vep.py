@@ -2,6 +2,8 @@ import os
 import subprocess
 import logging
 import tempfile
+import shlex
+import shutil
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, verify_paths_exist, ReferenceLibrary, run_command
 from wgsextract_cli.core.warnings import print_warning
@@ -12,9 +14,10 @@ def register(subparsers, base_parser):
     vep_subs = parser.add_subparsers(dest="vep_cmd", required=False)
     
     # Download helper
-    dl_parser = vep_subs.add_parser("download", help="Download VEP cache for a specific assembly.")
+    dl_parser = vep_subs.add_parser("download", parents=[base_parser], help="Download VEP cache for a specific assembly.")
     dl_parser.add_argument("--species", default="homo_sapiens", help="Species name (default: homo_sapiens)")
     dl_parser.add_argument("--assembly", choices=["GRCh37", "GRCh38"], default="GRCh38", help="Assembly (default: GRCh38)")
+    dl_parser.add_argument("--vep-version", default="115", help="Ensembl release version (default: 115)")
     dl_parser.set_defaults(func=cmd_vep_download)
 
     # Main run arguments
@@ -31,18 +34,49 @@ def register(subparsers, base_parser):
     parser.set_defaults(func=cmd_vep)
 
 def cmd_vep_download(args):
-    verify_dependencies(["vep_install"])
-    out_dir = args.vep_cache if args.vep_cache else os.path.expanduser("~/.vep")
-    os.makedirs(out_dir, exist_ok=True)
+    verify_dependencies(["curl", "tar"])
     
-    logging.info(f"Starting VEP cache download for {args.species} ({args.assembly}) to {out_dir}...")
-    # vep_install is the wrapper for INSTALL.pl in Conda environments
-    cmd = ["vep_install", "-a", "cf", "-s", args.species, "-y", args.assembly, "-c", out_dir, "--CONVERT"]
+    vep_version = args.vep_version
+    species = args.species
+    assembly = args.assembly
+    
+    cache_root = args.vep_cache if args.vep_cache else os.path.expanduser("~/.vep")
+    os.makedirs(cache_root, exist_ok=True)
+    
+    # Construct URL for the indexed cache (faster)
+    filename = f"{species}_vep_{vep_version}_{assembly}.tar.gz"
+    url = f"https://ftp.ensembl.org/pub/release-{vep_version}/variation/indexed_vep_cache/{filename}"
+    
+    target_path = os.path.join(cache_root, filename)
+    
+    logging.info(f"Starting resumable VEP cache download...")
+    logging.info(f"URL: {url}")
+    logging.info(f"Target: {target_path}")
+    
+    # Use curl with resume (-C -) and standard progress meter (default)
+    # We remove -# to get speed and ETA info
+    curl_cmd = ["curl", "-L", "-C", "-", "-o", target_path, url]
+    
     try:
-        run_command(cmd)
-        logging.info("VEP cache download and indexing complete.")
+        # We don't use run_command here because we want the user to see the curl progress bar
+        subprocess.run(curl_cmd, check=True)
+        
+        logging.info(f"Download complete. Extracting {filename}...")
+        # Extract to the cache root
+        # The tarball usually contains a directory structure like 'homo_sapiens/115_GRCh38/...'
+        subprocess.run(["tar", "-xzf", target_path, "-C", cache_root], check=True)
+        
+        logging.info("Extraction complete.")
+        logging.info(f"VEP cache is ready at {cache_root}/{species}")
+        
+        # Cleanup tarball
+        os.remove(target_path)
+        
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Download or extraction failed. You can re-run this command to resume the download.")
+        logging.error(f"Error: {e}")
     except Exception as e:
-        logging.error(f"Download failed: {e}")
+        logging.error(f"An unexpected error occurred: {e}")
 
 def cmd_vep(args):
     if getattr(args, 'vep_cmd', None) == 'download':
@@ -143,8 +177,12 @@ def cmd_vep(args):
         elif "37" in lib.build or "19" in lib.build:
             vep_cmd.extend(["--assembly", "GRCh37"])
 
+    # Pass the FASTA file if resolved (enables HGVS and sequence lookups)
+    if resolved_ref:
+        vep_cmd.extend(["--fasta", resolved_ref])
+        logging.info(f"Enabling sequence lookups using FASTA: {resolved_ref}")
+
     if args.vep_args:
-        import shlex
         vep_cmd.extend(shlex.split(args.vep_args))
     else:
         # Default helpful args if none provided

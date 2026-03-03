@@ -7,25 +7,28 @@ from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, veri
 from wgsextract_cli.core.ref_library import download_and_process_genome, get_available_genomes, load_genomes_from_csv
 
 def register(subparsers, base_parser):
-    parser = subparsers.add_parser("ref", parents=[base_parser], help="Reference Data Management commands.")
+    parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
     ref_subs = parser.add_subparsers(dest="ref_cmd", required=True)
 
-    ident_parser = ref_subs.add_parser("identify", help="Runs MD5 check on BAM header to identify reference genome.")
+    ident_parser = ref_subs.add_parser("identify", parents=[base_parser], help="Runs MD5 check on BAM header to identify reference genome.")
     ident_parser.set_defaults(func=cmd_identify)
 
-    dl_parser = ref_subs.add_parser("download", help="Fetches FASTA from NIH/EBI.")
+    dl_parser = ref_subs.add_parser("download", parents=[base_parser], help="Fetches FASTA from NIH/EBI.")
     dl_parser.add_argument("--url", required=True, help="URL to download from")
     dl_parser.add_argument("--out", required=True, help="Output FASTA file path")
     dl_parser.set_defaults(func=cmd_download)
 
-    index_parser = ref_subs.add_parser("index", help="Runs faidx and dict on reference FASTA.")
+    index_parser = ref_subs.add_parser("index", parents=[base_parser], help="Runs faidx and dict on reference FASTA.")
     index_parser.set_defaults(func=cmd_index)
 
-    cntns_parser = ref_subs.add_parser("count-ns", help="Analyzes reference FASTA to count N segments (using countingNs.py).")
+    cntns_parser = ref_subs.add_parser("count-ns", parents=[base_parser], help="Analyzes reference FASTA to count N segments (using countingNs.py).")
     cntns_parser.set_defaults(func=cmd_count_ns)
 
-    lib_parser = ref_subs.add_parser("library", help="Interactive reference library manager to download genomes.")
+    lib_parser = ref_subs.add_parser("library", parents=[base_parser], help="Interactive reference library manager to download genomes.")
     lib_parser.set_defaults(func=cmd_library)
+
+    dlgenes_parser = ref_subs.add_parser("download-genes", parents=[base_parser], help="Downloads lightweight gene mapping files (hg19/hg38).")
+    dlgenes_parser.set_defaults(func=cmd_download_genes)
 
 def cmd_identify(args):
     verify_dependencies(["samtools"])
@@ -107,8 +110,9 @@ def cmd_library(args):
     print("WGS Extract Reference Library Manager")
     print(f"Library Path: {reflib_dir}")
     print("="*80)
-    print("Select a Reference Genome to download and process:")
+    print("Select an option:")
     print(" 0) Exit")
+    print(" G) Download Gene Mapping Database (hg19/hg38)")
     
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
@@ -122,9 +126,14 @@ def cmd_library(args):
     print("="*80)
 
     try:
-        choice = input("\nEnter choice (number): ").strip()
+        choice = input("\nEnter choice (number or G): ").strip().upper()
         if not choice or choice == "0":
             print("Exiting library manager.")
+            return
+
+        if choice == "G":
+            from wgsextract_cli.core.gene_map import download_gene_maps
+            download_gene_maps(reflib_dir)
             return
 
         idx = int(choice) - 1
@@ -137,3 +146,12 @@ def cmd_library(args):
             print("Invalid choice.")
     except (ValueError, EOFError, KeyboardInterrupt):
         print("\nExiting library manager.")
+
+def cmd_download_genes(args):
+    from wgsextract_cli.core.gene_map import download_gene_maps
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+    if download_gene_maps(reflib):
+        print(f"Gene maps installed to {reflib}/ref")
+    else:
+        print("Failed to download gene maps.")

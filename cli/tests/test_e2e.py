@@ -25,7 +25,7 @@ if os.path.exists(env_std):
     load_dotenv(dotenv_path=env_std)
 
 from wgsextract_cli.main import main
-from wgsextract_cli.core.warnings import EXPECTED_TIME
+from wgsextract_cli.core.warnings import EXPECTED_TIME, M1_PRO_ESTIMATES
 
 # Get paths from environment (typically loaded from cli/.env.local)
 REF_PATH = os.environ.get('WGSE_REF')
@@ -60,11 +60,11 @@ class TestCLIRealData(unittest.TestCase):
     def tearDownClass(cls):
         if not cls.results: return
         mode_str = "FULL GENOME" if FULL_DATA else "CHRM"
-        print(f"\n" + "="*85)
-        print(f"{f'E2E {mode_str} EXECUTION & BENCHMARK REPORT':^85}")
-        print("="*85)
-        print(f"{'Command':<25} | {'Status':<6} | {'Duration':>11} | {'Expected':>11} | {'Diff':>11}")
-        print("-" * 85)
+        print(f"\n" + "="*105)
+        print(f"{f'E2E {mode_str} EXECUTION & BENCHMARK REPORT':^105}")
+        print("="*105)
+        print(f"{'Command':<25} | {'Status':<13} | {'Duration':>11} | {'M1 Pro Ref':>11} | {'Expected':>11}")
+        print("-" * 105)
         passed = 0
         total_duration = 0
         # Sort results by name to match master list order
@@ -80,13 +80,21 @@ class TestCLIRealData(unittest.TestCase):
             duration = res['duration']
             total_duration += duration
             expected = res['expected']
-            print(f"{res['name']:<25} | {status:<13} | {duration:>10.2f}s | {expected:>10}s | {duration-expected:>10.2f}s")
-        print("-" * 85)
-        print(f"TOTAL REAL DATA ({mode_str}): {passed}/{len(cls.results)} passed. Total Time: {total_duration:.2f}s")
-        print("="*85)
+            
+            # Find matching M1 Pro Ref if available
+            m1_ref = "N/A"
+            for key, val in M1_PRO_ESTIMATES.items():
+                if key == res['expected_key']:
+                    m1_ref = f"{val:.2f}s"
+                    break
 
-    def record_result(self, name, success, duration, expected):
-        self.results.append({"name": name, "success": success, "duration": duration, "expected": expected})
+            print(f"{res['name']:<25} | {status:<13} | {duration:>10.2f}s | {m1_ref:>11} | {expected:>10}s")
+        print("-" * 105)
+        print(f"TOTAL REAL DATA ({mode_str}): {passed}/{len(cls.results)} passed. Total Time: {total_duration:.2f}s")
+        print("="*105)
+
+    def record_result(self, name, success, duration, expected, expected_key=""):
+        self.results.append({"name": name, "success": success, "duration": duration, "expected": expected, "expected_key": expected_key})
 
     def run_real(self, name, args, expected_key):
         if not REF_PATH or not INPUT_PATH or not os.path.exists(REF_PATH) or not os.path.exists(INPUT_PATH):
@@ -131,7 +139,26 @@ class TestCLIRealData(unittest.TestCase):
 
         success = False
         try:
-            full_args = ['wgsextract-cli', '--outdir', test_dir] + args
+            # Current argparse setup requires subcommand first, then global or local args.
+            # Find the subcommand in args
+            choices = ['info', 'bam', 'extract', 'microarray', 'lineage', 'vcf', 'repair', 'qc', 'ref', 'align', 'vep']
+            sub_idx = -1
+            for i, arg in enumerate(args):
+                if arg in choices:
+                    sub_idx = i
+                    break
+            
+            if sub_idx != -1:
+                global_args = []
+                if '--outdir' not in args:
+                    global_args.extend(['--outdir', test_dir])
+                full_args = ['wgsextract-cli', args[sub_idx]] + args[:sub_idx] + args[sub_idx+1:] + global_args
+            else:
+                global_args = []
+                if '--outdir' not in args:
+                    global_args.extend(['--outdir', test_dir])
+                full_args = ['wgsextract-cli'] + args + global_args
+            
             with patch.object(sys, 'argv', full_args):
                 main()
                 success = True
@@ -141,7 +168,7 @@ class TestCLIRealData(unittest.TestCase):
             print(f"Error in {name}: {e}")
         finally:
             duration = time.perf_counter() - start_time
-            self.record_result(name, success, duration, expected_seconds)
+            self.record_result(name, success, duration, expected_seconds, expected_key)
             shutil.rmtree(test_dir)
             status = "PASS" if success else "FAIL"
             print(f"<<< [REAL DATA] DONE: {name} ({status}) in {duration:.2f}s")
@@ -151,7 +178,7 @@ class TestCLIRealData(unittest.TestCase):
         with patch.object(sys, 'argv', ['wgsextract-cli', '--help']), redirect_stdout(io.StringIO()):
             try: main()
             except SystemExit: pass
-        self.record_result("00 help", True, time.perf_counter()-start, 0)
+        self.record_result("00 help", True, time.perf_counter()-start, 0, 'GetBAMHeader')
 
     # --- INFO ---
     def test_01_info(self): self.run_real("01 info", ['--input', INPUT_PATH, 'info'], 'ButtonBAMStats')
@@ -160,8 +187,6 @@ class TestCLIRealData(unittest.TestCase):
     def test_04_info_cov_samp_chrm(self): self.run_real("04 info coverage-sample (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'info', 'coverage-sample', '--region', 'chrM'], 'ButtonBAMStats2')
 
     # --- CACHE & STATE EFFECTS FLOW ---
-    # We group these tests together to explicitly test the effects of caching (indexes)
-    # and file states (sorted vs unsorted) without polluting the global INPUT_PATH directory.
     def test_05_cache_and_state_flow(self):
         if not REF_PATH or not INPUT_PATH or not os.path.exists(REF_PATH) or not os.path.exists(INPUT_PATH):
             self.skipTest("Paths not configured or not found")
@@ -170,113 +195,81 @@ class TestCLIRealData(unittest.TestCase):
         ext = os.path.splitext(INPUT_PATH)[1]
         test_input = os.path.join(flow_dir, f"test_input{ext}")
         extracted_bam = os.path.join(flow_dir, "test_input.bam")
-        
-        # 1. Isolate the input using a symlink
         os.symlink(INPUT_PATH, test_input)
         
-        # Ensure no residual index exists from previous manual runs
         if os.path.exists(test_input + ".crai"): os.remove(test_input + ".crai")
         if os.path.exists(test_input + ".bai"): os.remove(test_input + ".bai")
 
-        print("\n" + "-"*40)
-        print(">>> STARTING CACHE & STATE FLOW")
-        print("-"*40)
-
-        # Pre-generate index for the rest of the flow to ensure extraction tests work
-        print("\n>>> [REAL DATA] PRE-STAGE: Generating index for isolation symlink")
-        subprocess.run(["samtools", "index", test_input], check=True)
-
-        # 2. Test Unindexed Region Extraction (Expected to be FAST because it's indexed now, but we'll test the logic)
-        # Actually, let's keep the user's requested flow but fix the extraction dependencies.
-        # We'll remove the index for the 'unindexed' test.
-        if os.path.exists(test_input + ".crai"): os.remove(test_input + ".crai")
-        if os.path.exists(test_input + ".bai"): os.remove(test_input + ".bai")
-        # 2. Test Unindexed Region Extraction (Expected to fail without index for CRAM)
+        print("\n" + "-"*40 + "\n>>> STARTING CACHE & STATE FLOW\n" + "-"*40)
+        
+        # 05a Unindexed
         print("\n>>> [REAL DATA] BEGIN: 05a unindexed region extract")
         start = time.perf_counter()
-        # We want to see it fail or at least not succeed in creating a valid file
-        exit_code = 0
         with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--ref', REF_PATH, '--input', test_input, 'bam', 'to-bam', '--region', 'chrM']):
-            try: 
-                main()
-            except SystemExit as e:
-                exit_code = e.code
-
-        # In this CLI, errors during execution often don't trigger SystemExit(1) yet due to try/except blocks in commands
-        # So we check if any reads were actually extracted. 
-        # samtools view -bh on unindexed CRAM with region should fail to extract reads.
+            try: main()
+            except SystemExit: pass
         is_unindexed_failed = True
         if os.path.exists(extracted_bam):
             res = subprocess.run(["samtools", "view", "-c", extracted_bam], capture_output=True, text=True)
             count = int(res.stdout.strip()) if res.stdout.strip() else 0
-            # If count > 0, it unexpectedly succeeded in finding data
             is_unindexed_failed = (count == 0)
-        
-        # If it failed as expected, we record a SUCCESS for our test case
-        self.record_result("05a unindexed extract", is_unindexed_failed, time.perf_counter() - start, EXPECTED_TIME.get('CRAMtoBAM', 0))
+        self.record_result("05a unindexed extract", is_unindexed_failed, time.perf_counter() - start, EXPECTED_TIME.get('CRAMtoBAM', 0), 'CRAMtoBAM')
+        if os.path.exists(extracted_bam): os.remove(extracted_bam)
 
-        if os.path.exists(extracted_bam):
-            os.remove(extracted_bam)
-
-        # 3. Test Indexing
+        # 05b Index
         print("\n>>> [REAL DATA] BEGIN: 05b bam index")
         start = time.perf_counter()
         with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', test_input, 'bam', 'index']):
             try: main()
             except SystemExit: pass
         index_created = os.path.exists(test_input + ".crai") or os.path.exists(test_input + ".bai")
-        self.record_result("05b bam index", index_created, time.perf_counter() - start, EXPECTED_TIME.get('GenBAMIndex', 0))
+        self.record_result("05b bam index", index_created, time.perf_counter() - start, EXPECTED_TIME.get('GenBAMIndex', 0), 'GenBAMIndex')
 
-        # 4. Test Indexed Region Extraction (Expected to succeed)
+        # 05c Indexed Extract
         print("\n>>> [REAL DATA] BEGIN: 05c indexed region extract")
         start = time.perf_counter()
         with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--ref', REF_PATH, '--input', test_input, 'bam', 'to-bam', '--region', 'chrM']):
             try: main()
             except SystemExit: pass
         indexed_time = time.perf_counter() - start
-        
         extract_success = False
         if os.path.exists(extracted_bam):
             res = subprocess.run(["samtools", "view", "-c", extracted_bam], capture_output=True, text=True)
             count = int(res.stdout.strip()) if res.stdout.strip() else 0
             extract_success = (count > 0)
+        self.record_result("05c indexed extract", extract_success, indexed_time, EXPECTED_TIME.get('CRAMtoBAM', 0), 'CRAMtoBAM')
 
-        self.record_result("05c indexed extract", extract_success, indexed_time, EXPECTED_TIME.get('CRAMtoBAM', 0))
-
-        # 5. Test Unindex
+        # 05d Unindex
         print("\n>>> [REAL DATA] BEGIN: 05d bam unindex")
         start = time.perf_counter()
         with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', test_input, 'bam', 'unindex']):
             try: main()
             except SystemExit: pass
         unindex_success = not os.path.exists(test_input + ".crai") and not os.path.exists(test_input + ".bai")
-        self.record_result("05d bam unindex", unindex_success, time.perf_counter() - start, EXPECTED_TIME.get('LiftoverCleanup', 0))
+        self.record_result("05d bam unindex", unindex_success, time.perf_counter() - start, EXPECTED_TIME.get('LiftoverCleanup', 0), 'LiftoverCleanup')
 
-        # For sorting tests, use the extracted small BAM to keep it fast
         if extract_success:
-            # 6. Test Unsort
+            # 05e Unsort
             print("\n>>> [REAL DATA] BEGIN: 05e bam unsort")
             start = time.perf_counter()
             with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', extracted_bam, 'bam', 'unsort']):
                 try: main()
                 except SystemExit: pass
-            
             unsorted_file = os.path.join(flow_dir, "test_input_unsorted.bam")
             unsort_success = os.path.exists(unsorted_file)
-            self.record_result("05e bam unsort", unsort_success, time.perf_counter() - start, EXPECTED_TIME.get('LiftoverCleanup', 0))
+            self.record_result("05e bam unsort", unsort_success, time.perf_counter() - start, EXPECTED_TIME.get('LiftoverCleanup', 0), 'LiftoverCleanup')
             
-            # 7. Test Sort on Unsorted
+            # 05f Sort Unsorted
             print("\n>>> [REAL DATA] BEGIN: 05f bam sort (from unsorted)")
             start = time.perf_counter()
-            # Do not use --region since the unsorted file has no index and is already just chrM
             with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', flow_dir, '--input', unsorted_file, 'bam', 'sort']):
                 try: main()
                 except SystemExit: pass
             sorted_file = os.path.join(flow_dir, "test_input_unsorted_sorted.bam")
             sort1_success = os.path.exists(sorted_file)
-            self.record_result("05f bam sort (unsorted)", sort1_success, time.perf_counter() - start, EXPECTED_TIME.get('GenSortedBAM', 0))
+            self.record_result("05f bam sort (unsorted)", sort1_success, time.perf_counter() - start, EXPECTED_TIME.get('GenSortedBAM', 0), 'GenSortedBAM')
 
-            # 8. Test Sort on Already Sorted
+            # 05g Sort Sorted
             if sort1_success:
                 print("\n>>> [REAL DATA] BEGIN: 05g bam sort (from sorted)")
                 start = time.perf_counter()
@@ -284,20 +277,17 @@ class TestCLIRealData(unittest.TestCase):
                     try: main()
                     except SystemExit: pass
                 sort2_success = os.path.exists(os.path.join(flow_dir, "test_input_unsorted_sorted_sorted.bam"))
-                self.record_result("05g bam sort (sorted)", sort2_success, time.perf_counter() - start, EXPECTED_TIME.get('GenSortedBAM', 0))
+                self.record_result("05g bam sort (sorted)", sort2_success, time.perf_counter() - start, EXPECTED_TIME.get('GenSortedBAM', 0), 'GenSortedBAM')
             else:
-                self.record_result("05g bam sort (sorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0))
+                self.record_result("05g bam sort (sorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0), 'GenSortedBAM')
         else:
-            self.record_result("05e bam unsort", False, 0, EXPECTED_TIME.get('LiftoverCleanup', 0))
-            self.record_result("05f bam sort (unsorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0))
-            self.record_result("05g bam sort (sorted)", False, 0, EXPECTED_TIME.get('GenSortedBAM', 0))
+            for n in ["05e bam unsort", "05f bam sort (unsorted)", "05g bam sort (sorted)"]:
+                self.record_result(n, False, 0, 0, 'LiftoverCleanup')
 
         shutil.rmtree(flow_dir)
-        print("-"*40)
-        print("<<< FINISHED CACHE & STATE FLOW")
-        print("-"*40)
+        print("-"*40 + "\n<<< FINISHED CACHE & STATE FLOW\n" + "-"*40)
 
-    # --- BAM (Stateless / Read-only) ---
+    # --- BAM ---
     def test_06_bam_sort_chrm(self): self.run_real("06 bam sort (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'sort', '--region', 'chrM'], 'GenSortedBAM')
     def test_07_bam_tocram_chrm(self): self.run_real("07 bam to-cram (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'bam', 'to-cram', '--region', 'chrM'], 'BAMtoCRAM')
     def test_08_bam_unalign_chrm(self): 
@@ -315,105 +305,103 @@ class TestCLIRealData(unittest.TestCase):
             self.run_real("12 extract unmapped", ['--input', INPUT_PATH, 'extract', 'unmapped', '--r1', u1, '--r2', u2], 'ButtonUnmappedReads')
 
     # --- VCF ---
-    def test_16_vcf_snp_chrm(self): self.run_real("16 vcf snp (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'vcf', 'snp', '--region', 'chrM'], 'ButtonSNPVCF')
-    def test_17_vcf_indel_chrm(self): self.run_real("17 vcf indel (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'vcf', 'indel', '--region', 'chrM'], 'ButtonInDelVCF')
-    def test_18_vcf_annotate(self):
+    def test_13_vcf_snp_chrm(self): self.run_real("13 vcf snp (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'vcf', 'snp', '--region', 'chrM'], 'ButtonSNPVCF')
+    def test_14_vcf_indel_chrm(self): self.run_real("14 vcf indel (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'vcf', 'indel', '--region', 'chrM'], 'ButtonInDelVCF')
+    def test_15_vcf_annotate(self):
         with tempfile.TemporaryDirectory() as td:
-            vcf_raw = os.path.join(td, "test.vcf")
-            with open(vcf_raw, 'w') as f: f.write("##fileformat=VCFv4.2\n##FILTER=<ID=PASS,Description=\"P\">\n##contig=<ID=chrM,length=16569>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\t.\n")
-            vcf_gz = vcf_raw + ".gz"
-            subprocess.run(["bgzip", "-c", vcf_raw], stdout=open(vcf_gz, "wb"), check=True)
-            subprocess.run(["tabix", "-p", "vcf", vcf_gz], check=True)
-            self.run_real("18 vcf annotate", ['--input', vcf_gz, 'vcf', 'annotate', '--ann-vcf', vcf_gz, '--cols', 'ID'], 'ButtonBAMStats')
-    def test_19_vcf_filter(self):
+            v = os.path.join(td, "t.vcf")
+            with open(v, 'w') as f: f.write("##fileformat=VCFv4.2\n##FILTER=<ID=PASS,Description=\"P\">\n##contig=<ID=chrM,length=16569>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\t.\n")
+            vg = v + ".gz"
+            subprocess.run(["bgzip", "-c", v], stdout=open(vg, "wb"), check=True)
+            subprocess.run(["tabix", "-p", "vcf", vg], check=True)
+            self.run_real("15 vcf annotate", ['--input', vg, 'vcf', 'annotate', '--ann-vcf', vg, '--cols', 'ID'], 'ButtonBAMStats')
+    def test_16_vcf_filter(self):
         with tempfile.TemporaryDirectory() as td:
-            vcf_raw = os.path.join(td, "test.vcf")
-            with open(vcf_raw, 'w') as f: f.write("##fileformat=VCFv4.2\n##contig=<ID=chrM,length=16569>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\t.\n")
-            vcf_gz = vcf_raw + ".gz"
-            subprocess.run(["bgzip", "-c", vcf_raw], stdout=open(vcf_gz, "wb"), check=True)
-            subprocess.run(["tabix", "-p", "vcf", vcf_gz], check=True)
-            self.run_real("19 vcf filter", ['--input', vcf_gz, 'vcf', 'filter', '--expr', 'QUAL>30'], 'ButtonBAMStats')
-    def test_20_vcf_qc(self):
+            v = os.path.join(td, "t.vcf")
+            with open(v, 'w') as f: f.write("##fileformat=VCFv4.2\n##contig=<ID=chrM,length=16569>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\t.\n")
+            vg = v + ".gz"
+            subprocess.run(["bgzip", "-c", v], stdout=open(vg, "wb"), check=True)
+            subprocess.run(["tabix", "-p", "vcf", vg], check=True)
+            self.run_real("16 vcf filter", ['--input', vg, 'vcf', 'filter', '--expr', 'QUAL>30'], 'ButtonBAMStats')
+    def test_17_vcf_qc(self):
         with tempfile.TemporaryDirectory() as td:
-            vcf_raw = os.path.join(td, "test.vcf")
-            with open(vcf_raw, 'w') as f: f.write("##fileformat=VCFv4.2\n##contig=<ID=chrM,length=16569>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\t.\n")
-            vcf_gz = vcf_raw + ".gz"
-            subprocess.run(["bgzip", "-c", vcf_raw], stdout=open(vcf_gz, "wb"), check=True)
-            self.run_real("20 vcf qc", ['--input', vcf_gz, 'vcf', 'qc'], 'ButtonBAMStats')
+            v = os.path.join(td, "t.vcf")
+            with open(v, 'w') as f: f.write("##fileformat=VCFv4.2\n##contig=<ID=chrM,length=16569>\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\t.\n")
+            vg = v + ".gz"
+            subprocess.run(["bgzip", "-c", v], stdout=open(vg, "wb"), check=True)
+            self.run_real("17 vcf qc", ['--input', vg, 'vcf', 'qc'], 'ButtonBAMStats')
 
     # --- MICROARRAY / LINEAGE ---
-    def test_21_microarray_chrm(self): self.run_real("21 microarray (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'microarray', '--region', 'chrM'], 'ButtonCombinedKit')
-    def test_22_lineage_mtdna(self):
+    def test_18_microarray_chrm(self): self.run_real("18 microarray (chrM)", ['--ref', REF_PATH, '--input', INPUT_PATH, 'microarray', '--region', 'chrM'], 'ButtonCombinedKit')
+    def test_19_lineage_mtdna(self):
         with tempfile.TemporaryDirectory() as td:
-            vcf = os.path.join(td, "test.vcf")
-            with open(vcf, 'w') as f: f.write("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+            v = os.path.join(td, "t.vcf")
+            with open(v, 'w') as f: f.write("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
             with patch('wgsextract_cli.core.utils.run_command'):
-                # Global --input must come before subcommand
-                self.run_real("22 lineage mt-dna", ['--input', vcf, 'lineage', 'mt-dna', '--haplogrep-path', 'fake.jar'], 'ButtonMTHaplo')
-    def test_23_lineage_ydna(self):
+                self.run_real("19 lineage mt-dna", ['--input', v, 'lineage', 'mt-dna', '--haplogrep-path', 'fake.jar'], 'ButtonMTHaplo')
+    def test_20_lineage_ydna(self):
         with patch('wgsextract_cli.core.utils.run_command'):
-            # Global --input must come before subcommand
-            self.run_real("23 lineage y-dna", ['--input', INPUT_PATH, 'lineage', 'y-dna', '--yleaf-path', 'fake.py', '--pos-file', 'fake.txt'], 'ButtonYHaplo')
+            self.run_real("20 lineage y-dna", ['--input', INPUT_PATH, 'lineage', 'y-dna', '--yleaf-path', 'fake.py', '--pos-file', 'fake.txt'], 'ButtonYHaplo')
 
     # --- REPAIR ---
-    def test_24_repair_bam(self):
+    def test_21_repair_bam(self):
         start = time.perf_counter()
-        print("\n>>> [REAL DATA] BEGIN: 24 repair ftdna-bam (plumbing)")
+        print("\n>>> [REAL DATA] BEGIN: 21 repair ftdna-bam (plumbing)")
         with patch('sys.stdin', io.StringIO("@HD\tVN:1.6\tSO:coordinate\nREAD 1\t0\tchrM\t100\t60\t100M\t*\t0\t0\tACTG\t####\n")), \
              patch('sys.stdout', new_callable=io.StringIO):
             with patch.object(sys, 'argv', ['wgsextract-cli', 'repair', 'ftdna-bam']):
                 main()
-        self.record_result("24 repair ftdna-bam", True, time.perf_counter()-start, 0)
-    def test_25_repair_vcf(self):
+        self.record_result("21 repair ftdna-bam", True, time.perf_counter()-start, 0, 'GetBAMHeader')
+    def test_22_repair_vcf(self):
         start = time.perf_counter()
-        print("\n>>> [REAL DATA] BEGIN: 25 repair ftdna-vcf (plumbing)")
+        print("\n>>> [REAL DATA] BEGIN: 22 repair ftdna-vcf (plumbing)")
         with patch('sys.stdin', io.StringIO("##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\nchrM\t100\t.\tA\tT\t100\tPASS\tINFO=VAL;QUAL=100\n")), \
              patch('sys.stdout', new_callable=io.StringIO):
             with patch.object(sys, 'argv', ['wgsextract-cli', 'repair', 'ftdna-vcf']):
                 main()
-        self.record_result("25 repair ftdna-vcf", True, time.perf_counter()-start, 0)
+        self.record_result("22 repair ftdna-vcf", True, time.perf_counter()-start, 0, 'GetBAMHeader')
 
     # --- QC ---
-    def test_26_qc_fastp(self):
+    def test_23_qc_fastp(self):
         td = tempfile.mkdtemp(prefix="wgse_real_qc_fastp_")
         try:
             r1, r2 = os.path.join(td, "r1.fq"), os.path.join(td, "r2.fq")
-            with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', td, '--input', INPUT_PATH, 'bam', 'unalign', '--r1', r1, '--r2', r2, '--region', 'chrM']):
+            with patch.object(sys, 'argv', ['wgsextract-cli', 'bam', 'unalign', '--input', INPUT_PATH, '--r1', r1, '--r2', r2, '--region', 'chrM', '--outdir', td]):
                 main()
-            self.run_real("26 qc fastp", ['qc', 'fastp', '--r1', r1, '--r2', r2], 'ButtonFastp')
+            self.run_real("23 qc fastp", ['qc', 'fastp', '--r1', r1, '--r2', r2], 'ButtonFastp')
         finally: shutil.rmtree(td)
-    def test_27_qc_fastqc(self):
+    def test_24_qc_fastqc(self):
         with tempfile.TemporaryDirectory() as td:
-            fq = os.path.join(td, "test.fq")
-            with open(fq, 'w') as f: f.write("@SEQ\nACTG\n+\n####\n")
-            self.run_real("27 qc fastqc", ['qc', 'fastqc', '--fastq', fq], 'ButtonFastqc')
-    def test_28_qc_cov_wgs_chrm(self): self.run_real("28 qc coverage-wgs (chrM)", ['--input', INPUT_PATH, 'qc', 'coverage-wgs', '--region', 'chrM'], 'CoverageStatsBIN')
-    def test_29_qc_cov_wes_chrm(self):
+            fq = os.path.join(td, "t.fq")
+            with open(fq, 'w') as f: f.write("@S\nACTG\n+\n####\n")
+            self.run_real("24 qc fastqc", ['qc', 'fastqc', '--fastq', fq], 'ButtonFastqc')
+    def test_25_qc_cov_wgs_chrm(self): self.run_real("25 qc coverage-wgs (chrM)", ['--input', INPUT_PATH, 'qc', 'coverage-wgs', '--region', 'chrM'], 'CoverageStatsBIN')
+    def test_26_qc_cov_wes_chrm(self):
         with tempfile.TemporaryDirectory() as td:
-            bed = os.path.join(td, "test.bed")
-            with open(bed, 'w') as f: f.write("chrM\t1\t100\n")
-            self.run_real("29 qc coverage-wes (chrM)", ['--input', INPUT_PATH, 'qc', 'coverage-wes', '--bed', bed, '--region', 'chrM'], 'CoverageStatsWES')
+            b = os.path.join(td, "t.bed")
+            with open(b, 'w') as f: f.write("chrM\t1\t100\n")
+            self.run_real("26 qc coverage-wes (chrM)", ['--input', INPUT_PATH, 'qc', 'coverage-wes', '--bed', b, '--region', 'chrM'], 'CoverageStatsWES')
 
     # --- REF / ALIGN ---
-    def test_30_ref_identify(self): self.run_real("30 ref identify", ['--input', INPUT_PATH, 'ref', 'identify'], 'GetBAMHeader')
-    def test_31_ref_download(self):
+    def test_27_ref_identify(self): self.run_real("27 ref identify", ['--input', INPUT_PATH, 'ref', 'identify'], 'GetBAMHeader')
+    def test_28_ref_download(self):
         with patch('subprocess.run'):
-            self.run_real("31 ref download", ['ref', 'download', '--url', 'http://fake', '--out', 'out.fa'], 'LiftoverCleanup')
-    def test_32_ref_index(self):
+            self.run_real("28 ref download", ['ref', 'download', '--url', 'h://f', '--out', 'o.fa'], 'LiftoverCleanup')
+    def test_29_ref_index(self):
         with tempfile.TemporaryDirectory() as td:
-            fa = os.path.join(td, "test.fa")
+            fa = os.path.join(td, "t.fa")
             with open(fa, 'w') as f: f.write(">chrM\nACTG\n")
-            self.run_real("32 ref index", ['--ref', fa, 'ref', 'index'], 'CreateAlignIndices')
-    def test_33_align_bwa(self):
+            self.run_real("29 ref index", ['--ref', fa, 'ref', 'index'], 'CreateAlignIndices')
+    def test_30_align_bwa(self):
         td = tempfile.mkdtemp(prefix="wgse_real_align_")
         try:
             r1, r2 = os.path.join(td, "r1.fq"), os.path.join(td, "r2.fq")
-            with patch.object(sys, 'argv', ['wgsextract-cli', '--outdir', td, '--input', INPUT_PATH, 'bam', 'unalign', '--r1', r1, '--r2', r2, '--region', 'chrM']):
+            with patch.object(sys, 'argv', ['wgsextract-cli', 'bam', 'unalign', '--input', INPUT_PATH, '--r1', r1, '--r2', r2, '--region', 'chrM', '--outdir', td]):
                 main()
             from wgsextract_cli.core.utils import ReferenceLibrary
             lib = ReferenceLibrary(REF_PATH, "a08daf6f9f22170759705fd99e471b62")
             ref_fasta = lib.fasta if lib.fasta else REF_PATH
-            self.run_real("33 align bwa", ['--ref', ref_fasta, 'align', '--r1', r1, '--r2', r2], 'ButtonAlignBAM')
+            self.run_real("30 align bwa", ['--ref', ref_fasta, 'align', '--r1', r1, '--r2', r2], 'ButtonAlignBAM')
         finally: shutil.rmtree(td)
 
 if __name__ == '__main__':

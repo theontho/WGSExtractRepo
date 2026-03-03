@@ -2,6 +2,34 @@ import logging
 import os
 import shutil
 
+# Internal machine benchmarks for high-performance reference
+# Obtained from 30x WGS (7.3GB CRAM) on M1 Pro class hardware
+M1_PRO_ESTIMATES = {
+    'GetBAMHeader':               0.03,
+    'LiftoverCleanup':            0.01,
+    'ButtonBAMStats':             0.04,
+    'ButtonBAMStats2':           50.53,
+    'CoverageStatsPoz':          49.09,
+    'GenBAMIndex':                1.98,
+    'BAMtoCRAM':                 11.69,
+    'ButtonMitoBAM':              2.77,
+    'ButtonYonly':                3.03,
+    'ButtonUnmappedReads':        0.08,
+    'ButtonSNPVCF':            6085.92,
+    'ButtonInDelVCF':          6942.84,
+    'ButtonCombinedKit':        470.79,
+    'ButtonFastp':                1.69,
+    'ButtonFastqc':               5.65,
+    'CoverageStatsBIN':        3547.49,
+    'CoverageStatsWES':         177.89,
+    'CreateAlignIndices':         0.03,
+    'ButtonAlignBAM':            20.30,
+    'GenSortedBAM':             858.75,
+    'CRAMtoBAM':                234.73,
+    'ButtonUnalignBAM':        1907.09,
+    'GenBAMSubset':             391.29,
+}
+
 # Expected run times of various commands in seconds
 # Extracted from program/settings.py
 EXPECTED_TIME = {

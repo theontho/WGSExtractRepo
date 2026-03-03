@@ -6,53 +6,66 @@ from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, 
 from wgsextract_cli.core.warnings import print_warning
 
 def register(subparsers, base_parser):
-    parser = subparsers.add_parser("vcf", parents=[base_parser], help="Variant calling and processing using bcftools, delly, or freebayes.")
+    parser = subparsers.add_parser("vcf", help="Variant calling and processing using bcftools, delly, or freebayes.")
     vcf_subs = parser.add_subparsers(dest="vcf_cmd", required=True)
 
-    snp_parser = vcf_subs.add_parser("snp", help="Generates a VCF file containing single nucleotide polymorphisms using bcftools.")
+    snp_parser = vcf_subs.add_parser("snp", parents=[base_parser], help="Generates a VCF file containing single nucleotide polymorphisms using bcftools.")
     snp_group = snp_parser.add_mutually_exclusive_group(required=False)
     snp_group.add_argument("--ploidy-file", help="File defining ploidy per chromosome (auto-resolved from --ref if possible)")
     snp_group.add_argument("--ploidy", help="Predefined ploidy name or value")
     snp_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     snp_parser.set_defaults(func=cmd_snp)
 
-    indel_parser = vcf_subs.add_parser("indel", help="Generates a normalized VCF file containing insertions and deletions using bcftools.")
+    indel_parser = vcf_subs.add_parser("indel", parents=[base_parser], help="Generates a normalized VCF file containing insertions and deletions using bcftools.")
     indel_group = indel_parser.add_mutually_exclusive_group(required=False)
     indel_group.add_argument("--ploidy-file", help="File defining ploidy per chromosome (auto-resolved from --ref if possible)")
     indel_group.add_argument("--ploidy", help="Predefined ploidy name or value")
     indel_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     indel_parser.set_defaults(func=cmd_indel)
 
-    annotate_parser = vcf_subs.add_parser("annotate", help="Annotate VCF file.")
+    annotate_parser = vcf_subs.add_parser("annotate", parents=[base_parser], help="Annotate VCF file.")
     annotate_parser.add_argument("--ann-vcf", help="Annotation VCF file (auto-resolved from --ref if possible)")
     annotate_parser.add_argument("--cols", help="Columns to annotate (e.g. ID,INFO/HG)")
     annotate_parser.set_defaults(func=cmd_annotate)
 
-    filter_parser = vcf_subs.add_parser("filter", help="Filter VCF file.")
-    filter_parser.add_argument("--expr", required=True, help="bcftools filter expression")
+    filter_parser = vcf_subs.add_parser("filter", parents=[base_parser], help="Filter VCF file.")
+    filter_parser.add_argument("--expr", help="bcftools filter expression (e.g. 'QUAL>30')")
+    filter_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
+    filter_parser.add_argument("-r", "--region", help="Chromosomal region")
     filter_parser.set_defaults(func=cmd_filter)
     
-    cnv_parser = vcf_subs.add_parser("cnv", help="Call Copy Number Variants (CNV) using delly.")
+    trio_parser = vcf_subs.add_parser("trio", parents=[base_parser], help="Perform inheritance analysis on a family trio (Mother-Father-Child).")
+    trio_parser.add_argument("--proband", required=True, help="VCF file for the child")
+    trio_parser.add_argument("--mother", required=True, help="VCF file for the mother")
+    trio_parser.add_argument("--father", required=True, help="VCF file for the father")
+    trio_parser.add_argument("--mode", choices=["denovo", "recessive", "comphet"], default="denovo", help="Inheritance mode to filter for")
+    trio_parser.set_defaults(func=cmd_trio)
+
+    cnv_parser = vcf_subs.add_parser("cnv", parents=[base_parser], help="Call Copy Number Variants (CNV) using delly.")
     cnv_parser.set_defaults(func=cmd_cnv)
 
-    sv_parser = vcf_subs.add_parser("sv", help="Call Structural Variants (SV) using delly.")
+    sv_parser = vcf_subs.add_parser("sv", parents=[base_parser], help="Call Structural Variants (SV) using delly.")
     sv_parser.set_defaults(func=cmd_sv)
 
-    freebayes_parser = vcf_subs.add_parser("freebayes", help="Call variants using freebayes.")
+    freebayes_parser = vcf_subs.add_parser("freebayes", parents=[base_parser], help="Call variants using freebayes.")
     freebayes_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     freebayes_parser.set_defaults(func=cmd_freebayes)
 
-    qc_parser = vcf_subs.add_parser("qc", help="VCF QC using bcftools stats.")
+    qc_parser = vcf_subs.add_parser("qc", parents=[base_parser], help="VCF QC using bcftools stats.")
     qc_parser.set_defaults(func=cmd_qc)
 
 def get_base_args(args):
-    if not args.input:
+    # For trio, input comes from --proband
+    input_file = getattr(args, 'input', None) or getattr(args, 'proband', None)
+    
+    if not input_file:
         logging.error("--input is required.")
         return None
     threads, _ = get_resource_defaults(args.threads, None)
-    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     
-    md5_sig = calculate_bam_md5(args.input, None)
+    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    
+    md5_sig = calculate_bam_md5(input_file, None)
     lib = ReferenceLibrary(args.ref, md5_sig)
     
     if not hasattr(args, 'ploidy') or args.ploidy is None:
@@ -61,7 +74,7 @@ def get_base_args(args):
 
     resolved_ref = lib.fasta
 
-    paths_to_check = {'--input': args.input}
+    paths_to_check = {'--input': input_file}
     if resolved_ref: paths_to_check['--ref'] = resolved_ref
     
     if not verify_paths_exist(paths_to_check):
@@ -198,11 +211,71 @@ def cmd_filter(args):
     outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     out_vcf = os.path.join(outdir, "filtered.vcf.gz")
     
+    # Gene-based region resolution
+    region = args.region
+    if args.gene:
+        # Deduce build from input
+        md5_sig = calculate_bam_md5(args.input, None)
+        lib = ReferenceLibrary(args.ref, md5_sig)
+        
+        from wgsextract_cli.core.gene_map import GeneMap
+        gm = GeneMap(lib.root if lib.root else os.path.dirname(os.path.abspath(args.input)))
+        resolved_region = gm.get_coords(args.gene, lib.build or "hg38")
+        
+        if resolved_region:
+            logging.info(f"Resolved gene {args.gene} to {resolved_region}")
+            region = resolved_region
+        else:
+            logging.error(f"Could not resolve gene name: {args.gene}")
+            return
+
+    region_args = ["-r", region] if region else []
+    expr_args = ["-i", args.expr] if args.expr else []
+    
     logging.info(f"Filtering {args.input} to {out_vcf}")
     try:
-        subprocess.run(["bcftools", "filter", "-i", args.expr, "-Oz", "-o", out_vcf, args.input], check=True)
+        subprocess.run(["bcftools", "view"] + region_args + expr_args + ["-Oz", "-o", out_vcf, args.input], check=True)
+        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"Filtering failed: {e}")
+
+def cmd_trio(args):
+    verify_dependencies(["bcftools", "tabix"])
+    if not verify_paths_exist({'--proband': args.proband, '--mother': args.mother, '--father': args.father}):
+        return
+
+    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.proband))
+    out_vcf = os.path.join(outdir, f"trio_{args.mode}.vcf.gz")
+    
+    logging.info(f"Performing Trio Analysis ({args.mode}) to {out_vcf}")
+    
+    # 1. Merge the three VCFs (requires them to be indexed)
+    for f in [args.proband, args.mother, args.father]:
+        if not os.path.exists(f + ".tbi"):
+            subprocess.run(["tabix", "-p", "vcf", f], check=True)
+            
+    merged_vcf = os.path.join(outdir, "merged_trio.vcf.gz")
+    subprocess.run(["bcftools", "merge", "-Oz", "-o", merged_vcf, args.proband, args.mother, args.father], check=True)
+    
+    # 2. Apply Inheritance Filters
+    # [0] = proband, [1] = mother, [2] = father
+    filter_expr = ""
+    if args.mode == "denovo":
+        # Child is het, parents are ref
+        filter_expr = 'GT[0]="het" && GT[1]="ref" && GT[2]="ref"'
+    elif args.mode == "recessive":
+        # Child is hom-alt, parents are het
+        filter_expr = 'GT[0]="hom" && GT[1]="het" && GT[2]="het"'
+    elif args.mode == "comphet":
+        # Simplified: Child is het, one parent is het, other is ref
+        filter_expr = 'GT[0]="het" && ( (GT[1]="het" && GT[2]="ref") || (GT[1]="ref" && GT[2]="het") )'
+
+    try:
+        subprocess.run(["bcftools", "view", "-i", filter_expr, "-Oz", "-o", out_vcf, merged_vcf], check=True)
+        subprocess.run(["tabix", "-f", "-p", "vcf", out_vcf], check=True)
+        logging.info(f"Trio analysis complete. Results: {out_vcf}")
+    finally:
+        if os.path.exists(merged_vcf): os.remove(merged_vcf)
 
 def cmd_qc(args):
     verify_dependencies(["bcftools"])

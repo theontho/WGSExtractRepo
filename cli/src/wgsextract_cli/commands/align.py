@@ -12,58 +12,74 @@ def register(subparsers, base_parser):
     parser.add_argument("--long-read", action="store_true", help="Use minimap2 for long-read alignment")
     parser.set_defaults(func=run)
 
-def get_base_args(args):
-    threads, memory = get_resource_defaults(args.threads, args.memory)
-    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.r1))
-    
-    # Path validation for inputs
-    paths_to_check = {'--r1': args.r1}
-    if args.r2: paths_to_check['--r2'] = args.r2
-    if not verify_paths_exist(paths_to_check): return None
-
-    # Reference resolution
-    # Alignment usually needs a direct fasta
-    resolved_ref = resolve_reference(args.ref, "")
-    if not resolved_ref or not os.path.isfile(resolved_ref):
-        logging.error("--ref is required (and must be a file) for alignment.")
-        return None
-        
-    return threads, memory, outdir, resolved_ref
-
 def run(args):
+    # Determine which aligner to use
     if args.long_read:
-        verify_dependencies(["minimap2", "samtools"])
+        align_minimap2(args)
     else:
-        verify_dependencies(["bwa", "samtools"])
-        
-    base = get_base_args(args)
-    if not base: return
-    threads, memory, outdir, ref = base
-    
-    print_warning('RealignBAMTimeWarnMesg', threads=threads)
-    print_warning('ButtonAlignBAM', threads=threads)
+        align_bwa(args)
 
-    out_bam = os.path.join(outdir, "aligned.bam")
+def align_bwa(args):
+    verify_dependencies(["bwa", "samtools"])
+    threads, _ = get_resource_defaults(args.threads, None)
     
-    if args.long_read:
-        logging.info(f"Aligning with minimap2 to {out_bam}")
-        p1 = subprocess.Popen(["minimap2", "-ax", "map-ont", "-t", str(threads), ref, args.r1], stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(["samtools", "sort", "-m", memory, "-@", str(threads), "-o", out_bam], stdin=p1.stdout)
-        p1.stdout.close()
-        p2.communicate()
-    else:
-        logging.info(f"Aligning with bwa mem to {out_bam}")
-        cmd = ["bwa", "mem", "-t", str(threads), ref, args.r1]
-        if args.r2:
-            cmd.append(args.r2)
-            
-        p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(["samtools", "sort", "-m", memory, "-@", str(threads), "-o", out_bam], stdin=p1.stdout)
-        p1.stdout.close()
-        p2.communicate()
+    # Use --input's path if outdir not set, or r1's path
+    input_path = args.input if args.input else args.r1
+    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_path))
+    
+    md5_sig = calculate_bam_md5(input_path, None) if args.input else None
+    resolved_ref = resolve_reference(args.ref, md5_sig)
+    
+    if not resolved_ref or not os.path.isfile(resolved_ref):
+        logging.error("--ref is required (and must be a file) for BWA alignment.")
+        return
 
-    logging.info("Indexing...")
+    print_warning('ButtonBWAAlign', threads=threads)
+
+    base_name = os.path.basename(args.r1).split('.')[0]
+    out_bam = os.path.join(outdir, f"{base_name}_aligned.bam")
+    
+    r2_args = [args.r2] if args.r2 else []
+    
+    logging.info(f"Aligning {args.r1} to {out_bam} using BWA")
     try:
+        p1 = subprocess.Popen(["bwa", "mem", "-t", threads, resolved_ref, args.r1] + r2_args, stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(["samtools", "view", "-bh", "-o", out_bam], stdin=p1.stdout)
+        p1.stdout.close()
+        p2.communicate()
+        
+        logging.info("Indexing output BAM...")
         subprocess.run(["samtools", "index", out_bam], check=True)
     except Exception as e:
-        logging.error(f"Indexing failed: {e}")
+        logging.error(f"BWA alignment failed: {e}")
+
+def align_minimap2(args):
+    verify_dependencies(["minimap2", "samtools"])
+    threads, _ = get_resource_defaults(args.threads, None)
+    
+    input_path = args.input if args.input else args.r1
+    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_path))
+    
+    md5_sig = calculate_bam_md5(input_path, None) if args.input else None
+    resolved_ref = resolve_reference(args.ref, md5_sig)
+
+    if not resolved_ref or not os.path.isfile(resolved_ref):
+        logging.error("--ref is required (and must be a file) for Minimap2 alignment.")
+        return
+
+    base_name = os.path.basename(args.r1).split('.')[0]
+    out_bam = os.path.join(outdir, f"{base_name}_aligned.bam")
+    
+    r2_args = [args.r2] if args.r2 else []
+    
+    logging.info(f"Aligning {args.r1} to {out_bam} using Minimap2")
+    try:
+        p1 = subprocess.Popen(["minimap2", "-ax", "sr", "-t", threads, resolved_ref, args.r1] + r2_args, stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(["samtools", "view", "-bh", "-o", out_bam], stdin=p1.stdout)
+        p1.stdout.close()
+        p2.communicate()
+        
+        logging.info("Indexing output BAM...")
+        subprocess.run(["samtools", "index", out_bam], check=True)
+    except Exception as e:
+        logging.error(f"Minimap2 alignment failed: {e}")
