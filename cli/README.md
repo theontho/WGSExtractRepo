@@ -168,10 +168,24 @@ uv run python cli/tests/test_robustness.py
 ```
 
 ### 4. E2E Tests (Real Data & Benchmarks)
-Actual tool execution on `chrM` with performance reporting.
-```bash
-uv run python cli/tests/test_e2e.py
-```
+
+Real-world verification using a sorted BAM/CRAM and a reference genome:
+
+1. **Configure Paths**: Create a `cli/.env.local` file:
+   ```env
+   WGSE_REF="/path/to/reference/folder"
+   WGSE_INPUT="/path/to/sample.cram"
+   ```
+
+2. **Run Focused Tests (Fast)**: Target `chrM` to verify tool logic in minutes.
+   ```bash
+   uv run python cli/tests/test_e2e_fast_chrM.py
+   ```
+
+3. **Run Full Genome (Rigorous)**: Process the entire file for final validation.
+   ```bash
+   uv run python cli/tests/test_e2e_full_genome.py
+   ```
 
 ### 5. Unit Tests
 Specific logic for metrics and formatting.

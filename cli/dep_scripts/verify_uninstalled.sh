@@ -6,6 +6,7 @@ echo "Verifying uninstallation..."
 tools=(
     "samtools"
     "bcftools"
+    "tabix"
     "bwa"
     "minimap2"
     "fastp"

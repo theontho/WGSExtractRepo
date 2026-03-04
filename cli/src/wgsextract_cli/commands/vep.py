@@ -319,9 +319,7 @@ def cmd_vep(args):
         ensure_vcf_indexed(args.input)
 
     # Check dependencies
-    deps = ["vep"]
-    if is_bam:
-        deps.extend(["bcftools", "tabix"])
+    deps = ["vep", "tabix", "bcftools"]
     verify_dependencies(deps)
 
     # Setup resources and paths

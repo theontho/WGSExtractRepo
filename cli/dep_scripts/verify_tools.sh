@@ -8,6 +8,7 @@ echo "Verifying tool installations..."
 tools=(
     "samtools"
     "bcftools"
+    "tabix"
     "bwa"
     "minimap2"
     "fastp"

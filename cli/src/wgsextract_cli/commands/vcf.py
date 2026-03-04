@@ -167,7 +167,7 @@ def cmd_indel(args):
     ensure_vcf_indexed(out_vcf)
 
 def cmd_annotate(args):
-    verify_dependencies(["bcftools"])
+    verify_dependencies(["bcftools", "tabix"])
     if not args.input: return logging.error("--input is required.")
     
     outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
@@ -207,7 +207,7 @@ def cmd_annotate(args):
         logging.error(f"Annotation failed: {e}")
 
 def cmd_filter(args):
-    verify_dependencies(["bcftools"])
+    verify_dependencies(["bcftools", "tabix"])
     if not args.input: return logging.error("--input is required.")
     
     if not verify_paths_exist({'--input': args.input}): return
@@ -311,6 +311,7 @@ def cmd_cnv(args):
     logging.info(f"Calling CNVs using delly to {out_vcf}")
     try:
         # delly cnv -g ref.fa -o cnv.bcf input.bam
+        # For CRAM files, delly needs the reference via -g (which we have)
         subprocess.run(["delly", "cnv", "-g", ref, "-o", out_bcf, args.input], check=True)
         # convert bcf to vcf.gz
         subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
@@ -318,6 +319,7 @@ def cmd_cnv(args):
         if os.path.exists(out_bcf): os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"CNV calling failed: {e}")
+        raise
 
 def cmd_sv(args):
     verify_dependencies(["delly", "bcftools", "tabix"])
@@ -338,6 +340,7 @@ def cmd_sv(args):
         if os.path.exists(out_bcf): os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"SV calling failed: {e}")
+        raise
 
 def cmd_freebayes(args):
     verify_dependencies(["freebayes", "bcftools", "tabix"])
@@ -350,17 +353,40 @@ def cmd_freebayes(args):
     logging.info(f"Calling variants using freebayes to {out_vcf}")
     region_args = ["-r", args.region] if args.region else []
     
+    # Check if input is CRAM
+    is_cram = args.input.lower().endswith(".cram")
+    
     try:
-        # freebayes -f ref.fa input.bam
-        p1 = subprocess.Popen(["freebayes", "-f", ref] + region_args + [args.input], stdout=subprocess.PIPE)
-        p2 = subprocess.Popen(["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p1.stdout)
-        p1.stdout.close()
-        p2.communicate()
-        
-        if p2.returncode != 0:
-            logging.error(f"Freebayes/bcftools failed with return code {p2.returncode}")
-            return
+        if is_cram:
+            # freebayes doesn't always handle CRAM perfectly via stdin or without explicit reference handling in some versions
+            # We use samtools view to pipe decompressed BAM to freebayes
+            view_cmd = ["samtools", "view", "-uh", "-T", ref, args.input]
+            if args.region:
+                view_cmd.extend(["-r", args.region] if "-r" not in region_args else region_args)
+            
+            p_view = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
+            p_fb = subprocess.Popen(["freebayes", "-f", ref, "--stdin"], stdin=p_view.stdout, stdout=subprocess.PIPE)
+            p_vcf = subprocess.Popen(["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p_fb.stdout)
+            
+            p_view.stdout.close()
+            p_fb.stdout.close()
+            p_vcf.communicate()
+            
+            if p_vcf.returncode != 0:
+                logging.error(f"Freebayes/bcftools pipeline failed with return code {p_vcf.returncode}")
+                raise subprocess.CalledProcessError(p_vcf.returncode, "freebayes pipeline")
+        else:
+            # BAM handling
+            p1 = subprocess.Popen(["freebayes", "-f", ref] + region_args + [args.input], stdout=subprocess.PIPE)
+            p2 = subprocess.Popen(["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p1.stdout)
+            p1.stdout.close()
+            p2.communicate()
+            
+            if p2.returncode != 0:
+                logging.error(f"Freebayes/bcftools failed with return code {p2.returncode}")
+                raise subprocess.CalledProcessError(p2.returncode, "freebayes")
 
         ensure_vcf_indexed(out_vcf)
     except Exception as e:
         logging.error(f"Freebayes failed: {e}")
+        raise
