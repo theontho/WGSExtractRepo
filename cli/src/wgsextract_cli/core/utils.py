@@ -76,6 +76,7 @@ class ReferenceLibrary:
         self.ymt_bed = None
         self.cma_dir = None
         self.liftover_chain = None
+        self.dict_file = None
         self.build = None
         
         if not ref_path:
@@ -84,6 +85,9 @@ class ReferenceLibrary:
         if os.path.isfile(ref_path):
             if ref_path.lower().endswith(('.fa', '.fasta', '.fa.gz', '.fasta.gz')):
                 self.fasta = ref_path
+                potential_dict = ref_path.replace(".fa.gz", ".dict").replace(".fasta.gz", ".dict").replace(".fa", ".dict").replace(".fasta", ".dict")
+                if os.path.exists(potential_dict):
+                    self.dict_file = potential_dict
             self._search_dir(os.path.dirname(ref_path))
         
         if os.path.isdir(ref_path):
@@ -113,6 +117,8 @@ class ReferenceLibrary:
             logging.info(f"Auto-resolved ploidy: {self.ploidy_file}")
         if self.ref_vcf_tab:
             logging.info(f"Auto-resolved ref-vcf-tab: {self.ref_vcf_tab}")
+        if self.dict_file:
+            logging.info(f"Auto-resolved dict: {self.dict_file}")
 
     def _search_dir(self, d):
         if not os.path.isdir(d):
@@ -138,6 +144,19 @@ class ReferenceLibrary:
                     for f in os.listdir(d):
                         if f.lower().endswith(('.fa.gz', '.fasta.gz', '.fa', '.fasta')):
                             self.fasta = os.path.join(d, f)
+                            break
+                except Exception: pass
+
+        # Look for dict if we have fasta
+        if self.fasta and not self.dict_file:
+            potential_dict = self.fasta.replace(".fa.gz", ".dict").replace(".fasta.gz", ".dict").replace(".fa", ".dict").replace(".fasta", ".dict")
+            if os.path.exists(potential_dict):
+                self.dict_file = potential_dict
+            else:
+                try:
+                    for f in os.listdir(d):
+                        if f.lower().endswith(".dict"):
+                            self.dict_file = os.path.join(d, f)
                             break
                 except Exception: pass
 

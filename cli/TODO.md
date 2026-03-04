@@ -18,7 +18,7 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 - [x] **Robust InDel Support**: Properly call and include Insertions/Deletions in microarray and variant calling.
 - [x] **VCF Annotator**: Implement engine-level annotation for rsIDs, SNP names, and gene info. (Added auto-resolution and VEP support).
 - [x] **Additional Variant Callers**: Integrate FreeBayes, Platypus, or Scalpel as engine options. (Added FreeBayes).
-- [ ] **DeepVariant/GATK Integration**: Add support for these industry-standard callers in the backend.
+- [x] **DeepVariant/GATK Integration**: Add support for these industry-standard callers in the backend.
 
 ### 🧬 Gene Analysis & Clinical Interpretation
 *Inspired by gene.iobio, these features focus on making variants actionable and medically relevant.*
@@ -26,8 +26,8 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 - [ ] **Population Frequency Integration**: Add engine support for annotating variants with gnomAD, ExAC, and 1000 Genomes frequencies.
 - [ ] **ClinVar clinical significance**: Automatically check and report if variants are listed as "Pathogenic" in ClinVar.
 - [ ] **Advanced Pathogenicity Scores**: Implement support for CADD, SIFT, and PolyPhen-2 score annotation.
-- [ ] **Gene-Centric Workflows**: Add a CLI command to filter VCFs by a specific Gene Name or HGNC ID.
-- [ ] **Inheritance & Trio Analysis**: Add logic to detect De Novo mutations and Compound Heterozygotes in family trios.
+- [x] **Gene-Centric Workflows**: Add a CLI command to filter VCFs by a specific Gene Name or HGNC ID.
+- [x] **Inheritance & Trio Analysis**: Add logic to detect De Novo mutations and Compound Heterozygotes in family trios.
 - [ ] **Conservation Analysis**: Add annotation support for PhyloP and GERP++ conservation scores.
 - [ ] **Phenotype-to-Gene Ranking**: Integrate Phenolyzer or HPO-based gene prioritization into the engine.
 
@@ -35,7 +35,7 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 - [x] **mtDNA BAM Extraction**: Add a dedicated engine command to generate and save mtDNA-only BAMs.
 - [ ] **BAM/CRAM Merging**: Add a utility to merge multiple alignment files.
 - [ ] **Unaligned BAM Creator**: Add a tool to create unaligned BAMs for specific pipelines.
-- [ ] **MD5 Integrity Checks**: Implement automated MD5sum checking for reference genome files.
+- [x] **MD5 Integrity Checks**: Implement automated MD5sum checking for reference genome files.
 - [ ] **Sambamba/Samblaster Integration**: Evaluate and integrate these for faster Y/MT extraction and marking duplicates.
 
 ### Microarray & Specialized Analysis
@@ -46,9 +46,9 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 - [ ] **Consensus Sequence Generation**: Implement BAM/VCF to FASTA consensus logic.
 
 ### CLI Improvements
-- [ ] **CLI Robustness**: Improve parameter error handling and "Auto Mode" reliability.
+- [x] **CLI Robustness**: Improve parameter error handling and "Auto Mode" reliability.
 - [ ] **Parallel Microarray Generation**: Fully implement and test the `--parallel` flag for per-chromosome variant calling in the CLI.
-- [ ] **JSON/TSV Output**: Ensure CLI commands can output machine-readable formats (JSON/TSV) for all stats and results.
+- [x] **JSON/TSV Output**: Ensure CLI commands can output machine-readable formats (JSON/TSV) for all stats and results. (Added JSON metrics caching).
 
 ---
 

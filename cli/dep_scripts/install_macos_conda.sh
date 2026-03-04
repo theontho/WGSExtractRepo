@@ -36,6 +36,6 @@ echo "Installing dependencies via Conda..."
 echo "NOTE: On Apple Silicon, Ensembl VEP requires an Intel (osx-64) environment to avoid segmentation faults."
 
 # Create a dedicated environment for bioinformatics tools to avoid conflicts with base Python
-CONDA_SUBDIR=osx-64 conda create -y -n wgse -c conda-forge -c bioconda ensembl-vep samtools bcftools htslib bwa minimap2 fastp fastqc delly freebayes openjdk python=3.12
+CONDA_SUBDIR=osx-64 conda create -y -n wgse -c conda-forge -c bioconda ensembl-vep deepvariant gatk4 samtools bcftools htslib bwa minimap2 fastp fastqc delly freebayes openjdk python=3.10
 
 echo "Installation complete. To use these tools, run: conda activate wgse"

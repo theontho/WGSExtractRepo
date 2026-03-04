@@ -14,6 +14,8 @@ tools=(
     "delly"
     "freebayes"
     "vep"
+    "gatk"
+    "run_deepvariant"
 )
 
 found_tools=()

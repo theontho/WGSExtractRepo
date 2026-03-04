@@ -194,6 +194,21 @@ class TestE2EBase(unittest.TestCase):
         min_d = 1800 if self.REGION is None else 0
         self.run_real("32 vcf freebayes (chrM)", ['vcf', 'freebayes', '-r', 'chrM', '--input', INPUT_PATH, '--ref', REF_PATH], 'ButtonSNPVCF', min_duration=min_d)
 
+    def test_37_vcf_gatk_chrm(self):
+        # Only run if GATK jar is present
+        from wgsextract_cli.core.dependencies import get_jar_path
+        if not get_jar_path("gatk-package-4.1.9.0-local.jar"):
+            self.skipTest("GATK jar not found")
+        min_d = 3600 if self.REGION is None else 0
+        self.run_real("37 vcf gatk (chrM)", ['vcf', 'gatk', '-r', 'chrM', '--input', INPUT_PATH, '--ref', REF_PATH], 'ButtonSNPVCF', min_duration=min_d)
+
+    def test_38_vcf_deepvariant_chrm(self):
+        # Only run if run_deepvariant is in PATH
+        if shutil.which("run_deepvariant") is None:
+            self.skipTest("run_deepvariant not found in PATH")
+        min_d = 3600 if self.REGION is None else 0
+        self.run_real("38 vcf deepvariant (chrM)", ['vcf', 'deepvariant', '-r', 'chrM', '--input', INPUT_PATH, '--ref', REF_PATH], 'ButtonSNPVCF', min_duration=min_d)
+
     def test_33_vcf_filter_gene(self):
         self.run_real("33 vcf filter --gene BRCA1", ['vcf', 'filter', '--gene', 'BRCA1', '--input', INPUT_PATH, '--ref', REF_PATH], 'ButtonBAMStats')
 

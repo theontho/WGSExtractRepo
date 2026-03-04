@@ -24,6 +24,6 @@ if [ "$SKIP_CONDA" = false ]; then
 fi
 
 echo "Installing dependencies via Conda..."
-conda install -y -c bioconda -c conda-forge samtools bcftools htslib bwa minimap2 fastp fastqc delly freebayes ensembl-vep openjdk python
+conda install -y -c bioconda -c conda-forge gatk4 deepvariant samtools bcftools htslib bwa minimap2 fastp fastqc delly freebayes ensembl-vep openjdk python=3.10
 
 echo "Installation complete."

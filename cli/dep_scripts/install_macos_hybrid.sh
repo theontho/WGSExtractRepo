@@ -38,8 +38,8 @@ if [ "$SKIP_CONDA" = false ]; then
     fi
 fi
 
-echo "Creating dedicated environment for VEP (Intel/osx-64) to avoid Apple Silicon crashes..."
-CONDA_SUBDIR=osx-64 conda create -y -n vep_env -c conda-forge -c bioconda ensembl-vep
+echo "Creating dedicated environment for VEP and DeepVariant (Intel/osx-64) to avoid Apple Silicon crashes..."
+CONDA_SUBDIR=osx-64 conda create -y -n vep_env -c conda-forge -c bioconda ensembl-vep deepvariant
 
 echo "Hybrid installation complete."
-echo "To run VEP, you must first run: conda activate vep_env"
+echo "To run VEP or DeepVariant, you must first run: conda activate vep_env"

@@ -1,6 +1,7 @@
 import os
 import subprocess
 import logging
+import sys
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary, ensure_vcf_indexed
 from wgsextract_cli.core.warnings import print_warning
@@ -51,6 +52,15 @@ def register(subparsers, base_parser):
     freebayes_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     freebayes_parser.set_defaults(func=cmd_freebayes)
 
+    gatk_parser = vcf_subs.add_parser("gatk", parents=[base_parser], help="Call variants using GATK HaplotypeCaller.")
+    gatk_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
+    gatk_parser.set_defaults(func=cmd_gatk)
+
+    deepvariant_parser = vcf_subs.add_parser("deepvariant", parents=[base_parser], help="Call variants using DeepVariant.")
+    deepvariant_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
+    deepvariant_parser.add_argument("--wes", action="store_true", help="Set model type to WES (default: WGS)")
+    deepvariant_parser.set_defaults(func=cmd_deepvariant)
+
     qc_parser = vcf_subs.add_parser("qc", parents=[base_parser], help="VCF QC using bcftools stats.")
     qc_parser.set_defaults(func=cmd_qc)
 
@@ -83,14 +93,14 @@ def get_base_args(args):
     if not resolved_ref or not os.path.isfile(resolved_ref):
         logging.error("--ref is required (and must be a file) for variant calling.")
         return None
-    return threads, outdir, resolved_ref
+    return threads, outdir, resolved_ref, lib
 
 def cmd_snp(args):
     verify_dependencies(["bcftools", "tabix"])
     base = get_base_args(args)
     if not base: return
     
-    threads, outdir, ref = base
+    threads, outdir, ref, lib = base
     
     print_warning('ButtonSNPVCF', threads=threads)
 
@@ -127,7 +137,7 @@ def cmd_indel(args):
     base = get_base_args(args)
     if not base: return
     
-    threads, outdir, ref = base
+    threads, outdir, ref, lib = base
     
     print_warning('ButtonInDelVCF', threads=threads)
 
@@ -303,7 +313,7 @@ def cmd_cnv(args):
     verify_dependencies(["delly", "bcftools", "tabix"])
     base = get_base_args(args)
     if not base: return
-    threads, outdir, ref = base
+    threads, outdir, ref, lib = base
 
     out_bcf = os.path.join(outdir, "cnv.bcf")
     out_vcf = os.path.join(outdir, "cnv.vcf.gz")
@@ -325,7 +335,7 @@ def cmd_sv(args):
     verify_dependencies(["delly", "bcftools", "tabix"])
     base = get_base_args(args)
     if not base: return
-    threads, outdir, ref = base
+    threads, outdir, ref, lib = base
 
     out_bcf = os.path.join(outdir, "sv.bcf")
     out_vcf = os.path.join(outdir, "sv.vcf.gz")
@@ -346,7 +356,7 @@ def cmd_freebayes(args):
     verify_dependencies(["freebayes", "bcftools", "tabix"])
     base = get_base_args(args)
     if not base: return
-    threads, outdir, ref = base
+    threads, outdir, ref, lib = base
 
     out_vcf = os.path.join(outdir, "freebayes.vcf.gz")
     
@@ -389,4 +399,98 @@ def cmd_freebayes(args):
         ensure_vcf_indexed(out_vcf)
     except Exception as e:
         logging.error(f"Freebayes failed: {e}")
+        raise
+
+def cmd_gatk(args):
+    from wgsextract_cli.core.dependencies import get_jar_path
+    verify_dependencies(["java", "samtools", "gatk-package-4.1.9.0-local.jar"])
+    base = get_base_args(args)
+    if not base: return
+    threads, outdir, ref, lib = base
+
+    out_vcf = os.path.join(outdir, "gatk.vcf.gz")
+    jar = get_jar_path("gatk-package-4.1.9.0-local.jar")
+    
+    # GATK requires a .dict file
+    if not lib.dict_file:
+        logging.info("GATK .dict file not found. Generating...")
+        dict_file = ref.replace(".fa.gz", ".dict").replace(".fasta.gz", ".dict").replace(".fa", ".dict").replace(".fasta", ".dict")
+        try:
+            subprocess.run(["samtools", "dict", "-o", dict_file, ref], check=True)
+            lib.dict_file = dict_file
+        except Exception as e:
+            logging.error(f"Failed to generate .dict file: {e}")
+            return
+
+    logging.info(f"Calling variants using GATK HaplotypeCaller to {out_vcf}")
+    region_args = ["-L", args.region] if args.region else []
+    
+    try:
+        # Note: -Xmx4g is a safe default for local workstation
+        cmd = ["java", "-Xmx4g", "-jar", jar, "HaplotypeCaller", "-R", ref, "-I", args.input, "-O", out_vcf] + region_args
+        subprocess.run(cmd, check=True)
+        ensure_vcf_indexed(out_vcf)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"GATK failed: {e}")
+        raise
+
+def cmd_deepvariant(args):
+    # DeepVariant can be run via:
+    # 1. Official 'run_deepvariant' wrapper
+    # 2. Bioconda 'dv_make_examples.py' + 'dv_call_variants.py' + 'dv_postprocess_variants.py'
+    
+    executable = shutil.which("run_deepvariant")
+    use_bioconda = False
+    
+    if not executable:
+        if shutil.which("dv_make_examples.py"):
+            use_bioconda = True
+            logging.info("Found Bioconda DeepVariant scripts.")
+        else:
+            logging.error("DeepVariant not found. Please install it or ensure it is in your PATH.")
+            return
+
+    base = get_base_args(args)
+    if not base: return
+    threads, outdir, ref, lib = base
+
+    out_vcf = os.path.join(outdir, "deepvariant.vcf.gz")
+    intermediate_vcf = os.path.join(outdir, "deepvariant.vcf")
+    
+    logging.info(f"Calling variants using DeepVariant to {out_vcf}")
+    
+    model_type = "WGS"
+    if args.wes: model_type = "WES"
+
+    region_args = ["--regions", args.region] if args.region else []
+    
+    try:
+        if use_bioconda:
+            # Multi-step pipeline for Bioconda
+            examples = os.path.join(outdir, "dv_examples.tfrecord@"+threads+".gz")
+            call_vcf = os.path.join(outdir, "dv_calls.tfrecord.gz")
+            
+            # 1. Make Examples
+            run_command(["dv_make_examples.py", "--mode", "calling", "--ref", ref, "--reads", args.input, "--examples", examples] + region_args)
+            # 2. Call Variants
+            run_command(["dv_call_variants.py", "--examples", examples, "--outfile", call_vcf, "--checkpoint", "TBD"]) # Need to find checkpoints
+            # 3. Postprocess
+            run_command(["dv_postprocess_variants.py", "--ref", ref, "--infile", call_vcf, "--outfile", intermediate_vcf])
+        else:
+            # Single wrapper
+            cmd = [
+                "run_deepvariant",
+                "--model_type", model_type,
+                "--ref", ref,
+                "--reads", args.input,
+                "--output_vcf", intermediate_vcf,
+                "--num_shards", threads
+            ] + region_args
+            subprocess.run(cmd, check=True)
+        
+        # DeepVariant outputs plain VCF, we compress it
+        subprocess.run(["bgzip", "-f", intermediate_vcf], check=True)
+        ensure_vcf_indexed(out_vcf)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"DeepVariant failed: {e}")
         raise
