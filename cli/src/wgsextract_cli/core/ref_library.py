@@ -93,6 +93,7 @@ def load_genomes_from_csv(csv_path):
                     "final": row.get("Final File Name"),
                     "url": row.get("URL"),
                     "label": row.get("Library Menu Label"),
+                    "description": row.get("Description", ""),
                     "md5": ""
                 })
     except Exception as e:
@@ -112,8 +113,8 @@ def get_available_genomes():
     
     if not _GENOME_DATA_CACHE:
         _GENOME_DATA_CACHE = [
-            {"code": "T2Tv20", "source": "AWS", "final": "chm13v2.0.fa.gz", "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz", "label": "T2T_v2.0 (PGP/HPP chrN) (Rec)", "md5": "7cee777f1939f4028926017158ed5512"},
-            {"code": "hs37d5", "source": "NIH", "final": "hs37d5.fa.gz", "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz", "label": "hs37d5 (Dante) (NIH) (Rec)", "md5": "5a23f5a85bd78221010561466907bf7d"},
+            {"code": "T2Tv20", "source": "AWS", "final": "chm13v2.0.fa.gz", "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz", "label": "T2T_v2.0 (PGP/HPP chrN) (Rec)", "description": "T2T v2.0 (chm13 v1.1; HG002 Y v2.7; UCSC SN; @AWS)", "md5": "7cee777f1939f4028926017158ed5512"},
+            {"code": "hs37d5", "source": "NIH", "final": "hs37d5.fa.gz", "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz", "label": "hs37d5 (Dante) (NIH) (Rec)", "description": "hs37d5 (1K Genome; @US NIH)", "md5": "5a23f5a85bd78221010561466907bf7d"},
         ]
     return _GENOME_DATA_CACHE
 
@@ -129,6 +130,8 @@ def get_grouped_genomes():
             grouped[fname] = {
                 "final": fname,
                 "label": item["label"],
+                "description": item.get("description", ""),
+                "code": item.get("code", ""),
                 "sources": []
             }
         grouped[fname]["sources"].append(item)

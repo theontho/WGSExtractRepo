@@ -68,12 +68,18 @@ UI_METADATA = {
             {"label": "Run Haplogrep", "cmd": "lineage-mt", "help": UI_TOOLTIPS["lineage-mt"]},
         ]
     },
-    "qc_ref": {
-        "title": "QC & Ref",
-        "help": "Quality control and reference data management",
+    "qc": {
+        "title": "QC",
+        "help": "Quality control for reads and files",
         "commands": [
             {"label": "FastQC", "cmd": "fastqc", "help": UI_TOOLTIPS["fastqc"]},
             {"label": "FastP", "cmd": "fastp", "help": UI_TOOLTIPS["fastp"]},
+        ]
+    },
+    "lib": {
+        "title": "Library",
+        "help": "Reference data management and common genomes",
+        "commands": [
             {"label": "Identify Ref", "cmd": "ref-identify", "help": UI_TOOLTIPS["ref-identify"]},
             {"label": "Index Ref", "cmd": "ref-index", "help": UI_TOOLTIPS["ref-index"]},
             {"label": "Download Ref", "cmd": "ref-download", "help": UI_TOOLTIPS["ref-download"]},
@@ -81,10 +87,5 @@ UI_METADATA = {
             {"label": "Count Ns", "cmd": "ref-count-ns", "help": UI_TOOLTIPS["ref-count-ns"]},
             {"label": "Download Genes", "cmd": "ref-download-genes", "help": UI_TOOLTIPS["ref-download-genes"]},
         ]
-    },
-    "lib": {
-        "title": "Library",
-        "help": "Browse and download common reference genomes",
-        "commands": [] # Populated dynamically
     }
 }

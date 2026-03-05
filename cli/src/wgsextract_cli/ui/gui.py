@@ -3,6 +3,7 @@ import subprocess
 import threading
 import os
 import sys
+import re
 import tkinter as tk
 from tkinter import filedialog
 from wgsextract_cli.ui.constants import UI_METADATA
@@ -79,23 +80,18 @@ class WGSExtractGUI(ctk.CTk):
         self.bind_all("<Button-5>", self._on_mousewheel)
 
     def _on_mousewheel(self, event):
-        # Find widget under mouse
         widget = event.widget
-        # If it's a canvas (part of CTkScrollableFrame) or CTkTextbox, we scroll it
-        # Tkinter events for scroll: Windows/macOS use event.delta, Linux uses Button-4/5
         delta = 0
         if event.num == 4: delta = 1
         elif event.num == 5: delta = -1
         else: delta = event.delta
 
-        # Helper to find the nearest scrollable parent canvas
         curr = widget
         while curr:
             if isinstance(curr, (tk.Canvas, tk.Text, ctk.CTkTextbox)):
                 if isinstance(curr, tk.Canvas):
                     curr.yview_scroll(int(-1*(delta/120)) if event.num not in [4,5] else -1*delta, "units")
                 else:
-                    # CTkTextbox or tk.Text
                     curr.yview(tk.SCROLL, int(-1*(delta/120)) if event.num not in [4,5] else -1*delta, tk.UNITS)
                 break
             try:
@@ -124,8 +120,27 @@ class WGSExtractGUI(ctk.CTk):
         lib_dir_frame = ctk.CTkFrame(frame)
         lib_dir_frame.pack(fill="x", padx=20, pady=5)
         self.lib_dest = self.create_dir_selector(lib_dir_frame, "Library Dir:", os.environ.get("WGSE_REF", ""))
-        # Re-render on change? For now just manual refresh button
         ctk.CTkButton(lib_dir_frame, text="Refresh List", width=100, command=self.setup_lib_frame).pack(side="right", padx=10)
+
+        # Common Inputs for Reference Management
+        self.get_attr(key, "in", self.create_file_selector(frame, "Input:", os.environ.get("WGSE_INPUT", "")))
+        self.get_attr(key, "ref", self.create_file_selector(frame, "Reference:", os.environ.get("WGSE_REF", "")))
+
+        # Reference Management Buttons (Moved from QC & Ref) - Placed ABOVE library list
+        if meta["commands"]:
+            btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+            btn_frame.pack(fill="x", padx=20, pady=20)
+            ctk.CTkLabel(btn_frame, text="Reference Management", font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(0, 10))
+            
+            grid_frame = ctk.CTkFrame(btn_frame, fg_color="transparent")
+            grid_frame.pack(fill="x")
+            
+            for i, cmd_meta in enumerate(meta["commands"]):
+                row_idx, col = divmod(i, 3)
+                grid_frame.grid_columnconfigure(col, weight=1)
+                btn = ctk.CTkButton(grid_frame, text=cmd_meta["label"], command=lambda c=cmd_meta["cmd"]: self.run_dispatch(c))
+                btn.grid(row=row_idx, column=col, padx=5, pady=5, sticky="ew")
+                ToolTip(btn, cmd_meta["help"])
 
         dest = self.lib_dest.get()
         grouped = get_grouped_genomes()
@@ -137,22 +152,30 @@ class WGSExtractGUI(ctk.CTk):
             final_name = group["final"]
             label_txt = group["label"]
             status = get_genome_status(final_name, dest)
+
+            # Identify tags and clean label
+            tags = []
+            if "(Rec)" in label_txt:
+                tags.append(("Recommended", "#228822")) # Green
+                label_txt = label_txt.replace("(Rec)", "").strip()
             
-            ctk.CTkLabel(row, text=label_txt, anchor="w").pack(side="left", padx=10, expand=True, fill="x")
+            label_txt = re.sub(r'\s+', ' ', label_txt).strip(" -_")
+            ctk.CTkLabel(row, text=label_txt, anchor="w", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=10)
+
+            for tag_text, tag_color in tags:
+                pill = ctk.CTkLabel(row, text=tag_text, font=ctk.CTkFont(size=10, weight="bold"),
+                                   fg_color=tag_color, text_color="white", corner_radius=10,
+                                   padx=6, pady=0, height=16)
+                pill.pack(side="left", padx=2)
             
             if final_name in self.active_downloads:
-                # Show progress UI: [ProgressBar] [Speed] [Cancel] on the right
                 dl_info = self.active_downloads[final_name]
-                
                 dl_container = ctk.CTkFrame(row, fg_color="transparent")
                 dl_container.pack(side="right", padx=10)
-                
                 pbar = ctk.CTkProgressBar(dl_container, variable=dl_info["progress_var"], width=150)
                 pbar.pack(side="left", padx=5)
-                
                 status_label = ctk.CTkLabel(dl_container, textvariable=dl_info["status_var"], font=ctk.CTkFont(size=10))
                 status_label.pack(side="left", padx=5)
-                
                 cancel_btn = ctk.CTkButton(dl_container, text="Cancel", width=60, fg_color="#666666", hover_color="#888888",
                                           command=lambda f=final_name: self.cancel_lib_download(f))
                 cancel_btn.pack(side="left", padx=5)
@@ -162,84 +185,54 @@ class WGSExtractGUI(ctk.CTk):
                 btn.pack(side="right", padx=10)
                 ToolTip(btn, f"Remove {group['final']} and all its index files from local storage.")
             elif status == "incomplete":
-                # Show Resume, Restart and Delete buttons
                 delete_btn = ctk.CTkButton(row, text="Delete", width=70, fg_color="#992222", hover_color="#bb3333",
                                     command=lambda g=group: self.run_lib_delete(g))
                 delete_btn.pack(side="right", padx=10)
                 ToolTip(delete_btn, "Delete partial file.")
-
                 restart_btn = ctk.CTkButton(row, text="Restart", width=70, fg_color="#aa6622", hover_color="#cc8844",
                                            command=lambda g=group: self.run_lib_download(g["sources"][0], restart=True))
                 restart_btn.pack(side="right", padx=5)
                 ToolTip(restart_btn, "Delete partial file and start download from scratch.")
-
                 resume_btn = ctk.CTkButton(row, text="Resume", width=70, fg_color="#228822", hover_color="#33aa33",
                                           command=lambda g=group: self.run_lib_download(g["sources"][0]))
                 resume_btn.pack(side="right", padx=5)
                 ToolTip(resume_btn, "Continue downloading from where it left off.")
-                
                 ctk.CTkLabel(row, text="Incomplete", text_color="#ffaa00", font=ctk.CTkFont(size=11, weight="bold")).pack(side="right", padx=10)
             else:
-                # Multiple source buttons
                 for source_data in reversed(group["sources"]):
                     s_btn = ctk.CTkButton(row, text=source_data["source"], width=60,
                                           command=lambda s=source_data: self.run_lib_download(s))
                     s_btn.pack(side="right", padx=5)
                     ToolTip(s_btn, f"Download from {source_data['source']}\nURL: {source_data['url']}")
-                
-                # "download from" label to the left of the buttons
                 ctk.CTkLabel(row, text="download from", font=ctk.CTkFont(size=11, slant="italic")).pack(side="right", padx=5)
 
     def run_lib_download(self, genome_data, restart=False):
         dest = self.lib_dest.get()
         final_name = genome_data["final"]
-        
-        if final_name in self.active_downloads:
-            return
-
+        if final_name in self.active_downloads: return
         self.log(f"Starting {'restart' if restart else 'download'}: {genome_data['label']} from {genome_data['source']}...")
-        
         cancel_event = threading.Event()
         progress_var = ctk.DoubleVar(value=0)
         status_var = ctk.StringVar(value="Waiting...")
-        
-        self.active_downloads[final_name] = {
-            "cancel_event": cancel_event,
-            "progress_var": progress_var,
-            "status_var": status_var
-        }
-        
-        self.setup_lib_frame() # Refresh to show progress bar
-
+        self.active_downloads[final_name] = {"cancel_event": cancel_event, "progress_var": progress_var, "status_var": status_var}
+        self.setup_lib_frame()
         def progress_cb(downloaded, total, speed):
             pct = downloaded / total if total > 0 else 0
-            # Format speed
-            if speed > 1024 * 1024:
-                speed_txt = f"{speed / (1024 * 1024):.1f} MB/s"
-            else:
-                speed_txt = f"{speed / 1024:.1f} KB/s"
-            
+            speed_txt = f"{speed / (1024*1024):.1f} MB/s" if speed > 1024*1024 else f"{speed/1024:.1f} KB/s"
             self.after(0, lambda: progress_var.set(pct))
             self.after(0, lambda: status_var.set(speed_txt))
-
         def run():
             from wgsextract_cli.core.ref_library import download_and_process_genome
             try:
                 success = download_and_process_genome(genome_data, dest, interactive=False, 
                                                       progress_callback=progress_cb, 
-                                                      cancel_event=cancel_event,
-                                                      restart=restart)
-                if cancel_event.is_set():
-                    self.after(0, lambda: self.log(f"Download cancelled: {genome_data['label']}"))
-                else:
-                    self.after(0, lambda: self.log(f"Download {'Succeeded' if success else 'Failed'}: {genome_data['label']}"))
-            except Exception as e:
-                self.after(0, lambda: self.log(f"Error: {str(e)}"))
+                                                      cancel_event=cancel_event, restart=restart)
+                if cancel_event.is_set(): self.after(0, lambda: self.log(f"Download cancelled: {genome_data['label']}"))
+                else: self.after(0, lambda: self.log(f"Download {'Succeeded' if success else 'Failed'}: {genome_data['label']}"))
+            except Exception as e: self.after(0, lambda: self.log(f"Error: {str(e)}"))
             finally:
-                if final_name in self.active_downloads:
-                    del self.active_downloads[final_name]
+                if final_name in self.active_downloads: del self.active_downloads[final_name]
                 self.after(0, self.setup_lib_frame)
-
         threading.Thread(target=run, daemon=True).start()
 
     def run_lib_delete(self, group):
@@ -258,17 +251,12 @@ class WGSExtractGUI(ctk.CTk):
         meta = UI_METADATA[key]
         frame = ctk.CTkScrollableFrame(self.main_content)
         self.frames[key] = frame
-        
         ctk.CTkLabel(frame, text=meta["title"], font=ctk.CTkFont(size=18, weight="bold")).pack(pady=10)
         ctk.CTkLabel(frame, text=meta["help"], font=ctk.CTkFont(size=12, slant="italic")).pack(pady=(0, 10))
-
-        # Common Inputs
-        if key in ["gen", "bam", "ext", "vcf", "anc", "qc_ref"]:
+        if key in ["gen", "bam", "ext", "vcf", "anc", "qc"]:
             self.get_attr(key, "in", self.create_file_selector(frame, "Input:", os.environ.get("WGSE_INPUT", "")))
         if key in ["gen", "bam", "vcf"]:
             self.get_attr(key, "ref", self.create_file_selector(frame, "Reference:", os.environ.get("WGSE_REF", "")))
-        
-        # Specialized Inputs
         if key == "gen":
             self.gen_region = self.create_entry(frame, "Region (e.g. chrM):")
             self.align_r1 = self.create_file_selector(frame, "FASTQ R1 (for Align):")
@@ -287,8 +275,6 @@ class WGSExtractGUI(ctk.CTk):
             self.yleaf_path = self.create_file_selector(frame, "Yleaf Path:")
             self.yleaf_pos = self.create_file_selector(frame, "Pos File:")
             self.haplogrep_path = self.create_file_selector(frame, "Haplogrep Path:")
-
-        # Buttons
         grid_frame = ctk.CTkFrame(frame, fg_color="transparent")
         grid_frame.pack(fill="x", padx=20, pady=10)
         for i, cmd_meta in enumerate(meta["commands"]):
@@ -305,27 +291,24 @@ class WGSExtractGUI(ctk.CTk):
         return e
 
     def get_attr(self, key, suffix, val=None):
-        name = f"{key}_{suffix}"
+        name = f"{key}_{suffix}"; 
         if val: setattr(self, name, val)
         return getattr(self, name, None)
 
     def run_dispatch(self, cmd):
         base_cmd = [sys.executable, "-m", "wgsextract_cli.main"]
-        if cmd == "info": 
-            self.run_cmd(base_cmd + ["info", "--input", self.gen_in.get(), "--ref", self.gen_ref.get(), "--detailed"])
+        if cmd == "info": self.run_cmd(base_cmd + ["info", "--input", self.gen_in.get(), "--ref", self.gen_ref.get(), "--detailed"])
         elif cmd in ["calculate-coverage", "coverage-sample"]:
             c = base_cmd + ["info", cmd, "--input", self.gen_in.get()]
             if self.gen_region.get(): c += ["-r", self.gen_region.get()]
             self.run_cmd(c)
-        elif cmd == "align":
-            self.run_cmd(base_cmd + ["align", "--input", self.align_r1.get(), "--ref", self.gen_ref.get()])
+        elif cmd == "align": self.run_cmd(base_cmd + ["align", "--input", self.align_r1.get(), "--ref", self.gen_ref.get()])
         elif cmd in ["sort", "index", "unindex", "unsort", "to-cram", "to-bam", "unalign", "subset", "mt-extract"]:
             c = base_cmd + ["bam", cmd, "--input", self.bam_in.get()]
             if self.bam_ref.get(): c += ["--ref", self.bam_ref.get()]
             if cmd == "subset" and self.bam_extra.get(): c += [self.bam_extra.get()]
             self.run_cmd(c)
-        elif cmd.startswith("repair-"):
-            self.run_cmd(base_cmd + ["repair", cmd.replace("repair-", ""), "--input", self.bam_in.get()])
+        elif cmd.startswith("repair-"): self.run_cmd(base_cmd + ["repair", cmd.replace("repair-", ""), "--input", self.bam_in.get()])
         elif cmd in ["mito", "ydna", "unmapped", "custom"]:
             c = base_cmd + ["extract"]
             if cmd == "custom": c += ["--input", self.ext_in.get(), "-r", self.ext_region.get()]
@@ -355,25 +338,14 @@ class WGSExtractGUI(ctk.CTk):
                 c += [sub]
                 if self.vep_cache.get(): c += ["--vep-cache", self.vep_cache.get()]
             self.run_cmd(c)
-        elif cmd == "microarray":
-            self.run_cmd(base_cmd + ["microarray", "--input", self.anc_in.get()])
-        elif cmd == "lineage-y":
-            self.run_cmd(base_cmd + ["lineage", "y-dna", "--input", self.anc_in.get(), "--yleaf-path", self.yleaf_path.get(), "--pos-file", self.yleaf_pos.get()])
-        elif cmd == "lineage-mt":
-            self.run_cmd(base_cmd + ["lineage", "mt-dna", "--input", self.anc_in.get(), "--haplogrep-path", self.haplogrep_path.get()])
-        elif cmd in ["fastqc", "fastp"]:
-            self.run_cmd(base_cmd + ["qc", cmd, "--input", self.qr_input.get()])
+        elif cmd == "microarray": self.run_cmd(base_cmd + ["microarray", "--input", self.anc_in.get()])
+        elif cmd == "lineage-y": self.run_cmd(base_cmd + ["lineage", "y-dna", "--input", self.anc_in.get(), "--yleaf-path", self.yleaf_path.get(), "--pos-file", self.yleaf_pos.get()])
+        elif cmd == "lineage-mt": self.run_cmd(base_cmd + ["lineage", "mt-dna", "--input", self.anc_in.get(), "--haplogrep-path", self.haplogrep_path.get()])
+        elif cmd in ["fastqc", "fastp"]: self.run_cmd(base_cmd + ["qc", cmd, "--input", self.qc_in.get()])
         elif cmd.startswith("ref-"):
-            sub = cmd.replace("ref-", "")
-            c = base_cmd + ["ref", sub]
-            if sub not in ["download", "download-genes"]: c += ["--ref", self.qr_input.get()]
-            self.run_cmd(c)
-        elif cmd in ["coverage-wgs", "coverage-wes"]:
-            # Actually info commands
-            c = base_cmd + ["info", "calculate-coverage", "--input", self.qr_input.get()]
-            # The CLI doesn't have coverage-wgs/wes subcommands, it has calculate-coverage
-            # I should check if coverage-wgs is a thing in the CLI or if I made it up.
-            # Looking at qc.py again... it's NOT there.
+            sub = cmd.replace("ref-", ""); c = base_cmd + ["ref", sub]
+            if sub == "identify": c += ["--input", self.lib_in.get()]
+            if sub not in ["download", "download-genes"]: c += ["--ref", self.lib_ref.get()]
             self.run_cmd(c)
 
     def create_file_selector(self, parent, label_text, initial_value=""):

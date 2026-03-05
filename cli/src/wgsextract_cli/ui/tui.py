@@ -32,16 +32,40 @@ class WGSExtractTUI(App):
                     if key == "lib":
                         lib_dir = os.environ.get("WGSE_REF", "")
                         yield Horizontal(Label("Library Dir:"), Input(value=lib_dir, id="lib_dest"), classes="field")
+                        yield Horizontal(Label("Input:"), Input(value=os.environ.get("WGSE_INPUT", ""), id="lib_in"), classes="field")
+                        yield Horizontal(Label("Ref:"), Input(value=os.environ.get("WGSE_REF", ""), id="lib_ref"), classes="field")
                         
+                        with Vertical(classes="sub-section"):
+                            yield Label("Reference Management", classes="field")
+                            for cmd_meta in meta["commands"]:
+                                yield Button(cmd_meta["label"], id=f"btn_{cmd_meta['cmd']}")
+
                         all_genomes = get_available_genomes()
                         selections = []
+                        import re
                         for i, g in enumerate(all_genomes):
                             status = get_genome_status(g["final"], lib_dir)
                             if status == "installed": status_txt = "[INSTALLED] "
                             elif status == "incomplete": status_txt = "[INCOMPLETE] "
                             else: status_txt = ""
-                            label = f"{status_txt}{g['label']} ({g['source']})"
-                            selections.append(Selection(label, i))
+                            
+                            label_txt = g['label']
+                            description = g.get('description', '')
+                            code = g.get('code', '')
+
+                            # Determine Tags (for rich text styling)
+                            tags = []
+                            # 1. Recommended
+                            if "(Rec)" in label_txt:
+                                tags.append("[on green]Recommended[/]")
+                                label_txt = label_txt.replace("(Rec)", "").strip()
+                            
+                            # Final label cleanup
+                            label_txt = re.sub(r'\s+', ' ', label_txt).strip(" -_")
+                            
+                            tag_str = " ".join(tags)
+                            full_label = f"{status_txt}{label_txt} {tag_str}"
+                            selections.append(Selection(full_label, i))
                         
                         yield SelectionList(*selections, id="lib_selection")
                         yield Horizontal(
@@ -53,12 +77,13 @@ class WGSExtractTUI(App):
                         with Vertical(id="lib_progress_container"):
                             yield Label("Downloading...", id="lib_progress_label")
                             yield ProgressBar(id="lib_progress_bar", total=100, show_percentage=True)
+                        
                         continue
 
                     # Common Inputs
-                    if key in ["gen", "bam", "ext", "vcf", "anc", "qc_ref"]:
+                    if key in ["gen", "bam", "ext", "vcf", "anc", "qc", "lib"]:
                         yield Horizontal(Label("Input:"), Input(value=os.environ.get("WGSE_INPUT", ""), id=f"{key}_in"), classes="field")
-                    if key in ["gen", "bam", "vcf"]:
+                    if key in ["gen", "bam", "vcf", "lib"]:
                         yield Horizontal(Label("Ref:"), Input(value=os.environ.get("WGSE_REF", ""), id=f"{key}_ref"), classes="field")
                     
                     # Specialized Inputs
@@ -211,13 +236,15 @@ class WGSExtractTUI(App):
         elif cmd == "lineage-mt":
             c += ["lineage", "mt-dna", "--input", val("anc_in"), "--haplogrep-path", val("haplogrep_path")]
         elif cmd in ["fastqc", "fastp"]:
-            c += ["qc", cmd, "--input", val("qc_ref_in")]
+            c += ["qc", cmd, "--input", val("qc_in")]
         elif cmd.startswith("ref-"):
             sub = cmd.replace("ref-", "")
             c += ["ref", sub]
-            if sub not in ["download", "download-genes"]: c += ["--ref", val("qc_ref_in")]
+            if sub == "identify":
+                c += ["--input", val("lib_in")]
+            if sub not in ["download", "download-genes"]: c += ["--ref", val("lib_ref")]
         elif cmd in ["coverage-wgs", "coverage-wes"]:
-            c += ["info", "calculate-coverage", "--input", val("qc_ref_in")]
+            c += ["info", "calculate-coverage", "--input", val("qc_in")]
 
         self.execute_cmd(c)
 
