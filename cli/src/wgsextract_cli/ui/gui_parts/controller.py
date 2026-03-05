@@ -37,7 +37,7 @@ class GUIController:
         self.main_app.log(f"Running: {' '.join(command)}")
 
         if cmd_key and frame:
-            self.main_app.after(0, lambda: frame.set_button_state(cmd_key, "running"))
+            frame.after(0, lambda: frame.set_button_state(cmd_key, "running"))
 
         def run() -> None:
             process = subprocess.Popen(
@@ -53,6 +53,8 @@ class GUIController:
 
             if process.stdout:
                 for line in process.stdout:
+                    if not self.main_app.winfo_exists():
+                        break
                     self.main_app.after(
                         0,
                         lambda line_content=line: self.main_app.log(
@@ -65,13 +67,13 @@ class GUIController:
             if cmd_key in self.active_processes:
                 del self.active_processes[cmd_key]
 
-            self.main_app.after(
-                0, lambda: self.main_app.log(f"Finished (Exit {process.returncode})")
-            )
-            if cmd_key and frame:
+            if self.main_app.winfo_exists():
                 self.main_app.after(
-                    0, lambda: frame.set_button_state(cmd_key, "normal")
+                    0,
+                    lambda: self.main_app.log(f"Finished (Exit {process.returncode})"),
                 )
+            if cmd_key and frame and frame.winfo_exists():
+                frame.after(0, lambda: frame.set_button_state(cmd_key, "normal"))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -87,7 +89,8 @@ class GUIController:
     def _force_kill_if_alive(self, cmd_key: str, proc: subprocess.Popen) -> None:
         if proc.poll() is None:
             proc.kill()
-            self.main_app.log(f"Force killed process {proc.pid}.")
+            if self.main_app.winfo_exists():
+                self.main_app.log(f"Force killed process {proc.pid}.")
         if cmd_key in self.active_processes:
             del self.active_processes[cmd_key]
 
@@ -100,7 +103,7 @@ class GUIController:
             return
 
         if frame:
-            self.main_app.after(0, lambda: frame.set_button_state("info", "running"))
+            frame.after(0, lambda: frame.set_button_state("info", "running"))
 
         def run() -> None:
             # Skip environment variables for stability
@@ -139,18 +142,18 @@ class GUIController:
                 ]
                 clean_info = "\n".join(lines).strip()
                 title = f"Detailed Info: {os.path.basename(input_path)}"
-                self.main_app.after(
-                    0, lambda: self.main_app.show_info_window(title, clean_info)
-                )
+                if self.main_app.winfo_exists():
+                    self.main_app.after(
+                        0, lambda: self.main_app.show_info_window(title, clean_info)
+                    )
             except Exception as e:
-                self.main_app.log(f"Error running info: {e}")
+                if self.main_app.winfo_exists():
+                    self.main_app.log(f"Error running info: {e}")
             finally:
                 if "info" in self.active_processes:
                     del self.active_processes["info"]
-                if frame:
-                    self.main_app.after(
-                        0, lambda: frame.set_button_state("info", "normal")
-                    )
+                if frame and frame.winfo_exists():
+                    frame.after(0, lambda: frame.set_button_state("info", "normal"))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -213,15 +216,18 @@ class GUIController:
                 if os.path.exists(json_cache):
                     with open(json_cache) as f:
                         data = json.load(f)
-                    self.main_app.after(0, lambda: frame.update_info_display(data))
+                    if frame.winfo_exists():
+                        frame.after(0, lambda: frame.update_info_display(data))
                 else:
-                    self.main_app.after(
-                        0, lambda: frame.update_info_display("Info not available")
-                    )
+                    if frame.winfo_exists():
+                        frame.after(
+                            0, lambda: frame.update_info_display("Info not available")
+                        )
             except Exception as e:
-                self.main_app.after(
-                    0, lambda _e=e: frame.update_info_display(f"Error: {_e}")
-                )
+                if frame.winfo_exists():
+                    frame.after(
+                        0, lambda _e=e: frame.update_info_display(f"Error: {_e}")
+                    )
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -242,10 +248,11 @@ class GUIController:
                 if speed > 1024 * 1024
                 else f"{speed / 1024:.1f} KB/s"
             )
-            self.main_app.after(0, lambda: lib_frame.vep_prog_var.set(pct))
-            self.main_app.after(
-                0, lambda: lib_frame.vep_stat_var.set(f"{pct * 100:.1f}% - {st}")
-            )
+            if lib_frame.winfo_exists():
+                lib_frame.after(0, lambda: lib_frame.vep_prog_var.set(pct))
+                lib_frame.after(
+                    0, lambda: lib_frame.vep_stat_var.set(f"{pct * 100:.1f}% - {st}")
+                )
 
         def run() -> None:
             from wgsextract_cli.commands.vep import cmd_vep_download
@@ -272,16 +279,21 @@ class GUIController:
             self.main_app.log("Starting VEP cache download...")
             try:
                 success = cmd_vep_download(a)
-                self.main_app.after(
-                    0,
-                    lambda: self.main_app.log(
-                        f"VEP Download {'Succeeded' if success else 'Failed/Cancelled'}"
-                    ),
-                )
+                if self.main_app.winfo_exists():
+                    self.main_app.after(
+                        0,
+                        lambda: self.main_app.log(
+                            f"VEP Download {'Succeeded' if success else 'Failed/Cancelled'}"
+                        ),
+                    )
             except Exception as e:
-                self.main_app.after(0, lambda _e=e: self.main_app.log(f"Error: {_e}"))
+                if self.main_app.winfo_exists():
+                    self.main_app.after(
+                        0, lambda _e=e: self.main_app.log(f"Error: {_e}")
+                    )
             finally:
-                self.main_app.after(0, lib_frame.hide_vep_progress)
+                if lib_frame.winfo_exists():
+                    lib_frame.after(0, lib_frame.hide_vep_progress)
                 self.main_app.vep_cancel_event = None
 
         threading.Thread(target=run, daemon=True).start()
@@ -322,8 +334,9 @@ class GUIController:
                 if speed > 1024 * 1024
                 else f"{speed / 1024:.1f} KB/s"
             )
-            self.main_app.after(0, lambda: pv.set(pct))
-            self.main_app.after(0, lambda: sv.set(f"{pct * 100:.1f}% - {st}"))
+            if lib_frame.winfo_exists():
+                lib_frame.after(0, lambda: pv.set(pct))
+                lib_frame.after(0, lambda: sv.set(f"{pct * 100:.1f}% - {st}"))
 
         def run() -> None:
             from wgsextract_cli.core.ref_library import download_and_process_genome
@@ -337,20 +350,23 @@ class GUIController:
                     cancel_event=ce,
                     restart=restart,
                 )
-                self.main_app.after(
-                    0,
-                    lambda: self.main_app.log(
-                        f"Download {'Succeeded' if success else 'Failed'}: {gd['label']}"
-                    ),
-                )
+                if self.main_app.winfo_exists():
+                    self.main_app.after(
+                        0,
+                        lambda: self.main_app.log(
+                            f"Download {'Succeeded' if success else 'Failed'}: {gd['label']}"
+                        ),
+                    )
             except Exception as e:
-                self.main_app.after(
-                    0, lambda _e=e: self.main_app.log(f"Error: {str(_e)}")
-                )
+                if self.main_app.winfo_exists():
+                    self.main_app.after(
+                        0, lambda _e=e: self.main_app.log(f"Error: {str(_e)}")
+                    )
             finally:
                 if fn in self.main_app.active_downloads:
                     del self.main_app.active_downloads[fn]
-                self.main_app.after(0, lib_frame.setup_ui)
+                if lib_frame.winfo_exists():
+                    lib_frame.after(0, lib_frame.setup_ui)
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -375,7 +391,8 @@ class GUIController:
         except Exception as e:
             self.main_app.log(f"Error during deletion: {e}")
         finally:
-            self.main_app.after(0, lib_frame.setup_ui)
+            if lib_frame.winfo_exists():
+                lib_frame.after(0, lib_frame.setup_ui)
 
     def cancel_lib_download(self, fn: str) -> None:
         """
@@ -408,21 +425,27 @@ class GUIController:
             self.run_vep_download(frame)
             return
 
-        # Extract common fields if they exist in the frame
-        input_path = getattr(frame, "input_entry", None)
-        input_val = input_path.get() if input_path else ""
+        # Extract typed fields
+        bam_path = getattr(frame, "bam_entry", None)
+        bam_val = bam_path.get() if bam_path else ""
+
+        vcf_path = getattr(frame, "vcf_entry", None)
+        vcf_val = vcf_path.get() if vcf_path else ""
+
+        fastq_path = getattr(frame, "fastq_entry", None)
+        fastq_val = fastq_path.get() if fastq_path else ""
 
         ref_path = getattr(frame, "ref_entry", None)
         ref_val = ref_path.get() if ref_path else ""
 
         if cmd == "info":
-            self.run_info_detailed(input_val, ref_val, frame=frame)
+            self.run_info_detailed(bam_val, ref_val, frame=frame)
 
         elif cmd == "clear-cache":
-            self.run_clear_cache(input_val, frame)
+            self.run_clear_cache(bam_val, frame)
 
         elif cmd in ["calculate-coverage", "coverage-sample"]:
-            c = bc + ["info", cmd, "--input", input_val]
+            c = bc + ["info", cmd, "--input", bam_val]
             region = getattr(frame, "region_entry", None)
             if region and region.get():
                 c.extend(["-r", region.get()])
@@ -445,7 +468,7 @@ class GUIController:
             "subset",
             "mt-extract",
         ]:
-            c = bc + ["bam", cmd, "--input", input_val]
+            c = bc + ["bam", cmd, "--input", bam_val]
             if ref_val:
                 c.extend(["--ref", ref_val])
 
@@ -459,7 +482,6 @@ class GUIController:
 
             extra = getattr(frame, "extra_entry", None)
             if cmd == "subset" and extra and extra.get():
-                # Allow user to provide -f or just the value
                 val = extra.get()
                 if val.replace(".", "").isdigit():
                     c.extend(["-f", val])
@@ -468,8 +490,10 @@ class GUIController:
             self.run_cmd(c, cmd_key=cmd, frame=frame)
 
         elif cmd.startswith("repair-"):
+            # Repair FTDNA VCF takes VCF input, others take BAM
+            input_to_use = vcf_val if cmd == "repair-ftdna-vcf" else bam_val
             self.run_cmd(
-                bc + ["repair", cmd.replace("repair-", ""), "--input", input_val],
+                bc + ["repair", cmd.replace("repair-", ""), "--input", input_to_use],
                 cmd_key=cmd,
                 frame=frame,
             )
@@ -478,9 +502,9 @@ class GUIController:
             c = bc + ["extract"]
             region = getattr(frame, "region_entry", None)
             if cmd == "custom" and region:
-                c.extend(["--input", input_val, "-r", region.get()])
+                c.extend(["--input", bam_val, "-r", region.get()])
             else:
-                c.extend([cmd, "--input", input_val])
+                c.extend([cmd, "--input", bam_val])
             out_dir = getattr(frame, "out_dir", None)
             if out_dir and out_dir.get():
                 c.extend(["--outdir", out_dir.get()])
@@ -505,7 +529,8 @@ class GUIController:
                 cmd,
                 sub_cmd=cmd,
                 frame=frame,
-                input_val=input_val,
+                bam_val=bam_val,
+                vcf_val=vcf_val,
                 ref_val=ref_val,
                 bc=bc,
             )
@@ -520,7 +545,7 @@ class GUIController:
                 + [
                     "microarray",
                     "--input",
-                    input_val,
+                    bam_val,
                     "--ref",
                     ref_val,
                     "--formats",
@@ -537,7 +562,7 @@ class GUIController:
                     "lineage",
                     "y-dna",
                     "--input",
-                    input_val,
+                    bam_val,
                     "--yleaf-path",
                     frame.yleaf_path.get(),
                     "--pos-file",
@@ -554,7 +579,7 @@ class GUIController:
                     "lineage",
                     "mt-dna",
                     "--input",
-                    input_val,
+                    bam_val,
                     "--haplogrep-path",
                     frame.haplogrep_path.get(),
                 ],
@@ -564,14 +589,16 @@ class GUIController:
 
         elif cmd in ["fastqc", "fastp"]:
             self.run_cmd(
-                bc + ["qc", cmd, "--input", input_val], cmd_key=cmd, frame=frame
+                bc + ["qc", cmd, "--input", fastq_val or bam_val],
+                cmd_key=cmd,
+                frame=frame,
             )
 
         elif cmd.startswith("ref-"):
             sub = cmd.replace("ref-", "")
             c = bc + ["ref", sub]
             if sub == "identify":
-                c += ["--input", input_val]
+                c += ["--input", bam_val]
             if sub not in ["download", "download-genes"] and ref_val:
                 c += ["--ref", ref_val]
             self.run_cmd(c, cmd_key=cmd, frame=frame)
@@ -581,7 +608,8 @@ class GUIController:
         cmd: str,
         sub_cmd: str,
         frame: Any,
-        input_val: str,
+        bam_val: str,
+        vcf_val: str,
         ref_val: str,
         bc: list[str],
     ) -> None:
@@ -595,39 +623,58 @@ class GUIController:
         )
         c = bc + ["vep" if "vep-" in cmd else "vcf", sub]
 
+        # Determine which input to use
+        # Calling actions use BAM
+        calling_actions = [
+            "snp",
+            "indel",
+            "freebayes",
+            "gatk",
+            "deepvariant",
+            "sv",
+            "cnv",
+        ]
+
         if sub == "trio":
             c += [
                 "--proband",
-                input_val,
+                vcf_val,
                 "--mother",
-                frame.vcf_e1.get(),
+                frame.vcf_mother.get(),
                 "--father",
-                frame.vcf_e2.get(),
+                frame.vcf_father.get(),
             ]
         elif sub == "run":
-            c += ["--input", input_val, "--ref", ref_val]
+            # VEP run uses BAM if present, otherwise VCF
+            c += ["--input", bam_val or vcf_val, "--ref", ref_val]
         elif sub == "verify":
             pass
+        elif sub in calling_actions:
+            c += ["--input", bam_val]
         else:
-            c += ["--input", input_val]
+            # Annotate, Filter, QC use VCF
+            c += ["--input", vcf_val]
 
         if cmd == "vep-verify" and ref_val:
             c += ["--ref", ref_val]
         elif ref_val:
             c += ["--ref", ref_val]
 
-        if sub == "annotate" and frame.vcf_e1.get():
-            c += ["--ann-vcf", frame.vcf_e1.get()]
+        if sub == "annotate" and frame.vcf_ann_vcf.get():
+            c += ["--ann-vcf", frame.vcf_ann_vcf.get()]
         if sub == "filter":
-            if frame.vcf_e2.get():
-                c.extend(["--expr", frame.vcf_e2.get()])
-            if frame.vcf_e3.get():
-                c.extend(["--gene", frame.vcf_e3.get()])
+            if frame.vcf_filter_expr.get():
+                c.extend(["--expr", frame.vcf_filter_expr.get()])
+            if frame.vcf_gene.get():
+                c.extend(["--gene", frame.vcf_gene.get()])
+            if frame.vcf_region.get():
+                c.extend(["--region", frame.vcf_region.get()])
         if (
-            sub in ["snp", "indel", "freebayes", "gatk", "deepvariant"]
-            and frame.vcf_e3.get()
+            sub in ["snp", "indel", "freebayes", "gatk", "deepvariant", "run"]
+            and hasattr(frame, "vcf_region")
+            and frame.vcf_region.get()
         ):
-            c += ["-r", frame.vcf_e3.get()]
+            c += ["-r", frame.vcf_region.get()]
 
         if "vep" in cmd:
             vvc = getattr(frame, "vcf_vep_cache", None)

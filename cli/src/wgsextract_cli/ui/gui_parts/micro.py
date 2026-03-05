@@ -20,8 +20,8 @@ class MicroFrame(BaseFrame):
         super().setup_ui()
 
         # File Selectors
-        self.input_entry = self.create_file_selector(
-            self, "Input:", variable=self.main_app.input_path_var
+        self.bam_entry = self.create_file_selector(
+            self, "BAM/CRAM Input:", variable=self.main_app.bam_path_var
         )
         self.ref_entry = self.create_file_selector(
             self, "Reference:", variable=self.main_app.ref_path_var

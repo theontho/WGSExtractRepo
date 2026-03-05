@@ -29,29 +29,15 @@ class LibFrame(BaseFrame):
         super().setup_ui()
         meta = self.meta
 
-        # Directory and Basic Selectors
-        ldf = ctk.CTkFrame(self)
-        ldf.pack(fill="x", padx=20, pady=5)
-        self.lib_dest = self.create_dir_selector(
-            ldf, "Library Dir:", variable=self.main_app.ref_path_var
-        )
-        ctk.CTkButton(ldf, text="Refresh List", width=100, command=self.setup_ui).pack(
-            side="right", padx=10
-        )
+        # Action Buttons registry
+        self.cmd_buttons: dict[str, ctk.CTkButton] = {}
 
-        self.input_entry = self.create_file_selector(
-            self, "Input:", variable=self.main_app.input_path_var
-        )
-        self.ref_entry = self.create_file_selector(
-            self, "Reference:", variable=self.main_app.ref_path_var
-        )
-
-        # 1. Reference Management Section
-        if meta["commands"]:
-            self._setup_ref_mgmt_section(meta["commands"])
-
-        # 2. VEP Management Section
+        # 1. VEP Management Section
         self._setup_vep_mgmt_section(meta["vep_commands"])
+
+        # 2. Reference Management Section
+        # This section now contains the library directory selector and general buttons
+        self._setup_ref_mgmt_section(meta["commands"])
 
         # 3. Reference Genome List Section
         self._setup_ref_list_section(
@@ -67,6 +53,15 @@ class LibFrame(BaseFrame):
             text="Reference Management",
             font=ctk.CTkFont(size=14, weight="bold"),
         ).pack(pady=(0, 5))
+
+        # Library Directory selector moved here
+        self.lib_dest = self.create_dir_selector(
+            self,
+            "Reference Library:",
+            variable=self.main_app.ref_path_var,
+            info_text="Main directory where reference genomes are stored.",
+        )
+
         gf = ctk.CTkFrame(self, fg_color="transparent")
         gf.pack(fill="x", padx=20)
         for i, cm in enumerate(commands):
@@ -79,6 +74,7 @@ class LibFrame(BaseFrame):
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
+            self.cmd_buttons[cm["cmd"]] = btn
 
     def _setup_vep_mgmt_section(self, vep_commands: list[dict[str, Any]]) -> None:
         """Set up the VEP cache management controls and progress bars."""
@@ -102,13 +98,24 @@ class LibFrame(BaseFrame):
             "VEP (Variant Effect Predictor) uses a large cache of genomic data to determine how variants (SNPs/InDels) might affect genes and proteins.",
         )
 
-        self.vep_cache = self.create_read_only_entry(
-            self, "VEP Cache Path:", self.main_app.vep_cache_var
+        verify_cmd = next(c for c in vep_commands if c["cmd"] == "vep-verify")
+        self.vep_cache = self.create_read_only_entry_with_info(
+            self,
+            "VEP Cache Path:",
+            self.main_app.vep_cache_var,
+            "Location of Ensembl VEP cache data. Derived from the current Reference path.",
+            button_text=verify_cmd["label"],
+            command=lambda: self.main_app.run_dispatch("vep-verify", self),
         )
+        self.cmd_buttons["vep-verify"] = self.vep_cache.action_button
+        ToolTip(self.cmd_buttons["vep-verify"], verify_cmd["help"])
 
         vep_btn_f = ctk.CTkFrame(self, fg_color="transparent")
         vep_btn_f.pack(fill="x", padx=20)
-        for i, cm in enumerate(vep_commands):
+
+        # Filter out vep-verify as it's now beside the entry
+        other_vep_cmds = [c for c in vep_commands if c["cmd"] != "vep-verify"]
+        for i, cm in enumerate(other_vep_cmds):
             vep_btn_f.grid_columnconfigure(i, weight=1)
             btn = ctk.CTkButton(
                 vep_btn_f,
@@ -117,6 +124,7 @@ class LibFrame(BaseFrame):
             )
             btn.grid(row=0, column=i, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
+            self.cmd_buttons[cm["cmd"]] = btn
 
         # VEP Progress UI
         self.vep_prog_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -157,7 +165,12 @@ class LibFrame(BaseFrame):
         ii.pack(side="left", padx=5)
         ToolTip(ii, "Baseline DNA sequences used for comparison during analysis.")
 
-        dest = self.lib_dest.get()
+        # Refresh List button moved here
+        ctk.CTkButton(hf, text="Refresh List", width=100, command=self.setup_ui).pack(
+            side="right", padx=10
+        )
+
+        dest = self.main_app.ref_path_var.get()
         grouped = get_grouped_genomes()
         for group in grouped:
             self._create_genome_row(group, dest, get_genome_status, get_genome_size)
@@ -296,14 +309,45 @@ class LibFrame(BaseFrame):
 
     def show_vep_progress(self) -> None:
         """Display the VEP progress bar and status labels."""
-        self.vep_prog_frame.pack(fill="x", padx=20, pady=5)
-        self.vep_pbar.pack(side="left", padx=5)
-        self.vep_stat_lbl.pack(side="left", padx=5)
-        self.vep_cancel_btn.pack(side="left", padx=5)
+        if self.winfo_exists():
+            self.vep_prog_frame.pack(fill="x", padx=20, pady=5)
+            self.vep_pbar.pack(side="left", padx=5)
+            self.vep_stat_lbl.pack(side="left", padx=5)
+            self.vep_cancel_btn.pack(side="left", padx=5)
 
     def hide_vep_progress(self) -> None:
         """Hide the VEP progress UI elements."""
-        self.vep_prog_frame.pack_forget()
-        self.vep_pbar.pack_forget()
-        self.vep_stat_lbl.pack_forget()
-        self.vep_cancel_btn.pack_forget()
+        if self.winfo_exists():
+            self.vep_prog_frame.pack_forget()
+            self.vep_pbar.pack_forget()
+            self.vep_stat_lbl.pack_forget()
+            self.vep_cancel_btn.pack_forget()
+
+    def set_button_state(self, cmd_key: str, state: str) -> None:
+        """Update button text and color based on execution state."""
+        if not self.winfo_exists() or cmd_key not in self.cmd_buttons:
+            return
+
+        btn = self.cmd_buttons[cmd_key]
+        if state == "running":
+            btn.configure(
+                text="Cancel",
+                fg_color=("#cfd8dc", "#455a64"),
+                hover_color=("#b0bec5", "#37474f"),
+                text_color=("#000000", "#ffffff"),
+            )
+        else:
+            # Restore original label and color
+            all_cmds = self.meta["commands"] + self.meta["vep_commands"]
+            label = next(c["label"] for c in all_cmds if c["cmd"] == cmd_key)
+
+            orig_color = ("#3a7ebf", "#1f538d")
+            orig_hover = ("#325882", "#14375e")
+            orig_text = "#ffffff"
+
+            btn.configure(
+                text=label,
+                fg_color=orig_color,
+                hover_color=orig_hover,
+                text_color=orig_text,
+            )

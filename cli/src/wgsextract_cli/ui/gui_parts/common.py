@@ -94,9 +94,13 @@ class BaseFrame(ctk.CTkScrollableFrame):
         iv: str = "",
         variable: ctk.StringVar | None = None,
         on_change: Callable[[str], None] | None = None,
+        button_text: str | None = None,
+        command: Callable[[], None] | None = None,
+        info_text: str | None = None,
     ) -> ctk.CTkEntry:
         """
         Create a file selection row with a label, entry, and browse button.
+        Optional action button can be added to the right of Browse.
 
         Args:
             p: The parent frame.
@@ -104,14 +108,31 @@ class BaseFrame(ctk.CTkScrollableFrame):
             iv: Initial value for the entry (ignored if variable is provided).
             variable: Optional StringVar to bind to the entry.
             on_change: Optional callback when value changes.
+            button_text: Optional text for an action button.
+            command: Optional command for the action button.
+            info_text: Optional tooltip text for an info icon.
 
         Returns:
             The created CTkEntry widget.
         """
         frame = ctk.CTkFrame(p)
-        ctk.CTkLabel(frame, text=label_text, width=120, anchor="w").pack(
-            side="left", padx=10
-        )
+
+        label_f = ctk.CTkFrame(frame, fg_color="transparent")
+        label_f.pack(side="left", padx=10)
+
+        ctk.CTkLabel(label_f, text=label_text, width=120, anchor="w").pack(side="left")
+
+        if info_text:
+            i_lbl = ctk.CTkLabel(
+                label_f,
+                text=" ⓘ",
+                font=ctk.CTkFont(size=14),
+                text_color="#55aaff",
+                cursor="hand2",
+            )
+            i_lbl.pack(side="left")
+            ToolTip(i_lbl, info_text)
+
         entry = ctk.CTkEntry(frame, textvariable=variable)
         if not variable:
             entry.insert(0, iv)
@@ -124,12 +145,23 @@ class BaseFrame(ctk.CTkScrollableFrame):
                 entry.bind("<Return>", lambda e: on_change(entry.get()))
 
         entry.pack(side="left", fill="x", expand=True, padx=10)
+
+        # Right-side buttons container
+        btn_f = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_f.pack(side="right", padx=10)
+
         ctk.CTkButton(
-            frame,
+            btn_f,
             text="Browse",
             width=80,
             command=lambda: self.browse_file(entry, variable, on_change),
-        ).pack(side="right", padx=10)
+        ).pack(side="left", padx=5)
+
+        if button_text:
+            btn = ctk.CTkButton(btn_f, text=button_text, width=120, command=command)
+            btn.pack(side="left", padx=5)
+            entry.action_button = btn
+
         frame.pack(fill="x", padx=20, pady=5)
         return entry
 
@@ -139,6 +171,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         label_text: str,
         iv: str = "",
         variable: ctk.StringVar | None = None,
+        info_text: str | None = None,
     ) -> ctk.CTkEntry:
         """
         Create a directory selection row with a label, entry, and browse button.
@@ -148,14 +181,29 @@ class BaseFrame(ctk.CTkScrollableFrame):
             label_text: The label text.
             iv: Initial value for the entry (ignored if variable is provided).
             variable: Optional StringVar to bind to the entry.
+            info_text: Optional tooltip text for an info icon.
 
         Returns:
             The created CTkEntry widget.
         """
         frame = ctk.CTkFrame(p)
-        ctk.CTkLabel(frame, text=label_text, width=120, anchor="w").pack(
-            side="left", padx=10
-        )
+
+        label_f = ctk.CTkFrame(frame, fg_color="transparent")
+        label_f.pack(side="left", padx=10)
+
+        ctk.CTkLabel(label_f, text=label_text, width=120, anchor="w").pack(side="left")
+
+        if info_text:
+            i_lbl = ctk.CTkLabel(
+                label_f,
+                text=" ⓘ",
+                font=ctk.CTkFont(size=14),
+                text_color="#55aaff",
+                cursor="hand2",
+            )
+            i_lbl.pack(side="left")
+            ToolTip(i_lbl, info_text)
+
         entry = ctk.CTkEntry(frame, textvariable=variable)
         if not variable:
             entry.insert(0, iv)
@@ -169,47 +217,148 @@ class BaseFrame(ctk.CTkScrollableFrame):
         frame.pack(fill="x", padx=20, pady=5)
         return entry
 
-    def create_entry(self, p: ctk.CTkFrame, label_text: str) -> ctk.CTkEntry:
+    def create_entry(
+        self,
+        p: ctk.CTkFrame,
+        label_text: str,
+        button_text: str | None = None,
+        command: Callable[[], None] | None = None,
+        info_text: str | None = None,
+    ) -> ctk.CTkEntry:
         """
-        Create a simple entry row with a label and entry.
+        Create a simple entry row with a label and entry, and an optional action button.
 
         Args:
             p: The parent frame.
             label_text: The label text.
+            button_text: Optional text for an action button.
+            command: Optional command for the action button.
+            info_text: Optional tooltip text for an info icon.
 
         Returns:
             The created CTkEntry widget.
         """
         f = ctk.CTkFrame(p)
         f.pack(fill="x", padx=20, pady=5)
-        ctk.CTkLabel(f, text=label_text, width=120, anchor="w").pack(
-            side="left", padx=10
-        )
+
+        label_f = ctk.CTkFrame(f, fg_color="transparent")
+        label_f.pack(side="left", padx=10)
+
+        ctk.CTkLabel(label_f, text=label_text, width=120, anchor="w").pack(side="left")
+
+        if info_text:
+            i_lbl = ctk.CTkLabel(
+                label_f,
+                text=" ⓘ",
+                font=ctk.CTkFont(size=14),
+                text_color="#55aaff",
+                cursor="hand2",
+            )
+            i_lbl.pack(side="left")
+            ToolTip(i_lbl, info_text)
+
         e = ctk.CTkEntry(f)
-        e.pack(side="right", fill="x", expand=True, padx=10)
+        if button_text:
+            e.pack(side="left", fill="x", expand=True, padx=10)
+            btn = ctk.CTkButton(f, text=button_text, width=120, command=command)
+            btn.pack(side="right", padx=10)
+            # Store button on entry so it can be accessed if needed (e.g. for tooltips)
+            e.action_button = btn
+        else:
+            e.pack(side="right", fill="x", expand=True, padx=10)
         return e
 
-    def create_read_only_entry(
-        self, p: ctk.CTkFrame, label_text: str, variable: ctk.StringVar
+    def create_entry_with_info(
+        self, p: ctk.CTkFrame, label_text: str, info_text: str
     ) -> ctk.CTkEntry:
         """
-        Create a read-only entry row with a label and entry.
+        Create a simple entry row with a label, an info icon with tooltip, and entry.
+
+        Args:
+            p: The parent frame.
+            label_text: The label text.
+            info_text: The tooltip text for the info icon.
+
+        Returns:
+            The created CTkEntry widget.
+        """
+        return self.create_entry(p, label_text, info_text=info_text)
+
+    def create_read_only_entry(
+        self,
+        p: ctk.CTkFrame,
+        label_text: str,
+        variable: ctk.StringVar,
+        button_text: str | None = None,
+        command: Callable[[], None] | None = None,
+    ) -> ctk.CTkEntry:
+        """
+        Create a read-only entry row with a label and entry, and an optional action button.
 
         Args:
             p: The parent frame.
             label_text: The label text.
             variable: The StringVar to bind to the entry.
+            button_text: Optional text for an action button.
+            command: Optional command for the action button.
+
+        Returns:
+            The created CTkEntry widget.
+        """
+        return self.create_read_only_entry_with_info(
+            p, label_text, variable, "", button_text, command
+        )
+
+    def create_read_only_entry_with_info(
+        self,
+        p: ctk.CTkFrame,
+        label_text: str,
+        variable: ctk.StringVar,
+        info_text: str,
+        button_text: str | None = None,
+        command: Callable[[], None] | None = None,
+    ) -> ctk.CTkEntry:
+        """
+        Create a read-only entry row with a label, info icon with tooltip, and entry.
+
+        Args:
+            p: The parent frame.
+            label_text: The label text.
+            variable: The StringVar to bind to the entry.
+            info_text: The tooltip text for the info icon.
+            button_text: Optional text for an action button.
+            command: Optional command for the action button.
 
         Returns:
             The created CTkEntry widget.
         """
         f = ctk.CTkFrame(p)
         f.pack(fill="x", padx=20, pady=5)
-        ctk.CTkLabel(f, text=label_text, width=120, anchor="w").pack(
-            side="left", padx=10
-        )
+
+        label_f = ctk.CTkFrame(f, fg_color="transparent")
+        label_f.pack(side="left", padx=10)
+
+        ctk.CTkLabel(label_f, text=label_text, width=120, anchor="w").pack(side="left")
+
+        if info_text:
+            i_lbl = ctk.CTkLabel(
+                label_f,
+                text=" ⓘ",
+                font=ctk.CTkFont(size=14),
+                text_color="#55aaff",
+                cursor="hand2",
+            )
+            i_lbl.pack(side="left")
+            ToolTip(i_lbl, info_text)
+
         e = ctk.CTkEntry(f, textvariable=variable, state="readonly")
-        e.pack(side="right", fill="x", expand=True, padx=10)
+        if button_text:
+            e.pack(side="left", fill="x", expand=True, padx=10)
+            btn = ctk.CTkButton(f, text=button_text, width=120, command=command)
+            btn.pack(side="right", padx=10)
+            e.action_button = btn
+        else:
+            e.pack(side="right", fill="x", expand=True, padx=10)
         return e
 
     def browse_file(

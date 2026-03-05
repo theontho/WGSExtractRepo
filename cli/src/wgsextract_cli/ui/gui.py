@@ -76,10 +76,21 @@ class WGSExtractGUI(ctk.CTk):
         self.controller = GUIController(self)
 
         # Shared variables for synchronization across tabs
-        self.input_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT", ""))
+        self.bam_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT", ""))
+        self.vcf_path_var = ctk.StringVar()
+        self.fastq_path_var = ctk.StringVar()
         self.ref_path_var = ctk.StringVar(value=os.environ.get("WGSE_REF", ""))
         self.out_dir_var = ctk.StringVar(value=os.environ.get("WGSE_OUTDIR", ""))
         self.vep_cache_var = ctk.StringVar()
+
+        # Handle initial VCF value if WGSE_INPUT looks like VCF
+        init_input = os.environ.get("WGSE_INPUT", "")
+        if init_input.lower().endswith((".vcf", ".vcf.gz", ".bcf")):
+            self.vcf_path_var.set(init_input)
+            self.bam_path_var.set("")
+        elif init_input.lower().endswith((".fastq", ".fq", ".fastq.gz", ".fq.gz")):
+            self.fastq_path_var.set(init_input)
+            self.bam_path_var.set("")
 
         def ensure_dir_exists(var: ctk.StringVar) -> None:
             path = var.get()

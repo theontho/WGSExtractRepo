@@ -61,7 +61,7 @@ UI_METADATA = {
     "gen": {
         "title": "Info / BAM",
         "help": "BAM/CRAM analysis, management, and conversion",
-        "commands": [
+        "info_commands": [
             {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
             {
                 "label": "Clear Info Cache",
@@ -78,6 +78,8 @@ UI_METADATA = {
                 "cmd": "coverage-sample",
                 "help": UI_TOOLTIPS["coverage-sample"],
             },
+        ],
+        "bam_commands": [
             {"label": "Sort", "cmd": "sort", "help": UI_TOOLTIPS["sort"]},
             {"label": "Index", "cmd": "index", "help": UI_TOOLTIPS["index"]},
             {"label": "To CRAM", "cmd": "to-cram", "help": UI_TOOLTIPS["to-cram"]},
