@@ -60,7 +60,8 @@ UI_METADATA = {
         "title": "General",
         "help": "Basic analysis and alignment",
         "commands": [
-            {"label": "Run Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
+            {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
+            {"label": "Clear Info Cache", "cmd": "clear-cache", "help": "Delete the cached .wgse_info.json for the current input file."},
             {
                 "label": "Calc Coverage",
                 "cmd": "calculate-coverage",
@@ -92,12 +93,12 @@ UI_METADATA = {
                 "help": UI_TOOLTIPS["mt-extract"],
             },
             {
-                "label": "Repair BAM",
+                "label": "Repair FTDNA BAM",
                 "cmd": "repair-ftdna-bam",
                 "help": UI_TOOLTIPS["repair-ftdna-bam"],
             },
             {
-                "label": "Repair VCF",
+                "label": "Repair FTDNA VCF",
                 "cmd": "repair-ftdna-vcf",
                 "help": UI_TOOLTIPS["repair-ftdna-vcf"],
             },

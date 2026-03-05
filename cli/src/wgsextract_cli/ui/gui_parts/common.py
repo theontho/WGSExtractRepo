@@ -88,7 +88,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         ).pack(pady=(0, 10))
 
     def create_file_selector(
-        self, p: ctk.CTkFrame, l: str, iv: str = ""
+        self, p: ctk.CTkFrame, l: str, iv: str = "", on_change: Optional[Callable[[str], None]] = None
     ) -> ctk.CTkEntry:
         """
         Create a file selection row with a label, entry, and browse button.
@@ -97,6 +97,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
             p: The parent frame.
             l: The label text.
             iv: Initial value for the entry.
+            on_change: Optional callback when value changes.
 
         Returns:
             The created CTkEntry widget.
@@ -105,9 +106,12 @@ class BaseFrame(ctk.CTkScrollableFrame):
         ctk.CTkLabel(frame, text=l, width=120, anchor="w").pack(side="left", padx=10)
         entry = ctk.CTkEntry(frame)
         entry.insert(0, iv)
+        if on_change:
+            entry.bind("<FocusOut>", lambda e: on_change(entry.get()))
+            entry.bind("<Return>", lambda e: on_change(entry.get()))
         entry.pack(side="left", fill="x", expand=True, padx=10)
         ctk.CTkButton(
-            frame, text="Browse", width=80, command=lambda: self.browse_file(entry)
+            frame, text="Browse", width=80, command=lambda: self.browse_file(entry, on_change)
         ).pack(side="right", padx=10)
         frame.pack(fill="x", padx=20, pady=5)
         return entry
@@ -153,12 +157,14 @@ class BaseFrame(ctk.CTkScrollableFrame):
         e.pack(side="right", fill="x", expand=True, padx=10)
         return e
 
-    def browse_file(self, e: ctk.CTkEntry) -> None:
+    def browse_file(self, e: ctk.CTkEntry, on_change: Optional[Callable[[str], None]] = None) -> None:
         """Open a file dialog and update the entry."""
         f = filedialog.askopenfilename()
         if f:
             e.delete(0, "end")
             e.insert(0, f)
+            if on_change:
+                on_change(f)
 
     def browse_dir(self, e: ctk.CTkEntry) -> None:
         """Open a directory dialog and update the entry."""

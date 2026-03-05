@@ -14,6 +14,21 @@ from wgsextract_cli.ui.gui_parts.lib import LibFrame
 from wgsextract_cli.ui.gui_parts.micro import MicroFrame
 
 
+class InfoWindow(ctk.CTkToplevel):
+    """A separate window to display detailed BAM/CRAM information."""
+
+    def __init__(self, parent, title, text):
+        super().__init__(parent)
+        self.title(title)
+        self.geometry("900x700")
+
+        # Use a textbox for scrollable, monospace text
+        self.textbox = ctk.CTkTextbox(self, font=ctk.CTkFont(family="Courier", size=13))
+        self.textbox.pack(fill="both", expand=True, padx=20, pady=20)
+        self.textbox.insert("0.0", text)
+        self.textbox.configure(state="disabled")  # Read-only
+
+
 class WGSExtractGUI(ctk.CTk):
     """
     The main application window for the WGS Extract GUI.
@@ -156,6 +171,10 @@ class WGSExtractGUI(ctk.CTk):
     def cancel_vep_download(self) -> None:
         """Delegate VEP download cancellation to the controller."""
         self.controller.cancel_vep_download()
+
+    def show_info_window(self, title: str, text: str) -> None:
+        """Open a separate window to show detailed info."""
+        InfoWindow(self, title, text)
 
 
 def main() -> None:

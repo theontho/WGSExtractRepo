@@ -81,13 +81,13 @@ MESSAGES = {
     "RealignBAMTimeWarnMesg": """There are several long tasks to (re)align a BAM file. Each major step and the rough time to complete it are:
 (1) Unalign the BAM to create the FASTQ files (1-3 hours)
 (2) Create new Reference Genome Index (2-3 hours)
-(3) Align FASTQ to Reference Model (8-160 hours)
+(3) Align FASTQ to Reference Genome (8-160 hours)
 (4) Remove Duplicates, Sort and Index to Create the Final BAM (1-2 hours)
 (5) Create the CRAM (1-2 hours)
 
 We estimate, on this machine, this will take {time} hours.""",
     "ExpectedWait": "Expected Wait is {time}",
-    "YorubaWarning": "Your BAM file uses the Yoruba reference model for mitochondrial DNA. This is incompatible with the rCRS model that tools use. We cannot convert this for you at this time.",
+    "YorubaWarning": "Your BAM file uses the Yoruba reference genome for mitochondrial DNA. This is incompatible with the rCRS genome that tools use. We cannot convert this for you at this time.",
     "LowCoverageWarning": "This BAM file has a low mapped average read depth. This can lead to incorrect and fewer variant calls.",
     "LongReadSequenceWarning": "The BAM file appears to be from a long-read sequencer (e.g. Nanopore). Tools have not been tuned to handle this special case.",
     "warnBAMNoStatsNoIndex": "The specified BAM File is not sorted and / or indexed. Some commands cannot run or will take longer to run without these features. We encourage you to sort and / or index your BAM File first; which takes ~30 min each.",

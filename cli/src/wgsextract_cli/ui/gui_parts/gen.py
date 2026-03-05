@@ -22,9 +22,15 @@ class GenericFrame(BaseFrame):
 
         # Common Input Field
         if key in ["gen", "bam", "ext", "anc", "qc", "vcf"]:
+            cb = self.on_input_change if key == "gen" else None
             self.input_entry = self.create_file_selector(
-                self, "Input:", os.environ.get("WGSE_INPUT", "")
+                self, "Input:", os.environ.get("WGSE_INPUT", ""), on_change=cb
             )
+
+        # Info Display area (for General tab)
+        if key == "gen":
+            self.info_frame = ctk.CTkFrame(self, fg_color="transparent")
+            self.info_frame.pack(fill="x", padx=30, pady=5)
 
         # Common Reference Field
         if key in ["gen", "bam", "vcf"]:
@@ -59,13 +65,86 @@ class GenericFrame(BaseFrame):
         # Action Buttons Grid
         grid_f = ctk.CTkFrame(self, fg_color="transparent")
         grid_f.pack(fill="x", padx=20, pady=10)
+        self.cmd_buttons = {}
         for i, cmd_m in enumerate(meta["commands"]):
             r, c = divmod(i, 3)
             grid_f.grid_columnconfigure(c, weight=1)
+            
+            # Special styling for clear-cache
+            btn_color = ("#d32f2f", "#b71c1c") if cmd_m["cmd"] == "clear-cache" else None
+            
             btn = ctk.CTkButton(
                 grid_f,
                 text=cmd_m["label"],
+                fg_color=btn_color,
+                hover_color="#9a0007" if cmd_m["cmd"] == "clear-cache" else None,
                 command=lambda cc=cmd_m["cmd"]: self.main_app.run_dispatch(cc, self),
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cmd_m["help"])
+            self.cmd_buttons[cmd_m["cmd"]] = btn
+            
+            # Hide clear-cache by default
+            if cmd_m["cmd"] == "clear-cache":
+                btn.grid_remove()
+
+        # Auto-trigger if initial value exists
+        if key == "gen" and self.input_entry.get():
+            self.on_input_change(self.input_entry.get())
+
+    def on_input_change(self, value: str) -> None:
+        """Called when the input file path changes."""
+        if value.lower().endswith((".bam", ".cram")):
+            self.main_app.controller.get_info_fast(value, self)
+        else:
+            self.update_info_display(None)
+
+    def update_info_display(self, data: Any) -> None:
+        """Update the info frame with fast info output (dict or error string)."""
+        # Toggle clear-cache button visibility
+        if "clear-cache" in self.cmd_buttons:
+            input_path = self.input_entry.get()
+            json_cache = ""
+            if input_path:
+                outdir = os.path.dirname(os.path.abspath(input_path))
+                json_cache = os.path.join(outdir, f"{os.path.basename(input_path)}.wgse_info.json")
+            
+            if json_cache and os.path.exists(json_cache):
+                self.cmd_buttons["clear-cache"].grid()
+            else:
+                self.cmd_buttons["clear-cache"].grid_remove()
+
+        # Clear existing widgets
+        for widget in self.info_frame.winfo_children():
+            widget.destroy()
+
+        if not data:
+            return
+
+        if isinstance(data, str):
+            ctk.CTkLabel(
+                self.info_frame, text=data, font=ctk.CTkFont(size=12, slant="italic")
+            ).pack(side="left")
+            return
+
+        # Render dictionary data nicely
+        fstats = data.get("file_stats", {})
+        stats_str = f"{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
+        
+        items = [
+            ("Reference Genome:", data.get("ref_model_str", "Unknown")),
+            ("File Stats:", stats_str),
+            ("Avg Read Length:", f"{data.get('avg_read_len', 0):.0f} bp, {data.get('std_read_len', 0):.0f} σ, {'Paired-end' if data.get('is_paired') else 'Single-end'}"),
+            ("Avg Insert Size:", f"{data.get('avg_insert_size', 0):.0f} bp, {data.get('std_insert_size', 0):.0f} σ"),
+        ]
+        
+        if data.get("sequencer") and data.get("sequencer") != "Unknown":
+            items.append(("Sequencer:", data.get("sequencer")))
+
+        for i, (label, val) in enumerate(items):
+            ctk.CTkLabel(
+                self.info_frame, text=label, font=ctk.CTkFont(size=13, weight="bold"), width=140, anchor="w"
+            ).grid(row=i, column=0, sticky="w", padx=(0, 10))
+            ctk.CTkLabel(
+                self.info_frame, text=val, font=ctk.CTkFont(size=13), anchor="w"
+            ).grid(row=i, column=1, sticky="w")

@@ -70,7 +70,7 @@ class ReferenceLibrary:
     the provided reference directory or file path.
     """
 
-    def __init__(self, ref_path, md5_sig=None):
+    def __init__(self, ref_path, md5_sig=None, skip_full_search=False):
         self.root = ref_path
         self.md5 = md5_sig
         self.fasta = None
@@ -83,6 +83,7 @@ class ReferenceLibrary:
         self.liftover_chain = None
         self.dict_file = None
         self.build = None
+        self.skip_full_search = skip_full_search
 
         if not ref_path:
             return
@@ -122,15 +123,15 @@ class ReferenceLibrary:
             self.build = REFERENCE_MODELS[self.md5][0]
 
         if self.fasta:
-            logging.info(f"Auto-resolved FASTA: {self.fasta}")
+            logging.debug(f"Auto-resolved FASTA: {self.fasta}")
         if self.vep_cache:
-            logging.info(f"Auto-resolved VEP cache: {self.vep_cache}")
+            logging.debug(f"Auto-resolved VEP cache: {self.vep_cache}")
         if self.ploidy_file:
-            logging.info(f"Auto-resolved ploidy: {self.ploidy_file}")
+            logging.debug(f"Auto-resolved ploidy: {self.ploidy_file}")
         if self.ref_vcf_tab:
-            logging.info(f"Auto-resolved ref-vcf-tab: {self.ref_vcf_tab}")
+            logging.debug(f"Auto-resolved ref-vcf-tab: {self.ref_vcf_tab}")
         if self.dict_file:
-            logging.info(f"Auto-resolved dict: {self.dict_file}")
+            logging.debug(f"Auto-resolved dict: {self.dict_file}")
 
     def _search_dir(self, d):
         if not os.path.isdir(d):
@@ -162,6 +163,10 @@ class ReferenceLibrary:
                             break
                 except Exception:
                     pass
+
+        # If only resolving fasta, we can stop here
+        if self.skip_full_search and self.fasta:
+            return
 
         # Look for dict if we have fasta
         if self.fasta and not self.dict_file:
@@ -282,7 +287,7 @@ class ReferenceLibrary:
 
 def resolve_reference(ref_path, md5_sig):
     """Find specific .fa.gz from directory or direct path."""
-    lib = ReferenceLibrary(ref_path, md5_sig)
+    lib = ReferenceLibrary(ref_path, md5_sig, skip_full_search=True)
     return lib.fasta if lib.fasta else ref_path
 
 
@@ -444,12 +449,13 @@ def get_chr_name(bam_path, target_chr, cram_opt=None):
     return target_chr  # fallback
 
 
-def calculate_bam_md5(bam_path, cram_opt=None):
+def calculate_bam_md5(bam_path, cram_opt=None, header=None):
     """
     Calculates MD5 signature from BAM header @SQ lines.
     It takes SN and LN, upcases SN, sorts ASCII-wise, and hashes.
     """
-    header = get_bam_header(bam_path, cram_opt)
+    if header is None:
+        header = get_bam_header(bam_path, cram_opt)
     if not header:
         return "00000000000000000000000000000000"
 
@@ -475,9 +481,12 @@ def calculate_bam_md5(bam_path, cram_opt=None):
     return md5hash.hexdigest()
 
 
-def is_sorted(bam_path, cram_opt=None):
+def is_sorted(bam_path, cram_opt=None, header=None):
     """Verifies if BAM is coordinate sorted."""
-    header = get_bam_header(bam_path, cram_opt)
+    if header is None:
+        header = get_bam_header(bam_path, cram_opt)
+    if not header:
+        return False
     for line in header.splitlines():
         if line.startswith("@HD"):
             if "SO:coordinate" in line:
@@ -485,12 +494,15 @@ def is_sorted(bam_path, cram_opt=None):
     return False
 
 
-def get_ref_mito(bam_path, cram_opt=None):
+def get_ref_mito(bam_path, cram_opt=None, header=None):
     """
     Identifies if mitochondrial reference is Yoruba based on chromosome lengths.
     Logic from program/bamfiles.py.
     """
-    header = get_bam_header(bam_path, cram_opt)
+    if header is None:
+        header = get_bam_header(bam_path, cram_opt)
+    if not header:
+        return "rCRS"
 
     # Check for Build 37 with Yoruba length (16571)
     is_build37 = any(
@@ -512,14 +524,15 @@ def get_ref_mito(bam_path, cram_opt=None):
     return "rCRS"  # Default
 
 
-def is_long_read(bam_path, cram_opt=None):
+def is_long_read(bam_path, cram_opt=None, header=None):
     """
     Rough heuristic to detect long-read data (e.g. Nanopore) from BAM header.
     In the original app, it checks if read length > 500.
     """
-    # This usually requires sampling reads, which we might want to avoid for speed.
-    # However, some platforms set specific tags in @RG.
-    header = get_bam_header(bam_path, cram_opt)
+    if header is None:
+        header = get_bam_header(bam_path, cram_opt)
+    if not header:
+        return False
     if "PL:ONT" in header or "PL:PACBIO" in header:
         return True
     return False

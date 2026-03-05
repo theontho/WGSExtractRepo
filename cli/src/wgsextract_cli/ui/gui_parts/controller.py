@@ -1,5 +1,7 @@
 """Logic and command execution controller for the WGS Extract GUI."""
 
+import json
+import os
 import subprocess
 import sys
 import threading
@@ -44,6 +46,87 @@ class GUIController:
             self.main_app.after(
                 0, lambda: self.main_app.log(f"Finished (Exit {process.returncode})")
             )
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def run_info_detailed(self, input_path: str, ref_path: str) -> None:
+        """Run detailed info command and show results in a separate window."""
+        if not input_path:
+            self.main_app.log("Error: --input required for info.")
+            return
+
+        def run() -> None:
+            # Skip environment variables for stability
+            env = os.environ.copy()
+            env["WGSE_SKIP_DOTENV"] = "1"
+            cmd = [sys.executable, "-m", "wgsextract_cli.main", "info", "--input", input_path, "--detailed"]
+            if ref_path:
+                cmd.extend(["--ref", ref_path])
+            
+            self.main_app.log(f"Running: {' '.join(cmd)}")
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+                # Filter out "Analyzing..." line
+                lines = [l for l in result.stdout.splitlines() if not l.startswith("Analyzing")]
+                clean_info = "\n".join(lines).strip()
+                title = f"Detailed Info: {os.path.basename(input_path)}"
+                self.main_app.after(0, lambda: self.main_app.show_info_window(title, clean_info))
+            except Exception as e:
+                self.main_app.log(f"Error running info: {e}")
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def run_clear_cache(self, input_path: str, frame: Any) -> None:
+        """Delete the info cache for the current file and refresh UI."""
+        if not input_path:
+            return
+        
+        outdir = os.path.dirname(os.path.abspath(input_path))
+        json_cache = os.path.join(outdir, f"{os.path.basename(input_path)}.wgse_info.json")
+        
+        if os.path.exists(json_cache):
+            try:
+                os.remove(json_cache)
+                self.main_app.log(f"Cleared cache: {json_cache}")
+                # Re-trigger info fetch to show fresh data
+                self.get_info_fast(input_path, frame)
+            except Exception as e:
+                self.main_app.log(f"Error clearing cache: {e}")
+        else:
+            self.main_app.log("No cache found to clear.")
+
+    def get_info_fast(self, input_path: str, frame: Any) -> None:
+        """
+        Run the 'info' command in fast mode and update the frame's info display.
+        
+        Args:
+            input_path: Path to the BAM/CRAM file.
+            frame: The frame containing the info display.
+        """
+        if not os.path.exists(input_path):
+            return
+
+        def run() -> None:
+            # Skip environment variables for stability
+            env = os.environ.copy()
+            env["WGSE_SKIP_DOTENV"] = "1"
+            cmd = [sys.executable, "-m", "wgsextract_cli.main", "info", "--input", input_path]
+            try:
+                # Run command to ensure cache is populated
+                subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+                
+                # Load from json cache
+                outdir = os.path.dirname(os.path.abspath(input_path))
+                json_cache = os.path.join(outdir, f"{os.path.basename(input_path)}.wgse_info.json")
+                
+                if os.path.exists(json_cache):
+                    with open(json_cache) as f:
+                        data = json.load(f)
+                    self.main_app.after(0, lambda: frame.update_info_display(data))
+                else:
+                    self.main_app.after(0, lambda: frame.update_info_display("Info not available"))
+            except Exception as e:
+                self.main_app.after(0, lambda: frame.update_info_display(f"Error: {e}"))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -185,7 +268,10 @@ class GUIController:
         ref_val = ref_path.get() if ref_path else ""
 
         if cmd == "info":
-            self.run_cmd(bc + ["info", "--input", input_val, "--ref", ref_val, "--detailed"])
+            self.run_info_detailed(input_val, ref_val)
+        
+        elif cmd == "clear-cache":
+            self.run_clear_cache(input_val, frame)
         
         elif cmd in ["calculate-coverage", "coverage-sample"]:
             c = bc + ["info", cmd, "--input", input_val]

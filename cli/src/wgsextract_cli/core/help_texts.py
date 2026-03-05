@@ -5,7 +5,7 @@ HELP_TEXTS = {
     "info": "Parses header, verifies coordinate sorting, calculates stats and detects reference genome signature.",
     "calculate-coverage": "Calculate FULL breadth coverage using samtools depth (1-3 hours).",
     "coverage-sample": "Estimate coverage using random sampling (under 10 seconds).",
-    "align": "Align FASTQ reads to a reference model using BWA or Minimap2.",
+    "align": "Align FASTQ reads to a reference genome using BWA or Minimap2.",
     "sort": "Sort a BAM or CRAM file by coordinate.",
     "index": "Creates a BAM or CRAM index file.",
     "unindex": "Deletes the index file associated with the BAM/CRAM.",
