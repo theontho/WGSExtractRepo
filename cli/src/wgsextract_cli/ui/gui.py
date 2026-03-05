@@ -75,6 +75,55 @@ class WGSExtractGUI(ctk.CTk):
         self.vep_cancel_event: threading.Event | None = None
         self.controller = GUIController(self)
 
+        # Shared variables for synchronization across tabs
+        self.input_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT", ""))
+        self.ref_path_var = ctk.StringVar(value=os.environ.get("WGSE_REF", ""))
+        self.out_dir_var = ctk.StringVar(value=os.environ.get("WGSE_OUTDIR", ""))
+        self.vep_cache_var = ctk.StringVar()
+
+        def ensure_dir_exists(var: ctk.StringVar) -> None:
+            path = var.get()
+            if path:
+                # Don't create if it looks like a file path
+                if path.lower().endswith(
+                    (
+                        ".fa",
+                        ".fasta",
+                        ".fna",
+                        ".bam",
+                        ".cram",
+                        ".vcf",
+                        ".fastq",
+                        ".fq",
+                        ".gz",
+                    )
+                ):
+                    return
+                try:
+                    if not os.path.exists(path):
+                        os.makedirs(path, exist_ok=True)
+                except Exception:
+                    pass
+
+        # Initial creation for env vars
+        ensure_dir_exists(self.out_dir_var)
+        ensure_dir_exists(self.ref_path_var)
+
+        # Trace for out_dir_var to ensure it exists when changed in GUI
+        self.out_dir_var.trace_add(
+            "write", lambda *args: ensure_dir_exists(self.out_dir_var)
+        )
+
+        def update_vep_cache(*args):
+            ref = self.ref_path_var.get()
+            if ref and os.path.isdir(ref):
+                self.vep_cache_var.set(os.path.join(ref, "vep"))
+            else:
+                self.vep_cache_var.set(os.path.expanduser("~/.vep"))
+
+        self.ref_path_var.trace_add("write", update_vep_cache)
+        update_vep_cache()  # Initial call
+
         # UI Layout
         self._setup_sidebar()
         self._setup_main_content()

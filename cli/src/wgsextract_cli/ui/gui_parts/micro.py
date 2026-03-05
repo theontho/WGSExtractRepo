@@ -1,6 +1,5 @@
 """Microarray simulation tab frame for generating CombinedKit formats."""
 
-import os
 from typing import Any
 
 import customtkinter as ctk
@@ -22,10 +21,10 @@ class MicroFrame(BaseFrame):
 
         # File Selectors
         self.input_entry = self.create_file_selector(
-            self, "Input:", os.environ.get("WGSE_INPUT", "")
+            self, "Input:", variable=self.main_app.input_path_var
         )
         self.ref_entry = self.create_file_selector(
-            self, "Reference:", os.environ.get("WGSE_REF", "")
+            self, "Reference:", variable=self.main_app.ref_path_var
         )
 
         ctk.CTkLabel(

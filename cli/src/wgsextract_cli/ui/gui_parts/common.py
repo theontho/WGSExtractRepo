@@ -92,6 +92,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         p: ctk.CTkFrame,
         label_text: str,
         iv: str = "",
+        variable: ctk.StringVar | None = None,
         on_change: Callable[[str], None] | None = None,
     ) -> ctk.CTkEntry:
         """
@@ -100,7 +101,8 @@ class BaseFrame(ctk.CTkScrollableFrame):
         Args:
             p: The parent frame.
             label_text: The label text.
-            iv: Initial value for the entry.
+            iv: Initial value for the entry (ignored if variable is provided).
+            variable: Optional StringVar to bind to the entry.
             on_change: Optional callback when value changes.
 
         Returns:
@@ -110,23 +112,33 @@ class BaseFrame(ctk.CTkScrollableFrame):
         ctk.CTkLabel(frame, text=label_text, width=120, anchor="w").pack(
             side="left", padx=10
         )
-        entry = ctk.CTkEntry(frame)
-        entry.insert(0, iv)
+        entry = ctk.CTkEntry(frame, textvariable=variable)
+        if not variable:
+            entry.insert(0, iv)
+
         if on_change:
-            entry.bind("<FocusOut>", lambda e: on_change(entry.get()))
-            entry.bind("<Return>", lambda e: on_change(entry.get()))
+            if variable:
+                variable.trace_add("write", lambda *args: on_change(variable.get()))
+            else:
+                entry.bind("<FocusOut>", lambda e: on_change(entry.get()))
+                entry.bind("<Return>", lambda e: on_change(entry.get()))
+
         entry.pack(side="left", fill="x", expand=True, padx=10)
         ctk.CTkButton(
             frame,
             text="Browse",
             width=80,
-            command=lambda: self.browse_file(entry, on_change),
+            command=lambda: self.browse_file(entry, variable, on_change),
         ).pack(side="right", padx=10)
         frame.pack(fill="x", padx=20, pady=5)
         return entry
 
     def create_dir_selector(
-        self, p: ctk.CTkFrame, label_text: str, iv: str = ""
+        self,
+        p: ctk.CTkFrame,
+        label_text: str,
+        iv: str = "",
+        variable: ctk.StringVar | None = None,
     ) -> ctk.CTkEntry:
         """
         Create a directory selection row with a label, entry, and browse button.
@@ -134,7 +146,8 @@ class BaseFrame(ctk.CTkScrollableFrame):
         Args:
             p: The parent frame.
             label_text: The label text.
-            iv: Initial value for the entry.
+            iv: Initial value for the entry (ignored if variable is provided).
+            variable: Optional StringVar to bind to the entry.
 
         Returns:
             The created CTkEntry widget.
@@ -143,11 +156,15 @@ class BaseFrame(ctk.CTkScrollableFrame):
         ctk.CTkLabel(frame, text=label_text, width=120, anchor="w").pack(
             side="left", padx=10
         )
-        entry = ctk.CTkEntry(frame)
-        entry.insert(0, iv)
+        entry = ctk.CTkEntry(frame, textvariable=variable)
+        if not variable:
+            entry.insert(0, iv)
         entry.pack(side="left", fill="x", expand=True, padx=10)
         ctk.CTkButton(
-            frame, text="Browse", width=80, command=lambda: self.browse_dir(entry)
+            frame,
+            text="Browse",
+            width=80,
+            command=lambda: self.browse_dir(entry, variable),
         ).pack(side="right", padx=10)
         frame.pack(fill="x", padx=20, pady=5)
         return entry
@@ -172,20 +189,54 @@ class BaseFrame(ctk.CTkScrollableFrame):
         e.pack(side="right", fill="x", expand=True, padx=10)
         return e
 
+    def create_read_only_entry(
+        self, p: ctk.CTkFrame, label_text: str, variable: ctk.StringVar
+    ) -> ctk.CTkEntry:
+        """
+        Create a read-only entry row with a label and entry.
+
+        Args:
+            p: The parent frame.
+            label_text: The label text.
+            variable: The StringVar to bind to the entry.
+
+        Returns:
+            The created CTkEntry widget.
+        """
+        f = ctk.CTkFrame(p)
+        f.pack(fill="x", padx=20, pady=5)
+        ctk.CTkLabel(f, text=label_text, width=120, anchor="w").pack(
+            side="left", padx=10
+        )
+        e = ctk.CTkEntry(f, textvariable=variable, state="readonly")
+        e.pack(side="right", fill="x", expand=True, padx=10)
+        return e
+
     def browse_file(
-        self, e: ctk.CTkEntry, on_change: Callable[[str], None] | None = None
+        self,
+        e: ctk.CTkEntry,
+        variable: ctk.StringVar | None = None,
+        on_change: Callable[[str], None] | None = None,
     ) -> None:
         """Open a file dialog and update the entry."""
         f = filedialog.askopenfilename()
         if f:
-            e.delete(0, "end")
-            e.insert(0, f)
-            if on_change:
-                on_change(f)
+            if variable:
+                variable.set(f)
+            else:
+                e.delete(0, "end")
+                e.insert(0, f)
+                if on_change:
+                    on_change(f)
 
-    def browse_dir(self, e: ctk.CTkEntry) -> None:
+    def browse_dir(
+        self, e: ctk.CTkEntry, variable: ctk.StringVar | None = None
+    ) -> None:
         """Open a directory dialog and update the entry."""
         d = filedialog.askdirectory()
         if d:
-            e.delete(0, "end")
-            e.insert(0, d)
+            if variable:
+                variable.set(d)
+            else:
+                e.delete(0, "end")
+                e.insert(0, d)

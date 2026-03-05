@@ -1,6 +1,5 @@
 """Library management tab frame for reference genomes and VEP cache."""
 
-import os
 import re
 from typing import Any
 
@@ -34,24 +33,25 @@ class LibFrame(BaseFrame):
         ldf = ctk.CTkFrame(self)
         ldf.pack(fill="x", padx=20, pady=5)
         self.lib_dest = self.create_dir_selector(
-            ldf, "Library Dir:", os.environ.get("WGSE_REF", "")
+            ldf, "Library Dir:", variable=self.main_app.ref_path_var
         )
         ctk.CTkButton(ldf, text="Refresh List", width=100, command=self.setup_ui).pack(
             side="right", padx=10
         )
 
         self.input_entry = self.create_file_selector(
-            self, "Input:", os.environ.get("WGSE_INPUT", "")
+            self, "Input:", variable=self.main_app.input_path_var
         )
-        ref_val = os.environ.get("WGSE_REF", "")
-        self.ref_entry = self.create_file_selector(self, "Reference:", ref_val)
+        self.ref_entry = self.create_file_selector(
+            self, "Reference:", variable=self.main_app.ref_path_var
+        )
 
         # 1. Reference Management Section
         if meta["commands"]:
             self._setup_ref_mgmt_section(meta["commands"])
 
         # 2. VEP Management Section
-        self._setup_vep_mgmt_section(meta["vep_commands"], ref_val)
+        self._setup_vep_mgmt_section(meta["vep_commands"])
 
         # 3. Reference Genome List Section
         self._setup_ref_list_section(
@@ -80,9 +80,7 @@ class LibFrame(BaseFrame):
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
 
-    def _setup_vep_mgmt_section(
-        self, vep_commands: list[dict[str, Any]], ref_val: str
-    ) -> None:
+    def _setup_vep_mgmt_section(self, vep_commands: list[dict[str, Any]]) -> None:
         """Set up the VEP cache management controls and progress bars."""
         vep_f = ctk.CTkFrame(self, fg_color="transparent")
         vep_f.pack(fill="x", padx=20, pady=(20, 10))
@@ -104,12 +102,9 @@ class LibFrame(BaseFrame):
             "VEP (Variant Effect Predictor) uses a large cache of genomic data to determine how variants (SNPs/InDels) might affect genes and proteins.",
         )
 
-        dv = (
-            os.path.join(ref_val, "vep")
-            if ref_val and os.path.isdir(ref_val)
-            else os.path.expanduser("~/.vep")
+        self.vep_cache = self.create_read_only_entry(
+            self, "VEP Cache Path:", self.main_app.vep_cache_var
         )
-        self.vep_cache = self.create_dir_selector(self, "VEP Cache Path:", dv)
 
         vep_btn_f = ctk.CTkFrame(self, fg_color="transparent")
         vep_btn_f.pack(fill="x", padx=20)

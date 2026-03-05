@@ -267,10 +267,11 @@ def render_info(data, detailed=False):
             r.get("Breadth Coverage") for r in reader if r.get("Breadth Coverage")
         )
 
-        header_line1 = "Seq        Model    Model    # Segs      Map    Map Breadth"
+        header_line1 = "Seq        Model    Model    # Segs      Map    Map"
         header_line2 = "Name         Len  'N' Len       Map   Gbases    ARD"
         if has_coverage:
-            header_line2 += " Coverage"
+            header_line1 += "    Breadth"
+            header_line2 += "   Coverage"
 
         output_lines.append(
             f"By Reference Sequence Name\n{header_line1}\n{header_line2}"

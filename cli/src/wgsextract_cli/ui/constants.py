@@ -59,8 +59,8 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
 
 UI_METADATA = {
     "gen": {
-        "title": "Info",
-        "help": "Basic analysis and alignment",
+        "title": "Info / BAM",
+        "help": "BAM/CRAM analysis, management, and conversion",
         "commands": [
             {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
             {
@@ -78,12 +78,6 @@ UI_METADATA = {
                 "cmd": "coverage-sample",
                 "help": UI_TOOLTIPS["coverage-sample"],
             },
-        ],
-    },
-    "bam": {
-        "title": "BAM / CRAM",
-        "help": "File management and format conversion",
-        "commands": [
             {"label": "Sort", "cmd": "sort", "help": UI_TOOLTIPS["sort"]},
             {"label": "Index", "cmd": "index", "help": UI_TOOLTIPS["index"]},
             {"label": "To CRAM", "cmd": "to-cram", "help": UI_TOOLTIPS["to-cram"]},

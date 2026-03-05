@@ -448,9 +448,23 @@ class GUIController:
             c = bc + ["bam", cmd, "--input", input_val]
             if ref_val:
                 c.extend(["--ref", ref_val])
+
+            region = getattr(frame, "region_entry", None)
+            if (
+                region
+                and region.get()
+                and cmd in ["sort", "to-cram", "to-bam", "unalign", "subset"]
+            ):
+                c.extend(["-r", region.get()])
+
             extra = getattr(frame, "extra_entry", None)
             if cmd == "subset" and extra and extra.get():
-                c.append(extra.get())
+                # Allow user to provide -f or just the value
+                val = extra.get()
+                if val.replace(".", "").isdigit():
+                    c.extend(["-f", val])
+                else:
+                    c.append(val)
             self.run_cmd(c, cmd_key=cmd, frame=frame)
 
         elif cmd.startswith("repair-"):
