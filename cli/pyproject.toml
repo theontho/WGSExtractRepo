@@ -16,7 +16,6 @@ dependencies = [
     "python-dotenv", # Loads environment variables (e.g., WGSE_REF) from .env files
     "pyliftover",    # Performs hg38 to hg19 coordinate liftover for microarray simulations
     "psutil",        # Detects system RAM/CPU for automatic resource tuning (e.g., samtools memory)
-    "textual",       # TUI framework
     "customtkinter", # Modern GUI framework
     "Pillow",        # Image processing (needed by customtkinter)
     # Unused dependencies (currently delegated to external binaries or not yet implemented):

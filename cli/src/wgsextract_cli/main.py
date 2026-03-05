@@ -77,13 +77,6 @@ def main():
     )
 
     # UI Commands
-    tui_parser = subparsers.add_parser(
-        "tui", help="Launch the Text User Interface (TUI)"
-    )
-    tui_parser.set_defaults(
-        func=lambda args: __import__("wgsextract_cli.ui.tui", fromlist=["main"]).main()
-    )
-
     gui_parser = subparsers.add_parser(
         "gui", help="Launch the Graphical User Interface (GUI)"
     )

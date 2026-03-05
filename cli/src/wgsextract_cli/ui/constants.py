@@ -1,4 +1,4 @@
-"""Shared UI metadata and constants for WGS Extract TUI and GUI."""
+"""Shared UI metadata and constants for WGS Extract GUI."""
 
 from wgsextract_cli.core.help_texts import UI_TOOLTIPS
 
