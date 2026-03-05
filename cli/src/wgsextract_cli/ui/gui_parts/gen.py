@@ -21,7 +21,7 @@ class GenericFrame(BaseFrame):
         meta = self.meta
 
         # Common Input Field
-        if key in ["gen", "bam", "ext", "anc", "qc", "vcf"]:
+        if key in ["gen", "bam", "ext", "anc", "vcf", "fastq"]:
             cb = self.on_input_change if key == "gen" else None
             self.input_entry = self.create_file_selector(
                 self, "Input:", os.environ.get("WGSE_INPUT", ""), on_change=cb
@@ -33,7 +33,7 @@ class GenericFrame(BaseFrame):
             self.info_frame.pack(fill="x", padx=30, pady=5)
 
         # Common Reference Field
-        if key in ["gen", "bam", "vcf"]:
+        if key in ["gen", "bam", "vcf", "fastq"]:
             self.ref_entry = self.create_file_selector(
                 self, "Reference:", os.environ.get("WGSE_REF", "")
             )
@@ -41,7 +41,9 @@ class GenericFrame(BaseFrame):
         # Tab-Specific Fields
         if key == "gen":
             self.region_entry = self.create_entry(self, "Region (e.g. chrM):")
+        elif key == "fastq":
             self.align_r1 = self.create_file_selector(self, "FASTQ R1 (for Align):")
+            self.align_r2 = self.create_file_selector(self, "FASTQ R2 (optional):")
         elif key == "bam":
             self.extra_entry = self.create_entry(self, "Extra (Fraction/Region):")
         elif key == "ext":
@@ -70,14 +72,15 @@ class GenericFrame(BaseFrame):
             r, c = divmod(i, 3)
             grid_f.grid_columnconfigure(c, weight=1)
             
-            # Special styling for clear-cache
-            btn_color = ("#d32f2f", "#b71c1c") if cmd_m["cmd"] == "clear-cache" else None
+            # Special styling for destructive commands
+            is_destructive = cmd_m["cmd"] in ["clear-cache", "unsort", "unindex"]
+            btn_color = ("#d32f2f", "#b71c1c") if is_destructive else None
             
             btn = ctk.CTkButton(
                 grid_f,
                 text=cmd_m["label"],
                 fg_color=btn_color,
-                hover_color="#9a0007" if cmd_m["cmd"] == "clear-cache" else None,
+                hover_color="#9a0007" if is_destructive else None,
                 command=lambda cc=cmd_m["cmd"]: self.main_app.run_dispatch(cc, self),
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")

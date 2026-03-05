@@ -57,7 +57,7 @@ MICROARRAY_FORMATS = [
 
 UI_METADATA = {
     "gen": {
-        "title": "General",
+        "title": "Info",
         "help": "Basic analysis and alignment",
         "commands": [
             {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
@@ -72,7 +72,6 @@ UI_METADATA = {
                 "cmd": "coverage-sample",
                 "help": UI_TOOLTIPS["coverage-sample"],
             },
-            {"label": "Run Align", "cmd": "align", "help": UI_TOOLTIPS["align"]},
         ],
     },
     "bam": {
@@ -81,26 +80,14 @@ UI_METADATA = {
         "commands": [
             {"label": "Sort", "cmd": "sort", "help": UI_TOOLTIPS["sort"]},
             {"label": "Index", "cmd": "index", "help": UI_TOOLTIPS["index"]},
-            {"label": "Unindex", "cmd": "unindex", "help": UI_TOOLTIPS["unindex"]},
-            {"label": "Unsort", "cmd": "unsort", "help": UI_TOOLTIPS["unsort"]},
             {"label": "To CRAM", "cmd": "to-cram", "help": UI_TOOLTIPS["to-cram"]},
+            {"label": "Unsort", "cmd": "unsort", "help": UI_TOOLTIPS["unsort"]},
+            {"label": "Unindex", "cmd": "unindex", "help": UI_TOOLTIPS["unindex"]},
             {"label": "To BAM", "cmd": "to-bam", "help": UI_TOOLTIPS["to-bam"]},
-            {"label": "Unalign", "cmd": "unalign", "help": UI_TOOLTIPS["unalign"]},
-            {"label": "Subset", "cmd": "subset", "help": UI_TOOLTIPS["subset"]},
-            {
-                "label": "MT-Extract",
-                "cmd": "mt-extract",
-                "help": UI_TOOLTIPS["mt-extract"],
-            },
             {
                 "label": "Repair FTDNA BAM",
                 "cmd": "repair-ftdna-bam",
                 "help": UI_TOOLTIPS["repair-ftdna-bam"],
-            },
-            {
-                "label": "Repair FTDNA VCF",
-                "cmd": "repair-ftdna-vcf",
-                "help": UI_TOOLTIPS["repair-ftdna-vcf"],
             },
         ],
     },
@@ -110,6 +97,8 @@ UI_METADATA = {
         "commands": [
             {"label": "Mito (chrM)", "cmd": "mito", "help": UI_TOOLTIPS["mito"]},
             {"label": "Y-DNA (chrY)", "cmd": "ydna", "help": UI_TOOLTIPS["ydna"]},
+            {"label": "MT BAM", "cmd": "mt-extract", "help": UI_TOOLTIPS["mt-extract"]},
+            {"label": "BAM Subset", "cmd": "subset", "help": UI_TOOLTIPS["subset"]},
             {"label": "Unmapped", "cmd": "unmapped", "help": UI_TOOLTIPS["unmapped"]},
             {"label": "Custom Extract", "cmd": "custom", "help": UI_TOOLTIPS["custom"]},
         ],
@@ -142,7 +131,7 @@ UI_METADATA = {
         ],
     },
     "vcf": {
-        "title": "Variants",
+        "title": "VCF",
         "help": "Variant calling, filtering, and effect prediction",
         "commands": [
             {"label": "SNP Call", "cmd": "snp", "help": UI_TOOLTIPS["snp"]},
@@ -165,12 +154,19 @@ UI_METADATA = {
             {"label": "Trio Analysis", "cmd": "trio", "help": UI_TOOLTIPS["trio"]},
             {"label": "VCF QC", "cmd": "vcf-qc", "help": UI_TOOLTIPS["vcf-qc"]},
             {"label": "Run VEP", "cmd": "vep-run", "help": UI_TOOLTIPS["vep-run"]},
+            {
+                "label": "Repair FTDNA VCF",
+                "cmd": "repair-ftdna-vcf",
+                "help": UI_TOOLTIPS["repair-ftdna-vcf"],
+            },
         ],
     },
-    "qc": {
-        "title": "QC",
-        "help": "Quality control for reads and files",
+    "fastq": {
+        "title": "FASTQ",
+        "help": "Quality control and alignment of raw reads",
         "commands": [
+            {"label": "Run Align", "cmd": "align", "help": UI_TOOLTIPS["align"]},
+            {"label": "Unalign", "cmd": "unalign", "help": UI_TOOLTIPS["unalign"]},
             {"label": "FastQC", "cmd": "fastqc", "help": UI_TOOLTIPS["fastqc"]},
             {"label": "FastP", "cmd": "fastp", "help": UI_TOOLTIPS["fastp"]},
         ],

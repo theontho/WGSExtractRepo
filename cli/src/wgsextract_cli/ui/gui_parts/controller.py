@@ -281,7 +281,10 @@ class GUIController:
             self.run_cmd(c)
             
         elif cmd == "align":
-            self.run_cmd(bc + ["align", "--input", frame.align_r1.get(), "--ref", ref_val])
+            c = bc + ["align", "--r1", frame.align_r1.get(), "--ref", ref_val]
+            if hasattr(frame, "align_r2") and frame.align_r2.get():
+                c.extend(["--r2", frame.align_r2.get()])
+            self.run_cmd(c)
             
         elif cmd in ["sort", "index", "unindex", "unsort", "to-cram", "to-bam", "unalign", "subset", "mt-extract"]:
             c = bc + ["bam", cmd, "--input", input_val]
