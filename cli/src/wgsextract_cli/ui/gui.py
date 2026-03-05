@@ -42,6 +42,9 @@ class WGSExtractGUI(ctk.CTk):
         self.geometry("1100x850")
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
+        
+        # Active downloads: {final_name: {"cancel_event": threading.Event(), "progress_var": ctk.DoubleVar(), "status_var": ctk.StringVar()}}
+        self.active_downloads = {}
 
         self.sidebar_frame = ctk.CTkFrame(self, width=160, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, rowspan=2, sticky="nsew")
@@ -101,7 +104,7 @@ class WGSExtractGUI(ctk.CTk):
                 break
 
     def setup_lib_frame(self):
-        from wgsextract_cli.core.ref_library import get_grouped_genomes, is_genome_installed
+        from wgsextract_cli.core.ref_library import get_grouped_genomes, get_genome_status
         key = "lib"
         meta = UI_METADATA[key]
         
@@ -131,16 +134,51 @@ class WGSExtractGUI(ctk.CTk):
             row = ctk.CTkFrame(frame)
             row.pack(fill="x", padx=20, pady=5)
             
+            final_name = group["final"]
             label_txt = group["label"]
-            installed = is_genome_installed(group["final"], dest)
+            status = get_genome_status(final_name, dest)
             
             ctk.CTkLabel(row, text=label_txt, anchor="w").pack(side="left", padx=10, expand=True, fill="x")
             
-            if installed:
+            if final_name in self.active_downloads:
+                # Show progress UI: [ProgressBar] [Speed] [Cancel] on the right
+                dl_info = self.active_downloads[final_name]
+                
+                dl_container = ctk.CTkFrame(row, fg_color="transparent")
+                dl_container.pack(side="right", padx=10)
+                
+                pbar = ctk.CTkProgressBar(dl_container, variable=dl_info["progress_var"], width=150)
+                pbar.pack(side="left", padx=5)
+                
+                status_label = ctk.CTkLabel(dl_container, textvariable=dl_info["status_var"], font=ctk.CTkFont(size=10))
+                status_label.pack(side="left", padx=5)
+                
+                cancel_btn = ctk.CTkButton(dl_container, text="Cancel", width=60, fg_color="#666666", hover_color="#888888",
+                                          command=lambda f=final_name: self.cancel_lib_download(f))
+                cancel_btn.pack(side="left", padx=5)
+            elif status == "installed":
                 btn = ctk.CTkButton(row, text="Delete", width=80, fg_color="#992222", hover_color="#bb3333",
                                     command=lambda g=group: self.run_lib_delete(g))
                 btn.pack(side="right", padx=10)
                 ToolTip(btn, f"Remove {group['final']} and all its index files from local storage.")
+            elif status == "incomplete":
+                # Show Resume, Restart and Delete buttons
+                delete_btn = ctk.CTkButton(row, text="Delete", width=70, fg_color="#992222", hover_color="#bb3333",
+                                    command=lambda g=group: self.run_lib_delete(g))
+                delete_btn.pack(side="right", padx=10)
+                ToolTip(delete_btn, "Delete partial file.")
+
+                restart_btn = ctk.CTkButton(row, text="Restart", width=70, fg_color="#aa6622", hover_color="#cc8844",
+                                           command=lambda g=group: self.run_lib_download(g["sources"][0], restart=True))
+                restart_btn.pack(side="right", padx=5)
+                ToolTip(restart_btn, "Delete partial file and start download from scratch.")
+
+                resume_btn = ctk.CTkButton(row, text="Resume", width=70, fg_color="#228822", hover_color="#33aa33",
+                                          command=lambda g=group: self.run_lib_download(g["sources"][0]))
+                resume_btn.pack(side="right", padx=5)
+                ToolTip(resume_btn, "Continue downloading from where it left off.")
+                
+                ctk.CTkLabel(row, text="Incomplete", text_color="#ffaa00", font=ctk.CTkFont(size=11, weight="bold")).pack(side="right", padx=10)
             else:
                 # Multiple source buttons
                 for source_data in reversed(group["sources"]):
@@ -148,18 +186,60 @@ class WGSExtractGUI(ctk.CTk):
                                           command=lambda s=source_data: self.run_lib_download(s))
                     s_btn.pack(side="right", padx=5)
                     ToolTip(s_btn, f"Download from {source_data['source']}\nURL: {source_data['url']}")
+                
+                # "download from" label to the left of the buttons
+                ctk.CTkLabel(row, text="download from", font=ctk.CTkFont(size=11, slant="italic")).pack(side="right", padx=5)
 
-    def run_lib_download(self, genome_data):
+    def run_lib_download(self, genome_data, restart=False):
         dest = self.lib_dest.get()
-        self.log(f"Starting download: {genome_data['label']} from {genome_data['source']}...")
+        final_name = genome_data["final"]
+        
+        if final_name in self.active_downloads:
+            return
+
+        self.log(f"Starting {'restart' if restart else 'download'}: {genome_data['label']} from {genome_data['source']}...")
+        
+        cancel_event = threading.Event()
+        progress_var = ctk.DoubleVar(value=0)
+        status_var = ctk.StringVar(value="Waiting...")
+        
+        self.active_downloads[final_name] = {
+            "cancel_event": cancel_event,
+            "progress_var": progress_var,
+            "status_var": status_var
+        }
+        
+        self.setup_lib_frame() # Refresh to show progress bar
+
+        def progress_cb(downloaded, total, speed):
+            pct = downloaded / total if total > 0 else 0
+            # Format speed
+            if speed > 1024 * 1024:
+                speed_txt = f"{speed / (1024 * 1024):.1f} MB/s"
+            else:
+                speed_txt = f"{speed / 1024:.1f} KB/s"
+            
+            self.after(0, lambda: progress_var.set(pct))
+            self.after(0, lambda: status_var.set(speed_txt))
+
         def run():
             from wgsextract_cli.core.ref_library import download_and_process_genome
             try:
-                success = download_and_process_genome(genome_data, dest, interactive=False)
-                self.after(0, lambda: self.log(f"Download {'Succeeded' if success else 'Failed'}"))
-                self.after(0, self.setup_lib_frame) # Refresh view
+                success = download_and_process_genome(genome_data, dest, interactive=False, 
+                                                      progress_callback=progress_cb, 
+                                                      cancel_event=cancel_event,
+                                                      restart=restart)
+                if cancel_event.is_set():
+                    self.after(0, lambda: self.log(f"Download cancelled: {genome_data['label']}"))
+                else:
+                    self.after(0, lambda: self.log(f"Download {'Succeeded' if success else 'Failed'}: {genome_data['label']}"))
             except Exception as e:
                 self.after(0, lambda: self.log(f"Error: {str(e)}"))
+            finally:
+                if final_name in self.active_downloads:
+                    del self.active_downloads[final_name]
+                self.after(0, self.setup_lib_frame)
+
         threading.Thread(target=run, daemon=True).start()
 
     def run_lib_delete(self, group):
@@ -168,6 +248,11 @@ class WGSExtractGUI(ctk.CTk):
         if delete_genome(group["final"], dest):
             self.log(f"Deleted {group['final']}")
             self.setup_lib_frame()
+
+    def cancel_lib_download(self, final_name):
+        if final_name in self.active_downloads:
+            self.active_downloads[final_name]["cancel_event"].set()
+            self.log(f"Cancelling download for {final_name}...")
 
     def setup_frame(self, key):
         meta = UI_METADATA[key]

@@ -6,12 +6,78 @@ import hashlib
 import re
 import math
 import gzip
-from typing import List, Dict, Optional, Tuple
+import time
+from urllib.request import urlopen, Request
+from typing import List, Dict, Optional, Tuple, Callable
 from wgsextract_cli.core.utils import run_command
 from wgsextract_cli.core.dependencies import verify_dependencies
 
 # Global cache for genome data
 _GENOME_DATA_CACHE = []
+
+def download_file(url: str, dest: str, progress_callback: Optional[Callable[[int, int, float], None]] = None, cancel_event: Optional[any] = None) -> bool:
+    """Downloads a file with progress reporting, optional cancellation, and resume support."""
+    partial_dest = dest + ".partial"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    initial_size = 0
+    mode = 'wb'
+
+    # If the final file exists but we are here, it might be incomplete (e.g. missing index)
+    # Move it to .partial to attempt a resume/verify
+    if not os.path.exists(partial_dest) and os.path.exists(dest):
+        os.rename(dest, partial_dest)
+
+    if os.path.exists(partial_dest):
+        initial_size = os.path.getsize(partial_dest)
+        if initial_size > 0:
+            headers['Range'] = f'bytes={initial_size}-'
+            mode = 'ab'
+        else:
+            mode = 'wb'
+
+    try:
+        req = Request(url, headers=headers)
+        with urlopen(req) as response:
+            code = response.getcode()
+            # If we requested a range but got 200, the server doesn't support range or sent full file
+            if initial_size > 0 and code == 200:
+                logging.info("Server does not support Range requests, starting from scratch.")
+                initial_size = 0
+                mode = 'wb'
+            
+            content_length = int(response.info().get('Content-Length', 0))
+            total_size = initial_size + content_length
+            bytes_downloaded = initial_size
+            start_time = time.time()
+            last_report_time = 0
+            
+            with open(partial_dest, mode) as f:
+                while True:
+                    if cancel_event and cancel_event.is_set():
+                        logging.info("Download cancelled by user.")
+                        return False
+                    
+                    chunk = response.read(1024 * 256) # 256KB chunks
+                    if not chunk:
+                        break
+                    
+                    f.write(chunk)
+                    bytes_downloaded += len(chunk)
+                    
+                    curr_time = time.time()
+                    if progress_callback and (curr_time - last_report_time > 0.1 or bytes_downloaded == total_size):
+                        elapsed = curr_time - start_time
+                        speed = (bytes_downloaded - initial_size) / elapsed if elapsed > 0 else 0
+                        progress_callback(bytes_downloaded, total_size, speed)
+                        last_report_time = curr_time
+        
+        # Rename to final destination on success
+        if os.path.exists(dest): os.remove(dest)
+        os.rename(partial_dest, dest)
+        return True
+    except Exception as e:
+        logging.error(f"Download error: {e}")
+        return False
 
 def load_genomes_from_csv(csv_path):
     if not os.path.exists(csv_path):
@@ -68,14 +134,30 @@ def get_grouped_genomes():
         grouped[fname]["sources"].append(item)
     return list(grouped.values())
 
+def get_genome_status(final_name: str, reflib_dir: str) -> str:
+    """Returns 'installed', 'incomplete', or 'missing'."""
+    if not reflib_dir: return "missing"
+    target_dir = os.path.join(reflib_dir, "genomes")
+    final_path = os.path.join(target_dir, final_name)
+    partial_path = final_path + ".partial"
+    fai_path = final_path + ".fai"
+    
+    if os.path.exists(final_path):
+        if os.path.exists(fai_path):
+            return "installed"
+        else:
+            # File exists but index is missing; treat as incomplete to allow resume/verify
+            return "incomplete"
+    if os.path.exists(partial_path):
+        return "incomplete"
+    return "missing"
+
 def is_genome_installed(final_name: str, reflib_dir: str) -> bool:
-    if not reflib_dir: return False
-    path = os.path.join(reflib_dir, "genomes", final_name)
-    return os.path.exists(path)
+    return get_genome_status(final_name, reflib_dir) == "installed"
 
 def delete_genome(final_name: str, reflib_dir: str):
     base_path = os.path.join(reflib_dir, "genomes", final_name)
-    for ext in ["", ".fai", ".gzi", ".dict"]:
+    for ext in ["", ".partial", ".fai", ".gzi", ".dict"]:
         p = base_path + ext
         if os.path.exists(p): os.remove(p)
     prefix = re.sub(r'\.(fasta|fna|fa)\.gz$', '', base_path)
@@ -84,24 +166,37 @@ def delete_genome(final_name: str, reflib_dir: str):
         if os.path.exists(p): os.remove(p)
     return True
 
-def download_and_process_genome(genome_data: Dict, reflib_dir: str, interactive: bool = True):
-    verify_dependencies(["curl", "samtools", "bgzip", "gzip"])
+def download_and_process_genome(genome_data: Dict, reflib_dir: str, interactive: bool = True, progress_callback: Optional[Callable] = None, cancel_event: Optional[any] = None, restart: bool = False):
+    verify_dependencies(["samtools", "bgzip", "gzip"])
     target_dir = os.path.join(reflib_dir, "genomes")
     os.makedirs(target_dir, exist_ok=True)
     final_path = os.path.join(target_dir, genome_data['final'])
+    partial_path = final_path + ".partial"
     
-    if os.path.exists(final_path):
+    if restart:
+        if os.path.exists(final_path): os.remove(final_path)
+        if os.path.exists(partial_path): os.remove(partial_path)
+    
+    status = get_genome_status(genome_data['final'], reflib_dir)
+    if status == "installed":
         if not interactive: return process_reference_file(final_path)
-        print(f"\n{genome_data['final']} is already present.")
+        print(f"\n{genome_data['final']} is already installed.")
         choice = input("Re-download anyway? [y/N]: ").strip().lower()
-        if choice != 'y': return process_reference_file(final_path)
+        if choice != 'y': return True
         os.remove(final_path)
+    elif status == "incomplete" and interactive:
+        print(f"\n{genome_data['final']} is incomplete.")
+        choice = input("[R]esume, [D]elete, or [C]ancel? ").strip().lower()
+        if choice == 'c': return False
+        if choice == 'd':
+            delete_genome(genome_data['final'], reflib_dir)
+            return False
+        # 'r' continues to download_file below
     
     logging.info(f"Downloading {genome_data['label']} from {genome_data['source']}...")
-    try:
-        run_command(["curl", "-L", "-o", final_path, genome_data['url']])
-    except Exception as e:
-        logging.error(f"Download failed: {e}")
+    
+    success = download_file(genome_data['url'], final_path, progress_callback, cancel_event)
+    if not success:
         return False
 
     return process_reference_file(final_path)

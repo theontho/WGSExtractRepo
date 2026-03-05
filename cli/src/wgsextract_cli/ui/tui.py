@@ -1,5 +1,6 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, TabbedContent, TabPane, Input, Button, Label, Log, SelectionList
+from textual.widgets import Header, Footer, TabbedContent, TabPane, Input, Button, Label, Log, SelectionList, ProgressBar
+from textual.widgets.selection_list import Selection
 from textual.containers import Vertical, Horizontal
 import subprocess
 import threading
@@ -15,11 +16,13 @@ class WGSExtractTUI(App):
     .field Label { width: 15; }
     .sub-section { border: tall $accent; margin-bottom: 1; padding: 1; }
     #output { height: 1fr; border: solid green; margin-top: 1; }
+    #lib_progress_container { height: auto; margin-top: 1; display: none; }
+    #lib_progress_container.active { display: block; }
     """
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode"), ("q", "quit", "Quit")]
 
     def compose(self) -> ComposeResult:
-        from wgsextract_cli.core.ref_library import get_available_genomes, is_genome_installed
+        from wgsextract_cli.core.ref_library import get_available_genomes, get_genome_status
         yield Header()
         with TabbedContent():
             for key, meta in UI_METADATA.items():
@@ -33,15 +36,23 @@ class WGSExtractTUI(App):
                         all_genomes = get_available_genomes()
                         selections = []
                         for i, g in enumerate(all_genomes):
-                            status = "[INSTALLED] " if is_genome_installed(g["final"], lib_dir) else ""
-                            label = f"{status}{g['label']} ({g['source']})"
+                            status = get_genome_status(g["final"], lib_dir)
+                            if status == "installed": status_txt = "[INSTALLED] "
+                            elif status == "incomplete": status_txt = "[INCOMPLETE] "
+                            else: status_txt = ""
+                            label = f"{status_txt}{g['label']} ({g['source']})"
                             selections.append(Selection(label, i))
                         
                         yield SelectionList(*selections, id="lib_selection")
                         yield Horizontal(
-                            Button("Download Selected", id="btn_lib_download"),
-                            Button("Delete Selected", id="btn_lib_delete", variant="error")
+                            Button("Download / Resume", id="btn_lib_download"),
+                            Button("Restart Download", id="btn_lib_restart", variant="warning"),
+                            Button("Delete Selected", id="btn_lib_delete", variant="error"),
+                            Button("Cancel", id="btn_lib_cancel", variant="warning")
                         )
+                        with Vertical(id="lib_progress_container"):
+                            yield Label("Downloading...", id="lib_progress_label")
+                            yield ProgressBar(id="lib_progress_bar", total=100, show_percentage=True)
                         continue
 
                     # Common Inputs
@@ -78,7 +89,14 @@ class WGSExtractTUI(App):
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id in ["btn_lib_download", "btn_lib_delete"]:
+        if event.button.id == "btn_lib_cancel":
+            if hasattr(self, "lib_cancel_event"):
+                self.lib_cancel_event.set()
+                log = self.query_one("#output", Log)
+                log.write_line("Cancellation requested...")
+            return
+
+        if event.button.id in ["btn_lib_download", "btn_lib_delete", "btn_lib_restart"]:
             indices = self.query_one("#lib_selection", SelectionList).selected
             dest = self.query_one("#lib_dest", Input).value
             if not indices: return
@@ -87,20 +105,49 @@ class WGSExtractTUI(App):
             all_genomes = get_available_genomes()
             log = self.query_one("#output", Log)
             
+            pbar_container = self.query_one("#lib_progress_container")
+            pbar = self.query_one("#lib_progress_bar", ProgressBar)
+            plabel = self.query_one("#lib_progress_label", Label)
+
+            def progress_cb(downloaded, total, speed):
+                pct = (downloaded / total * 100) if total > 0 else 0
+                if speed > 1024 * 1024:
+                    speed_txt = f"{speed / (1024 * 1024):.1f} MB/s"
+                else:
+                    speed_txt = f"{speed / 1024:.1f} KB/s"
+                
+                def update_ui():
+                    pbar.progress = pct
+                    plabel.update(f"Downloading: {int(pct)}% at {speed_txt}")
+                self.call_from_thread(update_ui)
+
+            self.lib_cancel_event = threading.Event()
+
             def run():
+                self.call_from_thread(pbar_container.add_class, "active")
                 for idx in indices:
+                    if self.lib_cancel_event.is_set():
+                        self.call_from_thread(log.write_line, "Batch cancelled.")
+                        break
                     g = all_genomes[idx]
-                    if event.button.id == "btn_lib_download":
-                        self.call_from_thread(log.write_line, f"Downloading {g['final']}...")
-                        success = download_and_process_genome(g, dest, interactive=False)
-                        self.call_from_thread(log.write_line, f"Result: {'Success' if success else 'Failed'}")
+                    if event.button.id in ["btn_lib_download", "btn_lib_restart"]:
+                        restart = (event.button.id == "btn_lib_restart")
+                        action = "Restarting" if restart else "Downloading/Resuming"
+                        self.call_from_thread(log.write_line, f"{action} {g['final']}...")
+                        self.call_from_thread(plabel.update, f"{action} {g['final']}...")
+                        success = download_and_process_genome(g, dest, interactive=False, 
+                                                              progress_callback=progress_cb,
+                                                              cancel_event=self.lib_cancel_event,
+                                                              restart=restart)
+                        self.call_from_thread(log.write_line, f"Result: {'Success' if success else 'Failed/Cancelled'}")
                     else:
                         self.call_from_thread(log.write_line, f"Deleting {g['final']}...")
                         delete_genome(g['final'], dest)
                 
-                # We can't easily trigger a full recompose from a thread safely without potential UI flicker
-                # but we can tell the user to refresh or do a simple refresh.
+                self.call_from_thread(pbar_container.remove_class, "active")
                 self.call_from_thread(log.write_line, "Tasks completed. (Select tab again to refresh list status)")
+                if hasattr(self, "lib_cancel_event"):
+                    del self.lib_cancel_event
 
             threading.Thread(target=run, daemon=True).start()
             return

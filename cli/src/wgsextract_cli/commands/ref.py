@@ -5,7 +5,10 @@ import sys
 import hashlib
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, verify_paths_exist
-from wgsextract_cli.core.ref_library import download_and_process_genome, get_available_genomes, load_genomes_from_csv, GENOME_DATA
+from wgsextract_cli.core.ref_library import (
+    download_and_process_genome, get_available_genomes, 
+    load_genomes_from_csv, GENOME_DATA, get_genome_status
+)
 from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
@@ -191,12 +194,10 @@ def cmd_library(args):
     
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
+        s = get_genome_status(g['final'], reflib_dir)
         status = ""
-        # Check both 'genomes' and 'genome' subfolders
-        for sub in ["genomes", "genome"]:
-            if os.path.exists(os.path.join(reflib_dir, sub, g['final'])):
-                status = " [Installed]"
-                break
+        if s == "installed": status = " [Installed]"
+        elif s == "incomplete": status = " [Incomplete]"
         print(f" {i:2}) {g['label']}{status}")
     print("="*80)
 
@@ -216,7 +217,7 @@ def cmd_library(args):
             if not os.path.exists(reflib_dir):
                 os.makedirs(reflib_dir, exist_ok=True)
             
-            download_and_process_genome(idx, reflib_dir, genomes_list=genomes)
+            download_and_process_genome(genomes[idx], reflib_dir)
         else:
             print("Invalid choice.")
     except (ValueError, EOFError, KeyboardInterrupt):
