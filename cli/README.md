@@ -114,6 +114,22 @@ Edit `cli/.env.local` to set your paths:
 
 Once set, global arguments like `--ref` and `--input` become optional for many commands.
 
+## UI Wrappers
+
+For non-technical users or those who prefer a more interactive experience, the CLI tool includes two modern UI wrappers.
+
+### 🎨 Graphical User Interface (GUI)
+A modern desktop application built with `CustomTkinter`. It provides file browsers and intuitive forms for common tasks.
+```bash
+wgsextract-cli gui
+```
+
+### ⌨️ Text User Interface (TUI)
+An interactive terminal-based interface built with `Textual`. Ideal for users who want a guided experience without leaving the terminal.
+```bash
+wgsextract-cli tui
+```
+
 ## Usage
 
 ### Direct Command

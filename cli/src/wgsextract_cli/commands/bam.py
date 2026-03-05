@@ -5,45 +5,46 @@ import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, get_resource_defaults, verify_paths_exist, calculate_bam_md5, resolve_reference, get_chr_name
 from wgsextract_cli.core.warnings import print_warning, check_free_space
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("bam", help="BAM/CRAM management commands.")
     bam_subs = parser.add_subparsers(dest="bam_cmd", required=True)
 
-    sort_parser = bam_subs.add_parser("sort", parents=[base_parser], help="Sort a BAM or CRAM file by coordinate.")
+    sort_parser = bam_subs.add_parser("sort", parents=[base_parser], help=HELP_TEXTS["sort"])
     sort_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     sort_parser.set_defaults(func=cmd_sort)
 
-    index_parser = bam_subs.add_parser("index", parents=[base_parser], help="Creates a BAM or CRAM index file.")
+    index_parser = bam_subs.add_parser("index", parents=[base_parser], help=HELP_TEXTS["index"])
     index_parser.set_defaults(func=cmd_index)
 
-    unindex_parser = bam_subs.add_parser("unindex", parents=[base_parser], help="Deletes the .bai or .crai file associated with the BAM/CRAM.")
+    unindex_parser = bam_subs.add_parser("unindex", parents=[base_parser], help=HELP_TEXTS["unindex"])
     unindex_parser.set_defaults(func=cmd_unindex)
 
-    unsort_parser = bam_subs.add_parser("unsort", parents=[base_parser], help="Changes the coordinate-sorted status in the BAM header to 'unsorted'.")
+    unsort_parser = bam_subs.add_parser("unsort", parents=[base_parser], help=HELP_TEXTS["unsort"])
     unsort_parser.set_defaults(func=cmd_unsort)
 
-    tocram_parser = bam_subs.add_parser("to-cram", parents=[base_parser], help="Convert BAM to CRAM.")
+    tocram_parser = bam_subs.add_parser("to-cram", parents=[base_parser], help=HELP_TEXTS["to-cram"])
     tocram_parser.add_argument("-r", "--region", help="Chromosomal region")
     tocram_parser.set_defaults(func=cmd_tocram)
 
-    tobam_parser = bam_subs.add_parser("to-bam", parents=[base_parser], help="Convert CRAM to BAM.")
+    tobam_parser = bam_subs.add_parser("to-bam", parents=[base_parser], help=HELP_TEXTS["to-bam"])
     tobam_parser.add_argument("-r", "--region", help="Chromosomal region")
     tobam_parser.set_defaults(func=cmd_tobam)
 
-    unalign_parser = bam_subs.add_parser("unalign", parents=[base_parser], help="Converts aligned reads back to raw paired-end or single-end FASTQ files.")
+    unalign_parser = bam_subs.add_parser("unalign", parents=[base_parser], help=HELP_TEXTS["unalign"])
     unalign_parser.add_argument("--r1", required=True, help="Output Read 1 FASTQ")
     unalign_parser.add_argument("--r2", required=True, help="Output Read 2 FASTQ")
     unalign_parser.add_argument("--se", help="Output Single-End FASTQ")
     unalign_parser.add_argument("-r", "--region", help="Chromosomal region")
     unalign_parser.set_defaults(func=cmd_unalign)
 
-    subset_parser = bam_subs.add_parser("subset", parents=[base_parser], help="Creates a random subset of a BAM file.")
+    subset_parser = bam_subs.add_parser("subset", parents=[base_parser], help=HELP_TEXTS["subset"])
     subset_parser.add_argument("--fraction", "-f", required=True, type=float, help="Decimal percentage (e.g. 0.1 for 10%%)")
     subset_parser.add_argument("-r", "--region", help="Chromosomal region")
     subset_parser.set_defaults(func=cmd_subset)
 
-    mtextract_parser = bam_subs.add_parser("mt-extract", parents=[base_parser], help="Extract mitochondrial (mtDNA) reads to a separate BAM.")
+    mtextract_parser = bam_subs.add_parser("mt-extract", parents=[base_parser], help=HELP_TEXTS["mt-extract"])
     mtextract_parser.set_defaults(func=cmd_mtextract)
 
 def get_base_args(args):

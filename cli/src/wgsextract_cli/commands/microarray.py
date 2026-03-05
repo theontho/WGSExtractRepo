@@ -7,6 +7,8 @@ from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, 
 from wgsextract_cli.core.warnings import print_warning
 from wgsextract_cli.core.microarray_utils import liftover_hg38_to_hg19, convert_to_vendor_format
 
+from wgsextract_cli.core.help_texts import HELP_TEXTS
+
 def register(subparsers, base_parser):
     format_help = """Comma-separated list of formats to generate (default: all).
 Available formats:
@@ -29,7 +31,7 @@ Available formats:
 """
     parser = subparsers.add_parser("microarray", 
                                    parents=[base_parser],
-                                   help="Generates microarray simulation CombinedKit.",
+                                   help=HELP_TEXTS["microarray"],
                                    formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--formats", default="all", help=format_help)
     parser.add_argument("--parallel", action="store_true", help="Enable per-chromosome parallel variant calling")

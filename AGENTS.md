@@ -1,0 +1,3 @@
+When you do your work, make sure to actually test your changes.  This might mean just running code you've changed by running the app, cli, etc.  It might mean running related tests, or making tests so your changes are testable.  Go in a edit-build-lint-run-test-fix cycle and keep on iterating until there isn't anything to fix.  Usually just editing files and then not building or testing is not enough.
+
+The cli re-implementaiton in the cli/ directory is a completely independent reimplementation of the legacy GUI application in the root directory.  Do not share or link code in it, instead reimplement it in ideally python, referencing the legacy app as a source of truth.

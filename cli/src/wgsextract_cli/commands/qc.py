@@ -4,17 +4,18 @@ import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, verify_paths_exist, get_resource_defaults
 from wgsextract_cli.core.warnings import print_warning
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("qc", help="Runs quality control or calculates coverage.")
     qc_subs = parser.add_subparsers(dest="qc_cmd", required=True)
 
-    fastp_parser = qc_subs.add_parser("fastp", parents=[base_parser], help="Rapid QC and preprocessing for FASTQ files.")
+    fastp_parser = qc_subs.add_parser("fastp", parents=[base_parser], help=HELP_TEXTS["fastp"])
     fastp_parser.add_argument("--r1", required=True, help="Input Read 1 FASTQ")
     fastp_parser.add_argument("--r2", help="Input Read 2 FASTQ")
     fastp_parser.set_defaults(func=cmd_fastp)
 
-    fastqc_parser = qc_subs.add_parser("fastqc", parents=[base_parser], help="Runs FastQC on BAM/CRAM or FASTQ.")
+    fastqc_parser = qc_subs.add_parser("fastqc", parents=[base_parser], help=HELP_TEXTS["fastqc"])
     fastqc_parser.set_defaults(func=cmd_fastqc)
 
 def cmd_fastp(args):

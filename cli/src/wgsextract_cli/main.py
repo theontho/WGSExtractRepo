@@ -57,6 +57,13 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True, title="subcommands")
     
+    # UI Commands
+    tui_parser = subparsers.add_parser("tui", help="Launch the Text User Interface (TUI)")
+    tui_parser.set_defaults(func=lambda args: __import__("wgsextract_cli.ui.tui", fromlist=["main"]).main())
+
+    gui_parser = subparsers.add_parser("gui", help="Launch the Graphical User Interface (GUI)")
+    gui_parser.set_defaults(func=lambda args: __import__("wgsextract_cli.ui.gui", fromlist=["main"]).main())
+
     # 3. Register all subcommands, passing the base_parser as a parent
     for cmd_module in [info, bam, extract, microarray, lineage, vcf, repair, qc, ref, align, vep]:
         cmd_module.register(subparsers, base_parser)

@@ -3,17 +3,18 @@ import subprocess
 import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, verify_paths_exist
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("lineage", help="Executes Yleaf or Haplogrep.")
     lin_subs = parser.add_subparsers(dest="lin_cmd", required=True)
 
-    ydna_parser = lin_subs.add_parser("y-dna", parents=[base_parser], help="Run Yleaf on Y-BAM.")
+    ydna_parser = lin_subs.add_parser("y-dna", parents=[base_parser], help=HELP_TEXTS["lineage-y"])
     ydna_parser.add_argument("--yleaf-path", required=True, help="Path to yleaf.py")
     ydna_parser.add_argument("--pos-file", required=True, help="Yleaf position file")
     ydna_parser.set_defaults(func=cmd_ydna)
 
-    mtdna_parser = lin_subs.add_parser("mt-dna", parents=[base_parser], help="Run Haplogrep on MT-VCF.")
+    mtdna_parser = lin_subs.add_parser("mt-dna", parents=[base_parser], help=HELP_TEXTS["lineage-mt"])
     mtdna_parser.add_argument("--haplogrep-path", required=True, help="Path to haplogrep.jar")
     mtdna_parser.set_defaults(func=cmd_mtdna)
 

@@ -5,63 +5,64 @@ import sys
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, ReferenceLibrary, ensure_vcf_indexed
 from wgsextract_cli.core.warnings import print_warning
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("vcf", help="Variant calling and processing using bcftools, delly, or freebayes.")
     vcf_subs = parser.add_subparsers(dest="vcf_cmd", required=True)
 
-    snp_parser = vcf_subs.add_parser("snp", parents=[base_parser], help="Generates a VCF file containing single nucleotide polymorphisms using bcftools.")
+    snp_parser = vcf_subs.add_parser("snp", parents=[base_parser], help=HELP_TEXTS["snp"])
     snp_group = snp_parser.add_mutually_exclusive_group(required=False)
     snp_group.add_argument("--ploidy-file", help="File defining ploidy per chromosome (auto-resolved from --ref if possible)")
     snp_group.add_argument("--ploidy", help="Predefined ploidy name or value")
     snp_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     snp_parser.set_defaults(func=cmd_snp)
 
-    indel_parser = vcf_subs.add_parser("indel", parents=[base_parser], help="Generates a normalized VCF file containing insertions and deletions using bcftools.")
+    indel_parser = vcf_subs.add_parser("indel", parents=[base_parser], help=HELP_TEXTS["indel"])
     indel_group = indel_parser.add_mutually_exclusive_group(required=False)
     indel_group.add_argument("--ploidy-file", help="File defining ploidy per chromosome (auto-resolved from --ref if possible)")
     indel_group.add_argument("--ploidy", help="Predefined ploidy name or value")
     indel_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     indel_parser.set_defaults(func=cmd_indel)
 
-    annotate_parser = vcf_subs.add_parser("annotate", parents=[base_parser], help="Annotate VCF file.")
+    annotate_parser = vcf_subs.add_parser("annotate", parents=[base_parser], help=HELP_TEXTS["annotate"])
     annotate_parser.add_argument("--ann-vcf", help="Annotation VCF file (auto-resolved from --ref if possible)")
     annotate_parser.add_argument("--cols", help="Columns to annotate (e.g. ID,INFO/HG)")
     annotate_parser.set_defaults(func=cmd_annotate)
 
-    filter_parser = vcf_subs.add_parser("filter", parents=[base_parser], help="Filter VCF file.")
+    filter_parser = vcf_subs.add_parser("filter", parents=[base_parser], help=HELP_TEXTS["filter"])
     filter_parser.add_argument("--expr", help="bcftools filter expression (e.g. 'QUAL>30')")
     filter_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
     filter_parser.add_argument("-r", "--region", help="Chromosomal region")
     filter_parser.set_defaults(func=cmd_filter)
     
-    trio_parser = vcf_subs.add_parser("trio", parents=[base_parser], help="Perform inheritance analysis on a family trio (Mother-Father-Child).")
+    trio_parser = vcf_subs.add_parser("trio", parents=[base_parser], help=HELP_TEXTS["trio"])
     trio_parser.add_argument("--proband", required=True, help="VCF file for the child")
     trio_parser.add_argument("--mother", required=True, help="VCF file for the mother")
     trio_parser.add_argument("--father", required=True, help="VCF file for the father")
     trio_parser.add_argument("--mode", choices=["denovo", "recessive", "comphet"], default="denovo", help="Inheritance mode to filter for")
     trio_parser.set_defaults(func=cmd_trio)
 
-    cnv_parser = vcf_subs.add_parser("cnv", parents=[base_parser], help="Call Copy Number Variants (CNV) using delly.")
+    cnv_parser = vcf_subs.add_parser("cnv", parents=[base_parser], help=HELP_TEXTS["cnv"])
     cnv_parser.set_defaults(func=cmd_cnv)
 
-    sv_parser = vcf_subs.add_parser("sv", parents=[base_parser], help="Call Structural Variants (SV) using delly.")
+    sv_parser = vcf_subs.add_parser("sv", parents=[base_parser], help=HELP_TEXTS["sv"])
     sv_parser.set_defaults(func=cmd_sv)
 
-    freebayes_parser = vcf_subs.add_parser("freebayes", parents=[base_parser], help="Call variants using freebayes.")
+    freebayes_parser = vcf_subs.add_parser("freebayes", parents=[base_parser], help=HELP_TEXTS["freebayes"])
     freebayes_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)")
     freebayes_parser.set_defaults(func=cmd_freebayes)
 
-    gatk_parser = vcf_subs.add_parser("gatk", parents=[base_parser], help="Call variants using GATK HaplotypeCaller.")
+    gatk_parser = vcf_subs.add_parser("gatk", parents=[base_parser], help=HELP_TEXTS["gatk"])
     gatk_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     gatk_parser.set_defaults(func=cmd_gatk)
 
-    deepvariant_parser = vcf_subs.add_parser("deepvariant", parents=[base_parser], help="Call variants using DeepVariant.")
+    deepvariant_parser = vcf_subs.add_parser("deepvariant", parents=[base_parser], help=HELP_TEXTS["deepvariant"])
     deepvariant_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     deepvariant_parser.add_argument("--wes", action="store_true", help="Set model type to WES (default: WGS)")
     deepvariant_parser.set_defaults(func=cmd_deepvariant)
 
-    qc_parser = vcf_subs.add_parser("qc", parents=[base_parser], help="VCF QC using bcftools stats.")
+    qc_parser = vcf_subs.add_parser("qc", parents=[base_parser], help=HELP_TEXTS["vcf-qc"])
     qc_parser.set_defaults(func=cmd_qc)
 
 def get_base_args(args):

@@ -7,14 +7,15 @@ import shutil
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_resource_defaults, calculate_bam_md5, verify_paths_exist, ReferenceLibrary, run_command, ensure_vcf_indexed, calculate_bsd_sum
 from wgsextract_cli.core.warnings import print_warning
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
-    parser = subparsers.add_parser("vep", parents=[base_parser], help="Run Ensembl Variant Effect Predictor (VEP) on VCF or BAM/CRAM.")
+    parser = subparsers.add_parser("vep", parents=[base_parser], help=HELP_TEXTS["vep-run"])
     
     vep_subs = parser.add_subparsers(dest="vep_cmd", required=False)
     
     # Download helper
-    dl_parser = vep_subs.add_parser("download", parents=[base_parser], help="Download VEP cache for a specific assembly.")
+    dl_parser = vep_subs.add_parser("download", parents=[base_parser], help=HELP_TEXTS["vep-download"])
     dl_parser.add_argument("--species", default="homo_sapiens", help="Species name (default: homo_sapiens)")
     dl_parser.add_argument("--assembly", choices=["GRCh37", "GRCh38"], default="GRCh38", help="Assembly (default: GRCh38)")
     dl_parser.add_argument("--vep-version", default="115", help="Ensembl release version (default: 115)")
@@ -22,7 +23,7 @@ def register(subparsers, base_parser):
     dl_parser.set_defaults(func=cmd_vep_download)
 
     # Verify helper
-    verify_parser = vep_subs.add_parser("verify", parents=[base_parser], help="Verify existing VEP cache integrity.")
+    verify_parser = vep_subs.add_parser("verify", parents=[base_parser], help=HELP_TEXTS["vep-verify"])
     verify_parser.add_argument("--species", default="homo_sapiens", help="Species name (default: homo_sapiens)")
     verify_parser.add_argument("--assembly", choices=["GRCh37", "GRCh38"], default="GRCh38", help="Assembly (default: GRCh38)")
     verify_parser.add_argument("--vep-version", default="115", help="Ensembl release version (default: 115)")

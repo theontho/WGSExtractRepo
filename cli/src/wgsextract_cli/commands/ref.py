@@ -6,32 +6,33 @@ import hashlib
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, verify_paths_exist
 from wgsextract_cli.core.ref_library import download_and_process_genome, get_available_genomes, load_genomes_from_csv, GENOME_DATA
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
     ref_subs = parser.add_subparsers(dest="ref_cmd", required=True)
 
-    ident_parser = ref_subs.add_parser("identify", parents=[base_parser], help="Runs MD5 check on BAM header to identify reference genome.")
+    ident_parser = ref_subs.add_parser("identify", parents=[base_parser], help=HELP_TEXTS["ref-identify"])
     ident_parser.set_defaults(func=cmd_identify)
 
-    dl_parser = ref_subs.add_parser("download", parents=[base_parser], help="Fetches FASTA from NIH/EBI.")
+    dl_parser = ref_subs.add_parser("download", parents=[base_parser], help=HELP_TEXTS["ref-download"])
     dl_parser.add_argument("--url", required=True, help="URL to download from")
     dl_parser.add_argument("--out", required=True, help="Output FASTA file path")
     dl_parser.set_defaults(func=cmd_download)
 
-    index_parser = ref_subs.add_parser("index", parents=[base_parser], help="Runs faidx and dict on reference FASTA.")
+    index_parser = ref_subs.add_parser("index", parents=[base_parser], help=HELP_TEXTS["ref-index"])
     index_parser.set_defaults(func=cmd_index)
 
-    cntns_parser = ref_subs.add_parser("count-ns", parents=[base_parser], help="Analyzes reference FASTA to count N segments (using countingNs.py).")
+    cntns_parser = ref_subs.add_parser("count-ns", parents=[base_parser], help=HELP_TEXTS["ref-count-ns"])
     cntns_parser.set_defaults(func=cmd_count_ns)
 
-    verify_parser = ref_subs.add_parser("verify", parents=[base_parser], help="Verify integrity of reference FASTA file.")
+    verify_parser = ref_subs.add_parser("verify", parents=[base_parser], help=HELP_TEXTS["ref-verify"])
     verify_parser.set_defaults(func=cmd_ref_verify)
 
     lib_parser = ref_subs.add_parser("library", parents=[base_parser], help="Interactive reference library manager to download genomes.")
     lib_parser.set_defaults(func=cmd_library)
 
-    dlgenes_parser = ref_subs.add_parser("download-genes", parents=[base_parser], help="Downloads lightweight gene mapping files (hg19/hg38).")
+    dlgenes_parser = ref_subs.add_parser("download-genes", parents=[base_parser], help=HELP_TEXTS["ref-download-genes"])
     dlgenes_parser.set_defaults(func=cmd_download_genes)
 
 def cmd_identify(args):

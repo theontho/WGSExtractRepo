@@ -4,18 +4,19 @@ import logging
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command, get_chr_name, get_resource_defaults, calculate_bam_md5, resolve_reference, verify_paths_exist, get_ref_mito, ensure_vcf_indexed
 from wgsextract_cli.core.warnings import print_warning
+from wgsextract_cli.core.help_texts import HELP_TEXTS
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("extract", help="Extract specific chromosomes or unmapped reads.")
     ext_subs = parser.add_subparsers(dest="ext_cmd", required=True)
 
-    mito_parser = ext_subs.add_parser("mito", parents=[base_parser], help="Extracts MT reads, generates VCF, and creates a consensus FASTA.")
+    mito_parser = ext_subs.add_parser("mito", parents=[base_parser], help=HELP_TEXTS["mito"])
     mito_parser.set_defaults(func=cmd_mito)
 
-    y_parser = ext_subs.add_parser("y", parents=[base_parser], help="Extracts Y-chromosome reads and generates a VCF.")
+    y_parser = ext_subs.add_parser("y", parents=[base_parser], help=HELP_TEXTS["ydna"])
     y_parser.set_defaults(func=cmd_y)
 
-    unmapped_parser = ext_subs.add_parser("unmapped", parents=[base_parser], help="Extracts all unmapped reads to a separate BAM.")
+    unmapped_parser = ext_subs.add_parser("unmapped", parents=[base_parser], help=HELP_TEXTS["unmapped"])
     unmapped_parser.set_defaults(func=cmd_unmapped)
 
 def get_base_args(args):

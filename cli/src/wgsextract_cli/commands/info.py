@@ -10,6 +10,8 @@ from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import get_bam_header, calculate_bam_md5, is_sorted, resolve_reference, verify_paths_exist
 from wgsextract_cli.core.constants import SEQUENCERS, REFERENCE_MODELS, REF_GENOME_FILENAMES, N_ADJUST
 
+from wgsextract_cli.core.help_texts import HELP_TEXTS
+
 def determine_sequencer(qname):
     """Identify sequencer type from QNAME using regex patterns."""
     if not qname: return "Unknown"
@@ -19,16 +21,16 @@ def determine_sequencer(qname):
     return "Unknown"
 
 def register(subparsers, base_parser):
-    parser = subparsers.add_parser("info", parents=[base_parser], help="Parses header, verifies coordinate sorting, calculates stats and detects reference genome signature.")
+    parser = subparsers.add_parser("info", parents=[base_parser], help=HELP_TEXTS["info"])
     parser.add_argument("--detailed", action="store_true", help="Perform full index and body sample analysis (detailed mode)")
     parser.add_argument("--csv", action="store_true", help="Output the table as CSV instead of formatted text")
     
     info_subs = parser.add_subparsers(dest="info_cmd", required=False)
-    calc_cov = info_subs.add_parser("calculate-coverage", parents=[base_parser], help="Calculate FULL breadth coverage using samtools depth (1-3 hours)")
+    calc_cov = info_subs.add_parser("calculate-coverage", parents=[base_parser], help=HELP_TEXTS["calculate-coverage"])
     calc_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     calc_cov.set_defaults(func=run)
 
-    samp_cov = info_subs.add_parser("coverage-sample", parents=[base_parser], help="Estimate coverage using random sampling (under 10 seconds)")
+    samp_cov = info_subs.add_parser("coverage-sample", parents=[base_parser], help=HELP_TEXTS["coverage-sample"])
     samp_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     samp_cov.set_defaults(func=run)
     
