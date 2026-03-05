@@ -179,6 +179,10 @@ def cmd_vep_download(args):
             if os.path.exists(checksum_path):
                 os.remove(checksum_path)
 
+        if cancel_event and cancel_event.is_set():
+            logging.info("Download cancelled before extraction.")
+            return False
+
         logging.info(f"Download complete. Extracting {filename}...")
         subprocess.run(["tar", "-xzf", target_path, "-C", cache_root], check=True)
         logging.info("Extraction complete.")

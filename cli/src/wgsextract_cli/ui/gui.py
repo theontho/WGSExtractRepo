@@ -225,8 +225,11 @@ class WGSExtractGUI(ctk.CTk):
             ToolTip(btn, cm["help"])
 
         # VEP Progress UI
-        self.vep_prog_frame = ctk.CTkFrame(frame, fg_color="transparent")
-        self.vep_prog_frame.pack(fill="x", padx=20, pady=5)
+        self.vep_prog_container = ctk.CTkFrame(frame, fg_color="transparent", height=0)
+        self.vep_prog_container.pack(fill="x")
+        self.vep_prog_frame = ctk.CTkFrame(
+            self.vep_prog_container, fg_color="transparent", height=0
+        )
         self.vep_prog_var = ctk.DoubleVar(value=0)
         self.vep_stat_var = ctk.StringVar(value="")
         self.vep_pbar = ctk.CTkProgressBar(
@@ -371,6 +374,7 @@ class WGSExtractGUI(ctk.CTk):
                 ).pack(side="right", padx=5)
 
     def run_vep_download(self):
+        self.vep_prog_frame.pack(fill="x", padx=20, pady=5)
         self.vep_pbar.pack(side="left", padx=5)
         self.vep_stat_lbl.pack(side="left", padx=5)
         self.vep_cancel_btn.pack(side="left", padx=5)
@@ -416,6 +420,7 @@ class WGSExtractGUI(ctk.CTk):
                 self.after(
                     0,
                     lambda: (
+                        self.vep_prog_frame.pack_forget(),
                         self.vep_pbar.pack_forget(),
                         self.vep_stat_lbl.pack_forget(),
                         self.vep_cancel_btn.pack_forget(),
@@ -429,6 +434,10 @@ class WGSExtractGUI(ctk.CTk):
         if self.vep_cancel_event:
             self.vep_cancel_event.set()
             self.log("Cancelling VEP download...")
+            self.vep_prog_frame.pack_forget()
+            self.vep_pbar.pack_forget()
+            self.vep_stat_lbl.pack_forget()
+            self.vep_cancel_btn.pack_forget()
 
     def setup_microarray_frame(self):
         key = "micro"
