@@ -6,7 +6,6 @@ HELP_TEXTS = {
     "calculate-coverage": "Calculate FULL breadth coverage using samtools depth (1-3 hours).",
     "coverage-sample": "Estimate coverage using random sampling (under 10 seconds).",
     "align": "Align FASTQ reads to a reference model using BWA or Minimap2.",
-    
     "sort": "Sort a BAM or CRAM file by coordinate.",
     "index": "Creates a BAM or CRAM index file.",
     "unindex": "Deletes the index file associated with the BAM/CRAM.",
@@ -18,12 +17,10 @@ HELP_TEXTS = {
     "mt-extract": "Extract mitochondrial (mtDNA) reads to a separate BAM.",
     "repair-ftdna-bam": "Repair formatting violations in FTDNA BAM files.",
     "repair-ftdna-vcf": "Repair formatting violations in FTDNA VCF files.",
-    
     "mito": "Extract mitochondrial reads.",
     "ydna": "Extract Y-chromosome reads.",
     "unmapped": "Extract unmapped reads.",
     "custom": "Extract reads from a specific chromosomal region.",
-    
     "snp": "Call SNPs using bcftools.",
     "indel": "Call InDels using bcftools.",
     "sv": "Call Structural Variants using delly.",
@@ -35,15 +32,12 @@ HELP_TEXTS = {
     "filter": "Filter VCF using expressions or genes.",
     "trio": "Inheritance analysis on a family trio.",
     "vcf-qc": "Variant call quality control stats.",
-    
     "vep-run": "Run Ensembl Variant Effect Predictor.",
     "vep-download": "Download VEP cache for offline use.",
     "vep-verify": "Verify existing VEP cache integrity.",
-    
     "microarray": "Generates a simulated microarray CombinedKit for ancestry tools.",
     "lineage-y": "Run Yleaf Y-DNA haplogroup prediction.",
     "lineage-mt": "Run Haplogrep MT-DNA haplogroup prediction.",
-    
     "fastqc": "Run FastQC quality control.",
     "fastp": "Run fastp for adapter trimming and QC.",
     "ref-identify": "Automatically detect the reference genome used.",
@@ -57,9 +51,11 @@ HELP_TEXTS = {
 
 # Specialized UI tooltips (more descriptive for non-technical users)
 UI_TOOLTIPS = HELP_TEXTS.copy()
-UI_TOOLTIPS.update({
-    "info": "Performs a detailed analysis of your BAM/CRAM file to identify the reference genome, sequencer type, and bio-gender. (Runs in --detailed mode)",
-    "ref-library": "Opens the interactive reference manager. Note: This will run in your terminal window.",
-    "custom": "Extracts reads from a chromosomal region you specify (e.g., 'chr1:1000-5000').",
-    "vcf-qc": "Generates statistical reports for your VCF file using bcftools stats.",
-})
+UI_TOOLTIPS.update(
+    {
+        "info": "Performs a detailed analysis of your BAM/CRAM file to identify the reference genome, sequencer type, and bio-gender. (Runs in --detailed mode)",
+        "ref-library": "Opens the interactive reference manager. Note: This will run in your terminal window.",
+        "custom": "Extracts reads from a chromosomal region you specify (e.g., 'chr1:1000-5000').",
+        "vcf-qc": "Generates statistical reports for your VCF file using bcftools stats.",
+    }
+)

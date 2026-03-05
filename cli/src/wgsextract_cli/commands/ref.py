@@ -1,56 +1,84 @@
+import hashlib
+import logging
 import os
 import subprocess
-import logging
 import sys
-import hashlib
+
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.utils import calculate_bam_md5, resolve_reference, verify_paths_exist
-from wgsextract_cli.core.ref_library import (
-    download_and_process_genome, get_available_genomes, 
-    load_genomes_from_csv, GENOME_DATA, get_genome_status
-)
 from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.ref_library import (
+    GENOME_DATA,
+    download_and_process_genome,
+    get_available_genomes,
+    get_genome_status,
+    load_genomes_from_csv,
+)
+from wgsextract_cli.core.utils import (
+    calculate_bam_md5,
+    resolve_reference,
+    verify_paths_exist,
+)
+
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
     ref_subs = parser.add_subparsers(dest="ref_cmd", required=True)
 
-    ident_parser = ref_subs.add_parser("identify", parents=[base_parser], help=HELP_TEXTS["ref-identify"])
+    ident_parser = ref_subs.add_parser(
+        "identify", parents=[base_parser], help=HELP_TEXTS["ref-identify"]
+    )
     ident_parser.set_defaults(func=cmd_identify)
 
-    dl_parser = ref_subs.add_parser("download", parents=[base_parser], help=HELP_TEXTS["ref-download"])
+    dl_parser = ref_subs.add_parser(
+        "download", parents=[base_parser], help=HELP_TEXTS["ref-download"]
+    )
     dl_parser.add_argument("--url", required=True, help="URL to download from")
     dl_parser.add_argument("--out", required=True, help="Output FASTA file path")
     dl_parser.set_defaults(func=cmd_download)
 
-    index_parser = ref_subs.add_parser("index", parents=[base_parser], help=HELP_TEXTS["ref-index"])
+    index_parser = ref_subs.add_parser(
+        "index", parents=[base_parser], help=HELP_TEXTS["ref-index"]
+    )
     index_parser.set_defaults(func=cmd_index)
 
-    cntns_parser = ref_subs.add_parser("count-ns", parents=[base_parser], help=HELP_TEXTS["ref-count-ns"])
+    cntns_parser = ref_subs.add_parser(
+        "count-ns", parents=[base_parser], help=HELP_TEXTS["ref-count-ns"]
+    )
     cntns_parser.set_defaults(func=cmd_count_ns)
 
-    verify_parser = ref_subs.add_parser("verify", parents=[base_parser], help=HELP_TEXTS["ref-verify"])
+    verify_parser = ref_subs.add_parser(
+        "verify", parents=[base_parser], help=HELP_TEXTS["ref-verify"]
+    )
     verify_parser.set_defaults(func=cmd_ref_verify)
 
-    lib_parser = ref_subs.add_parser("library", parents=[base_parser], help="Interactive reference library manager to download genomes.")
+    lib_parser = ref_subs.add_parser(
+        "library",
+        parents=[base_parser],
+        help="Interactive reference library manager to download genomes.",
+    )
     lib_parser.set_defaults(func=cmd_library)
 
-    dlgenes_parser = ref_subs.add_parser("download-genes", parents=[base_parser], help=HELP_TEXTS["ref-download-genes"])
+    dlgenes_parser = ref_subs.add_parser(
+        "download-genes", parents=[base_parser], help=HELP_TEXTS["ref-download-genes"]
+    )
     dlgenes_parser.set_defaults(func=cmd_download_genes)
+
 
 def cmd_identify(args):
     verify_dependencies(["samtools"])
     if not args.input:
         logging.error("--input is required.")
         return
-    
-    if not verify_paths_exist({'--input': args.input}): return
+
+    if not verify_paths_exist({"--input": args.input}):
+        return
 
     # Auto-resolve ref if a directory was provided
     resolved_ref = resolve_reference(args.ref, "")
-        
+
     md5_sig = calculate_bam_md5(args.input, resolved_ref)
     logging.info(f"MD5 Signature for {args.input}: {md5_sig}")
+
 
 def cmd_download(args):
     verify_dependencies(["wget"])
@@ -60,14 +88,16 @@ def cmd_download(args):
     except subprocess.CalledProcessError as e:
         logging.error(f"Download failed: {e}")
 
+
 def cmd_index(args):
     verify_dependencies(["samtools"])
     if not args.ref:
         logging.error("--ref is required.")
         return
-    
-    if not verify_paths_exist({'--ref': args.ref}): return
-        
+
+    if not verify_paths_exist({"--ref": args.ref}):
+        return
+
     logging.info(f"Indexing {args.ref} with faidx")
     try:
         subprocess.run(["samtools", "faidx", args.ref], check=True)
@@ -77,15 +107,19 @@ def cmd_index(args):
     except subprocess.CalledProcessError as e:
         logging.error(f"Indexing failed: {e}")
 
+
 def cmd_count_ns(args):
     verify_dependencies(["python3"])
     if not args.ref:
         logging.error("--ref is required.")
         return
-    
-    if not verify_paths_exist({'--ref': args.ref}): return
-        
-    prog_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../program"))
+
+    if not verify_paths_exist({"--ref": args.ref}):
+        return
+
+    prog_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../../../../program")
+    )
     script = os.path.join(prog_dir, "countingNs.py")
     if not os.path.exists(script):
         logging.error("countingNs.py script not found.")
@@ -97,12 +131,13 @@ def cmd_count_ns(args):
     except subprocess.CalledProcessError as e:
         logging.error(f"N-counting failed: {e}")
 
+
 def cmd_ref_verify(args):
     verify_dependencies(["gzip", "samtools"])
     if not args.ref:
         logging.error("--ref is required.")
         return
-    
+
     # Auto-resolve ref if a directory was provided
     resolved_ref = resolve_reference(args.ref, "")
     if not os.path.exists(resolved_ref):
@@ -110,15 +145,15 @@ def cmd_ref_verify(args):
         return
 
     logging.info(f"Verifying integrity of {resolved_ref}...")
-    
+
     # 1. MD5 Checksum (if known)
     filename = os.path.basename(resolved_ref)
     expected_md5 = None
     for g in GENOME_DATA:
-        if g['final'] == filename:
-            expected_md5 = g.get('md5')
+        if g["final"] == filename:
+            expected_md5 = g.get("md5")
             break
-    
+
     if expected_md5:
         logging.info(f"Verifying MD5 checksum for {filename}...")
         hash_md5 = hashlib.md5()
@@ -130,7 +165,7 @@ def cmd_ref_verify(args):
             if calculated == expected_md5:
                 logging.info("MD5 checksum: OK")
             else:
-                logging.error(f"MD5 checksum FAILED!")
+                logging.error("MD5 checksum FAILED!")
                 logging.error(f"Expected: {expected_md5}")
                 logging.error(f"Calculated: {calculated}")
                 # We continue to show other potential errors (like gzip eof)
@@ -141,7 +176,9 @@ def cmd_ref_verify(args):
     if resolved_ref.endswith(".gz"):
         logging.info("Running gzip integrity test...")
         try:
-            subprocess.run(["gzip", "-t", resolved_ref], check=True, stderr=subprocess.PIPE)
+            subprocess.run(
+                ["gzip", "-t", resolved_ref], check=True, stderr=subprocess.PIPE
+            )
             logging.info("Gzip integrity: OK")
         except subprocess.CalledProcessError as e:
             msg = e.stderr.decode() if e.stderr else "Unexpected end of file"
@@ -155,7 +192,9 @@ def cmd_ref_verify(args):
     logging.info("Running samtools faidx check...")
     try:
         # Check if index exists, if not try to create/verify
-        res = subprocess.run(["samtools", "faidx", resolved_ref], capture_output=True, text=True)
+        res = subprocess.run(
+            ["samtools", "faidx", resolved_ref], capture_output=True, text=True
+        )
         if res.returncode == 0:
             logging.info("Samtools faidx: OK")
         else:
@@ -167,14 +206,15 @@ def cmd_ref_verify(args):
 
     logging.info(f"Reference {os.path.basename(resolved_ref)} appears to be valid.")
 
+
 def cmd_library(args):
     """Interactive library manager."""
     verify_dependencies(["curl", "samtools", "bcftools", "tabix", "bgzip", "htsfile"])
-    
+
     # Try to find seed_genomes.csv
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     csv_path = os.path.join(prog_root, "base_reference", "seed_genomes.csv")
-    
+
     genomes = load_genomes_from_csv(csv_path)
     if not genomes:
         # Fallback to hardcoded list if CSV missing
@@ -184,22 +224,24 @@ def cmd_library(args):
     reflib_dir = args.ref if args.ref else os.path.join(prog_root, "reference")
     reflib_dir = os.path.abspath(reflib_dir)
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("WGS Extract Reference Library Manager")
     print(f"Library Path: {reflib_dir}")
-    print("="*80)
+    print("=" * 80)
     print("Select an option:")
     print(" 0) Exit")
     print(" G) Download Gene Mapping Database (hg19/hg38)")
-    
+
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
-        s = get_genome_status(g['final'], reflib_dir)
+        s = get_genome_status(g["final"], reflib_dir)
         status = ""
-        if s == "installed": status = " [Installed]"
-        elif s == "incomplete": status = " [Incomplete]"
+        if s == "installed":
+            status = " [Installed]"
+        elif s == "incomplete":
+            status = " [Incomplete]"
         print(f" {i:2}) {g['label']}{status}")
-    print("="*80)
+    print("=" * 80)
 
     try:
         choice = input("\nEnter choice (number or G): ").strip().upper()
@@ -209,6 +251,7 @@ def cmd_library(args):
 
         if choice == "G":
             from wgsextract_cli.core.gene_map import download_gene_maps
+
             download_gene_maps(reflib_dir)
             return
 
@@ -216,15 +259,17 @@ def cmd_library(args):
         if 0 <= idx < len(genomes):
             if not os.path.exists(reflib_dir):
                 os.makedirs(reflib_dir, exist_ok=True)
-            
+
             download_and_process_genome(genomes[idx], reflib_dir)
         else:
             print("Invalid choice.")
     except (ValueError, EOFError, KeyboardInterrupt):
         print("\nExiting library manager.")
 
+
 def cmd_download_genes(args):
     from wgsextract_cli.core.gene_map import download_gene_maps
+
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
     if download_gene_maps(reflib):
