@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import time
+from typing import Any
 
 from wgsextract_cli.core.constants import (
     N_ADJUST,
@@ -101,6 +102,7 @@ def run_body_sample(filepath, cram_opt):
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, text=True, stderr=subprocess.DEVNULL
         )
+        assert proc.stdout is not None
         for _ in range(20000):
             line = proc.stdout.readline()
             if not line:
@@ -111,7 +113,7 @@ def run_body_sample(filepath, cram_opt):
 
             if first_qname is None:
                 first_qname = fields[0]
-            
+
             flag = int(fields[1])
             rnext = fields[6]
             tlen = int(fields[8])
@@ -123,7 +125,7 @@ def run_body_sample(filepath, cram_opt):
 
             if flag & 1:
                 paired_count += 1
-            
+
             seq_len = len(seq)
             if seq_len > 1:
                 total_len += seq_len
@@ -186,7 +188,9 @@ def parse_idxstats(filepath):
 def generate_chrom_table(idx_stats, avg_len, gender, ref_model_name, coverage_map=None):
     """Build the detailed per-chromosome metrics table."""
     valid_autos, valid_somal = [str(i) for i in range(1, 23)], ["X", "Y"]
-    stats_autos, stats_somal, stats_mito = [], [], []
+    stats_autos: list[list[Any]] = []
+    stats_somal: list[list[Any]] = []
+    stats_mito: list[list[Any]] = []
     if coverage_map is None:
         coverage_map = {}
 
@@ -201,10 +205,8 @@ def generate_chrom_table(idx_stats, avg_len, gender, ref_model_name, coverage_ma
     )
     n_adjust_map = N_ADJUST.get(build, {})
 
-    stats_total, stats_altcont = (
-        ["T", "Total", 0, 0, 0, 0.0, 0.0, ""],
-        ["O", "Other", 0, 0, 0, 0.0, 0.0, ""],
-    )
+    stats_total: list[Any] = ["T", "Total", 0, 0, 0, 0.0, 0.0, ""]
+    stats_altcont: list[Any] = ["O", "Other", 0, 0, 0, 0.0, 0.0, ""]
 
     for s in idx_stats:
         if s["mapped"] == 0:
@@ -238,7 +240,7 @@ def generate_chrom_table(idx_stats, avg_len, gender, ref_model_name, coverage_ma
         stats_total[4] += row[4]
 
     final_table.append(stats_total)
-    if stats_altcont[4] > 0:
+    if int(stats_altcont[4]) > 0:
         final_table.append(stats_altcont)
 
     for i in range(len(final_table)):
@@ -259,16 +261,20 @@ def render_info(data, detailed=False):
     output_lines = []
     if detailed and data.get("chrom_table_csv"):
         reader = list(csv.DictReader(io.StringIO(data["chrom_table_csv"])))
-        
+
         # Check if we actually have any coverage data to show
-        has_coverage = any(r.get("Breadth Coverage") for r in reader if r.get("Breadth Coverage"))
+        has_coverage = any(
+            r.get("Breadth Coverage") for r in reader if r.get("Breadth Coverage")
+        )
 
         header_line1 = "Seq        Model    Model    # Segs      Map    Map Breadth"
         header_line2 = "Name         Len  'N' Len       Map   Gbases    ARD"
         if has_coverage:
             header_line2 += " Coverage"
-        
-        output_lines.append(f"By Reference Sequence Name\n{header_line1}\n{header_line2}")
+
+        output_lines.append(
+            f"By Reference Sequence Name\n{header_line1}\n{header_line2}"
+        )
 
         def fmt_num(val):
             val = int(float(val))
@@ -306,7 +312,9 @@ def render_info(data, detailed=False):
             f"{'Reads':<28}{m.get('reads_mapped_pct', 0):.0f} %{'':<12}{m.get('reads_raw_pct', 100):.0f} %\n"
         )
 
-    output_lines.append(f"{'Reference Genome':<28}{data.get('ref_model_str', 'Unknown')}")
+    output_lines.append(
+        f"{'Reference Genome':<28}{data.get('ref_model_str', 'Unknown')}"
+    )
 
     if data.get("avg_read_len", 0) > 0:
         output_lines.append(
@@ -319,8 +327,10 @@ def render_info(data, detailed=False):
         output_lines.append(f"{'Avg Read Length':<28}Could not compute")
 
     if detailed:
-        output_lines.append(f"{'File Content':<28}{data.get('file_content', 'Unknown')}")
-    
+        output_lines.append(
+            f"{'File Content':<28}{data.get('file_content', 'Unknown')}"
+        )
+
     if data.get("gender") and data.get("gender") != "Unknown":
         output_lines.append(f"{'Bio Gender':<28}{data.get('gender')}")
     if data.get("sequencer") and data.get("sequencer") != "Unknown":
@@ -351,7 +361,8 @@ def run_full_coverage(input_p, ref_p, out_p, region=None):
         cmd = [x for x in cmd if x is not None]
         p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         p2 = subprocess.Popen(["awk", awk], stdin=p1.stdout, stdout=open(out_p, "w"))
-        p1.stdout.close()
+        if p1.stdout:
+            p1.stdout.close()
         p2.communicate()
     except Exception as e:
         logging.error(f"Coverage failed: {e}")
@@ -362,7 +373,8 @@ def run_sampled_coverage(input_p, ref_p, idx_stats, out_p, region=None):
     import random
 
     print("Estimating coverage using random sampling...")
-    sample_results, total_b, covered_b = {}, 0, 0
+    sample_results: dict[str, Any] = {}
+    total_b, covered_b = 0, 0
 
     if region:
         chroms = [
@@ -452,7 +464,7 @@ def run(args):
         return
 
     print(f"Analyzing {args.input}...")
-    
+
     # Fetch header once to avoid redundant subprocess calls
     t0 = time.time()
     header = get_bam_header(args.input)
@@ -490,7 +502,12 @@ def run(args):
                 print(render_info(data, detailed=False))
                 return
             # If we wanted detailed mode and we have the chrom table, we can return early
-            if args.detailed and data.get("chrom_table_csv") and getattr(args, "info_cmd", None) not in ["calculate-coverage", "coverage-sample"]:
+            if (
+                args.detailed
+                and data.get("chrom_table_csv")
+                and getattr(args, "info_cmd", None)
+                not in ["calculate-coverage", "coverage-sample"]
+            ):
                 print(f"Loading cached metrics from {json_cache}...")
                 if getattr(args, "csv", False):
                     print(data.get("chrom_table_csv", ""), end="")
@@ -503,7 +520,7 @@ def run(args):
     # 1. FAST METRICS (Compute if missing from cache)
     if not data.get("avg_read_len"):
         cram_opt = ["-T", resolved_ref] if resolved_ref else []
-        
+
         t0 = time.time()
         sorted_status = is_sorted(args.input, cram_opt, header=header)
         logging.debug(f"Sort check took {time.time() - t0:.3f}s")
@@ -523,26 +540,38 @@ def run(args):
         )
 
         t0 = time.time()
-        count, avg_len, std_len, avg_tlen, std_tlen, is_paired, first_qname = (
-            run_body_sample(args.input, cram_opt)
-        )
+        (
+            count,
+            avg_len,
+            std_len,
+            avg_tlen,
+            std_tlen,
+            is_paired,
+            first_qname,
+        ) = run_body_sample(args.input, cram_opt)
         logging.debug(f"Body sampling took {time.time() - t0:.3f}s")
 
         sequencer = determine_sequencer(first_qname)
-        
+
         # Populate data dict with fast metrics
-        data.update({
-            "filename": os.path.basename(args.input),
-            "md5_signature": md5_sig,
-            "file_stats": {"sorted": sorted_status, "indexed": indexed, "size_gb": size_gb},
-            "ref_model_str": ref_model_str,
-            "avg_read_len": avg_len,
-            "std_read_len": std_len,
-            "is_paired": is_paired,
-            "avg_insert_size": avg_tlen,
-            "std_insert_size": std_tlen,
-            "sequencer": sequencer,
-        })
+        data.update(
+            {
+                "filename": os.path.basename(args.input),
+                "md5_signature": md5_sig,
+                "file_stats": {
+                    "sorted": sorted_status,
+                    "indexed": indexed,
+                    "size_gb": size_gb,
+                },
+                "ref_model_str": ref_model_str,
+                "avg_read_len": avg_len,
+                "std_read_len": std_len,
+                "is_paired": is_paired,
+                "avg_insert_size": avg_tlen,
+                "std_insert_size": std_tlen,
+                "sequencer": sequencer,
+            }
+        )
 
     if not args.detailed:
         print(render_info(data, detailed=False))
@@ -557,16 +586,23 @@ def run(args):
         return
 
     # 2. DETAILED METRICS (Compute if missing from cache)
-    if not data.get("chrom_table_csv") or getattr(args, "info_cmd", None) in ["calculate-coverage", "coverage-sample"]:
+    if not data.get("chrom_table_csv") or getattr(args, "info_cmd", None) in [
+        "calculate-coverage",
+        "coverage-sample",
+    ]:
         t0 = time.time()
         idx_stats, genome_len, total_mapped, total_unmapped = parse_idxstats(args.input)
         logging.debug(f"Idxstats took {time.time() - t0:.3f}s")
 
         total_reads = total_mapped + total_unmapped
-        
+
         # Extract variables from data for calculations
         avg_len = data["avg_read_len"]
-        ref_model_name = data["ref_model_str"].split(" (")[0] if " (" in data["ref_model_str"] else "Unknown"
+        ref_model_name = (
+            data["ref_model_str"].split(" (")[0]
+            if " (" in data["ref_model_str"]
+            else "Unknown"
+        )
 
         cov_file, sample_file = (
             os.path.join(outdir, f"{os.path.basename(args.input)}_bincvg.csv"),
@@ -584,9 +620,9 @@ def run(args):
                     for line in f.readlines()[1:]:
                         p = line.split("\t")
                         if len(p) > 7:
-                            coverage_map[p[0].upper().replace("CHR", "").replace("MT", "M")] = (
-                                f"{(int(p[2]) / int(p[7])) * 100:.0f} %"
-                            )
+                            coverage_map[
+                                p[0].upper().replace("CHR", "").replace("MT", "M")
+                            ] = f"{(int(p[2]) / int(p[7])) * 100:.0f} %"
         elif info_cmd == "coverage-sample":
             run_sampled_coverage(
                 args.input, resolved_ref, idx_stats, sample_file, region=region
@@ -599,11 +635,19 @@ def run(args):
                     pass
 
         y_reads = next(
-            (s["mapped"] for s in idx_stats if s["name"].upper().replace("CHR", "") == "Y"),
+            (
+                s["mapped"]
+                for s in idx_stats
+                if s["name"].upper().replace("CHR", "") == "Y"
+            ),
             0,
         )
         x_reads = next(
-            (s["mapped"] for s in idx_stats if s["name"].upper().replace("CHR", "") == "X"),
+            (
+                s["mapped"]
+                for s in idx_stats
+                if s["name"].upper().replace("CHR", "") == "X"
+            ),
             0,
         )
         gender = (
@@ -615,55 +659,60 @@ def run(args):
             idx_stats, avg_len, gender, ref_model_name, coverage_map
         )
         total_row = next(r for r in chrom_table if r[1] == "Total")
-        mapped_segs = total_row[4] + next((r[4] for r in chrom_table if r[1] == "Other"), 0)
+        mapped_segs = total_row[4] + next(
+            (r[4] for r in chrom_table if r[1] == "Other"), 0
+        )
 
         # Detailed metrics update
-        data.update({
-            "gender": gender,
-            "file_content": ", ".join(
-                [
-                    k
-                    for k, v in {
-                        "Auto": any(
-                            s["mapped"] > 0
-                            and s["name"].upper().replace("CHR", "").isdigit()
-                            for s in idx_stats
-                        ),
-                        "X": x_reads > 0,
-                        "Y": y_reads > 0,
-                        "Mito": any(
-                            s["mapped"] > 0
-                            and s["name"].upper().replace("CHR", "") in ["M", "MT"]
-                            for s in idx_stats
-                        ),
-                        "Other": any(
-                            s["mapped"] > 0
-                            and s["name"] != "*"
-                            and not s["name"].upper().replace("CHR", "").isdigit()
-                            and s["name"].upper().replace("CHR", "")
-                            not in ["X", "Y", "M", "MT"]
-                            for s in idx_stats
-                        ),
-                    }.items()
-                    if v
-                ]
-                + (["Unmap"] if total_unmapped > 0 else [])
-            ),
-            "metrics": {
-                "ard_mapped": (total_row[4] * avg_len)
-                / (total_row[2] - total_row[3] + 0.0001),
-                "ard_raw": (total_reads * avg_len) / (total_row[2] - total_row[3] + 0.0001),
-                "gbases_mapped": (mapped_segs * avg_len) / (10**9),
-                "gbases_raw": (total_reads * avg_len) / (10**9),
-                "reads_mapped_m": mapped_segs / 1_000_000,
-                "reads_raw_m": total_reads / 1_000_000,
-                "reads_mapped_pct": (mapped_segs / total_reads * 100)
-                if total_reads > 0
-                else 0,
-                "reads_raw_pct": 100.0,
-            },
-        })
-        
+        data.update(
+            {
+                "gender": gender,
+                "file_content": ", ".join(
+                    [
+                        k
+                        for k, v in {
+                            "Auto": any(
+                                s["mapped"] > 0
+                                and s["name"].upper().replace("CHR", "").isdigit()
+                                for s in idx_stats
+                            ),
+                            "X": x_reads > 0,
+                            "Y": y_reads > 0,
+                            "Mito": any(
+                                s["mapped"] > 0
+                                and s["name"].upper().replace("CHR", "") in ["M", "MT"]
+                                for s in idx_stats
+                            ),
+                            "Other": any(
+                                s["mapped"] > 0
+                                and s["name"] != "*"
+                                and not s["name"].upper().replace("CHR", "").isdigit()
+                                and s["name"].upper().replace("CHR", "")
+                                not in ["X", "Y", "M", "MT"]
+                                for s in idx_stats
+                            ),
+                        }.items()
+                        if v
+                    ]
+                    + (["Unmap"] if total_unmapped > 0 else [])
+                ),
+                "metrics": {
+                    "ard_mapped": (total_row[4] * avg_len)
+                    / (total_row[2] - total_row[3] + 0.0001),
+                    "ard_raw": (total_reads * avg_len)
+                    / (total_row[2] - total_row[3] + 0.0001),
+                    "gbases_mapped": (mapped_segs * avg_len) / (10**9),
+                    "gbases_raw": (total_reads * avg_len) / (10**9),
+                    "reads_mapped_m": mapped_segs / 1_000_000,
+                    "reads_raw_m": total_reads / 1_000_000,
+                    "reads_mapped_pct": (mapped_segs / total_reads * 100)
+                    if total_reads > 0
+                    else 0,
+                    "reads_raw_pct": 100.0,
+                },
+            }
+        )
+
         si = io.StringIO()
         cw = csv.writer(si)
         cw.writerow(
@@ -679,7 +728,15 @@ def run(args):
         )
         for row in chrom_table:
             cw.writerow(
-                [row[1], row[2], row[3], row[4], f"{row[5]:.2f}", f"{row[6]:.0f}", row[7]]
+                [
+                    row[1],
+                    row[2],
+                    row[3],
+                    row[4],
+                    f"{row[5]:.2f}",
+                    f"{row[6]:.0f}",
+                    row[7],
+                ]
             )
         data["chrom_table_csv"] = si.getvalue()
 

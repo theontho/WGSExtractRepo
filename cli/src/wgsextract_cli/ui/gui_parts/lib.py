@@ -28,7 +28,6 @@ class LibFrame(BaseFrame):
             widget.destroy()
 
         super().setup_ui()
-        key = self.key
         meta = self.meta
 
         # Directory and Basic Selectors
@@ -37,9 +36,9 @@ class LibFrame(BaseFrame):
         self.lib_dest = self.create_dir_selector(
             ldf, "Library Dir:", os.environ.get("WGSE_REF", "")
         )
-        ctk.CTkButton(
-            ldf, text="Refresh List", width=100, command=self.setup_ui
-        ).pack(side="right", padx=10)
+        ctk.CTkButton(ldf, text="Refresh List", width=100, command=self.setup_ui).pack(
+            side="right", padx=10
+        )
 
         self.input_entry = self.create_file_selector(
             self, "Input:", os.environ.get("WGSE_INPUT", "")
@@ -55,7 +54,9 @@ class LibFrame(BaseFrame):
         self._setup_vep_mgmt_section(meta["vep_commands"], ref_val)
 
         # 3. Reference Genome List Section
-        self._setup_ref_list_section(get_grouped_genomes, get_genome_status, get_genome_size)
+        self._setup_ref_list_section(
+            get_grouped_genomes, get_genome_status, get_genome_size
+        )
 
     def _setup_ref_mgmt_section(self, commands: list[dict[str, Any]]) -> None:
         """Set up the action buttons for general reference management."""
@@ -79,7 +80,9 @@ class LibFrame(BaseFrame):
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
 
-    def _setup_vep_mgmt_section(self, vep_commands: list[dict[str, Any]], ref_val: str) -> None:
+    def _setup_vep_mgmt_section(
+        self, vep_commands: list[dict[str, Any]], ref_val: str
+    ) -> None:
         """Set up the VEP cache management controls and progress bars."""
         vep_f = ctk.CTkFrame(self, fg_color="transparent")
         vep_f.pack(fill="x", padx=20, pady=(20, 10))
@@ -140,7 +143,9 @@ class LibFrame(BaseFrame):
             command=self.main_app.cancel_vep_download,
         )
 
-    def _setup_ref_list_section(self, get_grouped_genomes: Any, get_genome_status: Any, get_genome_size: Any) -> None:
+    def _setup_ref_list_section(
+        self, get_grouped_genomes: Any, get_genome_status: Any, get_genome_size: Any
+    ) -> None:
         """Set up the interactive list of available reference genomes."""
         hf = ctk.CTkFrame(self, fg_color="transparent")
         hf.pack(fill="x", padx=20, pady=(20, 10))
@@ -162,7 +167,13 @@ class LibFrame(BaseFrame):
         for group in grouped:
             self._create_genome_row(group, dest, get_genome_status, get_genome_size)
 
-    def _create_genome_row(self, group: dict[str, Any], dest: str, get_genome_status: Any, get_genome_size: Any) -> None:
+    def _create_genome_row(
+        self,
+        group: dict[str, Any],
+        dest: str,
+        get_genome_status: Any,
+        get_genome_size: Any,
+    ) -> None:
         """Create a single row for a reference genome in the list."""
         row = ctk.CTkFrame(self)
         row.pack(fill="x", padx=20, pady=5)
@@ -171,7 +182,7 @@ class LibFrame(BaseFrame):
         s = get_genome_status(fn, dest)
         sz = get_genome_size(fn, dest)
         sl = f" ({sz})" if sz else ""
-        
+
         # Tags processing
         tags = []
         if "(Rec)" in lt:
@@ -182,12 +193,18 @@ class LibFrame(BaseFrame):
         ctk.CTkLabel(
             row, text=f"{lt}{sl}", anchor="w", font=ctk.CTkFont(weight="bold")
         ).pack(side="left", padx=10)
-        
+
         for tt, tc in tags:
             ctk.CTkLabel(
-                row, text=tt, font=ctk.CTkFont(size=10, weight="bold"),
-                fg_color=tc, text_color="white", corner_radius=10,
-                padx=6, pady=0, height=16,
+                row,
+                text=tt,
+                font=ctk.CTkFont(size=10, weight="bold"),
+                fg_color=tc,
+                text_color="white",
+                corner_radius=10,
+                padx=6,
+                pady=0,
+                height=16,
             ).pack(side="left", padx=2)
 
         if fn in self.main_app.active_downloads:
@@ -203,45 +220,77 @@ class LibFrame(BaseFrame):
         di = self.main_app.active_downloads[fn]
         dc = ctk.CTkFrame(row, fg_color="transparent")
         dc.pack(side="right", padx=10)
-        ctk.CTkProgressBar(dc, variable=di["progress_var"], width=150).pack(side="left", padx=5)
-        ctk.CTkLabel(dc, textvariable=di["status_var"], font=ctk.CTkFont(size=10)).pack(side="left", padx=5)
+        ctk.CTkProgressBar(dc, variable=di["progress_var"], width=150).pack(
+            side="left", padx=5
+        )
+        ctk.CTkLabel(dc, textvariable=di["status_var"], font=ctk.CTkFont(size=10)).pack(
+            side="left", padx=5
+        )
         ctk.CTkButton(
-            dc, text="Cancel", width=60, fg_color="#666666",
-            hover_color="#888888", command=lambda f=fn: self.main_app.cancel_lib_download(f),
+            dc,
+            text="Cancel",
+            width=60,
+            fg_color="#666666",
+            hover_color="#888888",
+            command=lambda f=fn: self.main_app.cancel_lib_download(f),
         ).pack(side="left", padx=5)
 
     def _add_installed_controls(self, row: ctk.CTkFrame, group: dict[str, Any]) -> None:
         btn = ctk.CTkButton(
-            row, text="Delete", width=80, fg_color="#992222",
-            hover_color="#bb3333", command=lambda g=group: self.main_app.run_lib_delete(g, self),
+            row,
+            text="Delete",
+            width=80,
+            fg_color="#992222",
+            hover_color="#bb3333",
+            command=lambda g=group: self.main_app.run_lib_delete(g, self),
         )
         btn.pack(side="right", padx=10)
         ToolTip(btn, f"Remove {group['final']} and index files.")
 
-    def _add_incomplete_controls(self, row: ctk.CTkFrame, group: dict[str, Any]) -> None:
+    def _add_incomplete_controls(
+        self, row: ctk.CTkFrame, group: dict[str, Any]
+    ) -> None:
         ctk.CTkButton(
-            row, text="Delete", width=70, fg_color="#992222",
-            hover_color="#bb3333", command=lambda g=group: self.main_app.run_lib_delete(g, self),
+            row,
+            text="Delete",
+            width=70,
+            fg_color="#992222",
+            hover_color="#bb3333",
+            command=lambda g=group: self.main_app.run_lib_delete(g, self),
         ).pack(side="right", padx=10)
         ctk.CTkButton(
-            row, text="Restart", width=70, fg_color="#aa6622",
-            hover_color="#cc8844", command=lambda g=group: self.main_app.run_lib_download(
+            row,
+            text="Restart",
+            width=70,
+            fg_color="#aa6622",
+            hover_color="#cc8844",
+            command=lambda g=group: self.main_app.run_lib_download(
                 g["sources"][0], self, restart=True
             ),
         ).pack(side="right", padx=5)
         ctk.CTkButton(
-            row, text="Resume", width=70, fg_color="#228822",
-            hover_color="#33aa33", command=lambda g=group: self.main_app.run_lib_download(g["sources"][0], self),
+            row,
+            text="Resume",
+            width=70,
+            fg_color="#228822",
+            hover_color="#33aa33",
+            command=lambda g=group: self.main_app.run_lib_download(
+                g["sources"][0], self
+            ),
         ).pack(side="right", padx=5)
         ctk.CTkLabel(
-            row, text="Incomplete", text_color="#ffaa00",
+            row,
+            text="Incomplete",
+            text_color="#ffaa00",
             font=ctk.CTkFont(size=11, weight="bold"),
         ).pack(side="right", padx=10)
 
     def _add_available_controls(self, row: ctk.CTkFrame, group: dict[str, Any]) -> None:
         for sd in reversed(group["sources"]):
             sb = ctk.CTkButton(
-                row, text=sd["source"], width=60,
+                row,
+                text=sd["source"],
+                width=60,
                 command=lambda s=sd: self.main_app.run_lib_download(s, self),
             )
             sb.pack(side="right", padx=5)

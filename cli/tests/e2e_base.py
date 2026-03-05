@@ -13,7 +13,10 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 # Load environment variables
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
+from wgsextract_cli.core.utils import ensure_vcf_indexed  # noqa: E402
+from wgsextract_cli.core.warnings import EXPECTED_TIME, M1_PRO_ESTIMATES  # noqa: E402
+from wgsextract_cli.main import main  # noqa: E402
 
 cli_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 env_local = os.path.join(cli_root, ".env.local")
@@ -23,10 +26,6 @@ if os.path.exists(env_local):
     load_dotenv(dotenv_path=env_local)
 if os.path.exists(env_std):
     load_dotenv(dotenv_path=env_std)
-
-from wgsextract_cli.core.utils import ensure_vcf_indexed
-from wgsextract_cli.core.warnings import EXPECTED_TIME, M1_PRO_ESTIMATES
-from wgsextract_cli.main import main
 
 # Get paths from environment
 REF_PATH = os.environ.get("WGSE_REF")
@@ -127,7 +126,7 @@ class TestE2EBase(unittest.TestCase):
         if self.REGION is None:
             new_args = []
             skip_next = False
-            for i, arg in enumerate(args):
+            for _i, arg in enumerate(args):
                 if skip_next:
                     skip_next = False
                     continue

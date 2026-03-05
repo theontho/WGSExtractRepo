@@ -211,7 +211,8 @@ def cmd_snp(args):
         stdin=p1.stdout,
         stderr=subprocess.PIPE,
     )
-    p1.stdout.close()
+    if p1.stdout:
+        p1.stdout.close()
     _, stderr = p2.communicate()
 
     if p2.returncode != 0:
@@ -265,7 +266,8 @@ def cmd_indel(args):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    p1.stdout.close()
+    if p1.stdout:
+        p1.stdout.close()
     stdout, stderr = p2.communicate()
 
     if p2.returncode != 0:
@@ -571,8 +573,10 @@ def cmd_freebayes(args):
                 ["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p_fb.stdout
             )
 
-            p_view.stdout.close()
-            p_fb.stdout.close()
+            if p_view.stdout:
+                p_view.stdout.close()
+            if p_fb.stdout:
+                p_fb.stdout.close()
             p_vcf.communicate()
 
             if p_vcf.returncode != 0:
@@ -591,7 +595,8 @@ def cmd_freebayes(args):
             p2 = subprocess.Popen(
                 ["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p1.stdout
             )
-            p1.stdout.close()
+            if p1.stdout:
+                p1.stdout.close()
             p2.communicate()
 
             if p2.returncode != 0:

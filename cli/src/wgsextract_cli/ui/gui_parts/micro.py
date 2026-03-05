@@ -6,6 +6,7 @@ from typing import Any
 import customtkinter as ctk
 
 from wgsextract_cli.ui.constants import MICROARRAY_FORMATS
+
 from .common import BaseFrame
 
 
@@ -18,7 +19,6 @@ class MicroFrame(BaseFrame):
     def setup_ui(self) -> None:
         """Set up the UI elements for the microarray frame."""
         super().setup_ui()
-        key = self.key
 
         # File Selectors
         self.input_entry = self.create_file_selector(

@@ -22,8 +22,8 @@ cli_src = cli_root / "src"
 if str(cli_src) not in sys.path:
     sys.path.insert(0, str(cli_src))
 
-from wgsextract_cli.core.utils import ReferenceLibrary, calculate_bam_md5
-from wgsextract_cli.main import main
+from wgsextract_cli.core.utils import ReferenceLibrary, calculate_bam_md5  # noqa: E402
+from wgsextract_cli.main import main  # noqa: E402
 
 # Load environment variables
 env_local = cli_root / ".env.local"
@@ -123,7 +123,7 @@ class TestMicroarrayRealData(unittest.TestCase):
                     i += 1
                 i += int(num_str) - 1
             i += 1
-        return "".join(sorted(list(set(called_bases)))) if called_bases else None
+        return "".join(sorted(set(called_bases))) if called_bases else None
 
     def test_microarray_multi_vendor(self):
         """
@@ -158,7 +158,8 @@ class TestMicroarrayRealData(unittest.TestCase):
         base_txt = os.path.join(self.test_dir, "CombinedKit.txt")
         self.assertTrue(os.path.exists(base_txt), "Base CombinedKit.txt missing")
         with open(base_txt) as f:
-            base_lines = [l for l in f if not l.startswith("#")]
+            base_lines = [line for line in f if not line.startswith("#")]
+
         print(f"Base CombinedKit.txt generated with {len(base_lines)} SNPs")
         self.assertGreater(len(base_lines), 1000)
 
@@ -194,7 +195,9 @@ class TestMicroarrayRealData(unittest.TestCase):
                 lines = f.readlines()
 
             data_lines = [
-                l.strip() for l in lines if not l.startswith("#") and l.strip()
+                line.strip()
+                for line in lines
+                if not line.startswith("#") and line.strip()
             ]
             print(f"Format {fmt_key}: {len(data_lines)} SNPs")
             self.assertGreater(len(data_lines), 10000)

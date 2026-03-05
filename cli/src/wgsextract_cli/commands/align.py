@@ -65,7 +65,8 @@ def align_bwa(args):
         p2 = subprocess.Popen(
             ["samtools", "view", "-bh", "-o", out_bam], stdin=p1.stdout
         )
-        p1.stdout.close()
+        if p1.stdout:
+            p1.stdout.close()
         p2.communicate()
 
         logging.info("Indexing output BAM...")
@@ -104,7 +105,8 @@ def align_minimap2(args):
         p2 = subprocess.Popen(
             ["samtools", "view", "-bh", "-o", out_bam], stdin=p1.stdout
         )
-        p1.stdout.close()
+        if p1.stdout:
+            p1.stdout.close()
         p2.communicate()
 
         logging.info("Indexing output BAM...")

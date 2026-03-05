@@ -11,7 +11,7 @@ cli_src = Path(__file__).resolve().parent.parent / "src"
 if str(cli_src) not in sys.path:
     sys.path.insert(0, str(cli_src))
 
-from wgsextract_cli.core.microarray_utils import (
+from wgsextract_cli.core.microarray_utils import (  # noqa: E402
     convert_to_vendor_format,
     liftover_hg38_to_hg19,
 )
@@ -81,9 +81,9 @@ class TestMicroarrayTranslation(unittest.TestCase):
 
         # Verify results
         with open(output_txt) as f:
-            lines = [l.strip().split("\t") for l in f if not l.startswith("#")]
+            lines = [line.strip().split("\t") for line in f if not line.startswith("#")]
 
-        results = {l[0]: l for l in lines}
+        results = {line[0]: line for line in lines}
 
         self.assertIn("rs3094315", results)
         self.assertEqual(
@@ -136,8 +136,8 @@ class TestMicroarrayTranslation(unittest.TestCase):
         with open(out_23andme) as f:
             lines = f.readlines()
 
-        data = [l.strip().split("\t") for l in lines if not l.startswith("#")]
-        results = {l[0]: l for l in data}
+        data = [line.strip().split("\t") for line in lines if not line.startswith("#")]
+        results = {line[0]: line for line in data}
 
         self.assertIn("rs3094315", results)
         self.assertEqual(

@@ -1,12 +1,12 @@
 """Main entry point for the WGS Extract Graphical User Interface."""
 
 import os
-import tkinter as tk
 import threading
-from typing import Any, Dict, Optional
+import tkinter as tk
+from typing import Any
 
-from PIL import Image
 import customtkinter as ctk
+from PIL import Image
 
 from wgsextract_cli.ui.constants import UI_METADATA
 from wgsextract_cli.ui.gui_parts.controller import GUIController
@@ -55,7 +55,7 @@ class WGSExtractGUI(ctk.CTk):
 
         # Load assets
         self.icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
-        self.logo_image: Optional[ctk.CTkImage] = None
+        self.logo_image: ctk.CTkImage | None = None
         if os.path.exists(self.icon_path):
             try:
                 # Set window icon
@@ -64,13 +64,15 @@ class WGSExtractGUI(ctk.CTk):
 
                 # Load for sidebar
                 pil_img = Image.open(self.icon_path)
-                self.logo_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 100))
+                self.logo_image = ctk.CTkImage(
+                    light_image=pil_img, dark_image=pil_img, size=(100, 100)
+                )
             except Exception:
                 pass
 
         # State management
-        self.active_downloads: Dict[str, Any] = {}
-        self.vep_cancel_event: Optional[threading.Event] = None
+        self.active_downloads: dict[str, Any] = {}
+        self.vep_cancel_event: threading.Event | None = None
         self.controller = GUIController(self)
 
         # UI Layout
@@ -115,6 +117,7 @@ class WGSExtractGUI(ctk.CTk):
                 text=meta["title"],
                 command=lambda k=key: self.show_frame(k),
             ).grid(row=i + 2, column=0, padx=20, pady=10)
+
     def _setup_main_content(self) -> None:
         """Set up the main content area where tab frames are displayed."""
         self.main_content = ctk.CTkFrame(self)
@@ -129,7 +132,7 @@ class WGSExtractGUI(ctk.CTk):
 
     def _setup_frames(self) -> None:
         """Initialize all tab frames from UI_METADATA."""
-        self.frames: Dict[str, ctk.CTkFrame] = {}
+        self.frames: dict[str, ctk.CTkFrame] = {}
         for key, meta in UI_METADATA.items():
             if key == "lib":
                 frame = LibFrame(self.main_content, self, key, meta)
@@ -145,21 +148,28 @@ class WGSExtractGUI(ctk.CTk):
         delta = event.num == 4 and 1 or event.num == 5 and -1 or event.delta
         curr = w
         while curr:
-            if isinstance(curr, (tk.Canvas, tk.Text, ctk.CTkTextbox)):
+            if isinstance(curr, tk.Canvas | tk.Text | ctk.CTkTextbox):
                 if isinstance(curr, tk.Canvas):
                     curr.yview_scroll(
-                        int(-1 * (delta / 120)) if event.num not in [4, 5] else -1 * delta,
+                        int(-1 * (delta / 120))
+                        if event.num not in [4, 5]
+                        else -1 * delta,
                         "units",
                     )
                 else:
                     curr.yview(
                         tk.SCROLL,
-                        int(-1 * (delta / 120)) if event.num not in [4, 5] else -1 * delta,
+                        int(-1 * (delta / 120))
+                        if event.num not in [4, 5]
+                        else -1 * delta,
                         tk.UNITS,
                     )
                 break
             try:
-                curr = curr.master
+                master = curr.master
+                if master is None:
+                    break
+                curr = master
             except AttributeError:
                 break
 
@@ -189,7 +199,9 @@ class WGSExtractGUI(ctk.CTk):
         """Delegate command dispatch to the controller."""
         self.controller.run_dispatch(cmd, frame)
 
-    def run_lib_download(self, gd: dict[str, Any], lib_frame: Any, restart: bool = False) -> None:
+    def run_lib_download(
+        self, gd: dict[str, Any], lib_frame: Any, restart: bool = False
+    ) -> None:
         """Delegate library download to the controller."""
         self.controller.run_lib_download(gd, lib_frame, restart)
 

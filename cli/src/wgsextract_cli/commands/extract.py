@@ -105,7 +105,8 @@ def cmd_mito(args):
         p2 = subprocess.Popen(
             ["bcftools", "call", "-mv", "-Oz", "-o", out_vcf], stdin=p1.stdout
         )
-        p1.stdout.close()
+        if p1.stdout:
+            p1.stdout.close()
         p2.communicate()
         ensure_vcf_indexed(out_vcf)
 
@@ -161,7 +162,8 @@ def cmd_y(args):
         p2 = subprocess.Popen(
             ["bcftools", "call", "-mv", "-Oz", "-o", out_vcf], stdin=p1.stdout
         )
-        p1.stdout.close()
+        if p1.stdout:
+            p1.stdout.close()
         p2.communicate()
         ensure_vcf_indexed(out_vcf)
 

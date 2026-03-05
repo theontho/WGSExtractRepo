@@ -1,9 +1,9 @@
 """Shared UI components and base classes for the WGS Extract GUI."""
 
-import os
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import filedialog
-from typing import Any, Optional, Union
+from typing import Any
 
 import customtkinter as ctk
 
@@ -21,11 +21,11 @@ class ToolTip:
         """
         self.widget = widget
         self.text = text
-        self.tip_window: Optional[tk.Toplevel] = None
+        self.tip_window: tk.Toplevel | None = None
         self.widget.bind("<Enter>", self.show_tip)
         self.widget.bind("<Leave>", self.hide_tip)
 
-    def show_tip(self, event: Optional[tk.Event] = None) -> None:
+    def show_tip(self, event: tk.Event | None = None) -> None:
         """Display the tooltip window."""
         if self.tip_window or not self.text:
             return
@@ -44,13 +44,13 @@ class ToolTip:
             foreground="#ffffff",
             relief="solid",
             borderwidth=1,
-            font=("Arial", "10", "normal"),
+            font=("Arial", 10, "normal"),
             padx=10,
             pady=8,
             wraplength=400,
         ).pack()
 
-    def hide_tip(self, event: Optional[tk.Event] = None) -> None:
+    def hide_tip(self, event: tk.Event | None = None) -> None:
         """Hide the tooltip window."""
         if self.tip_window:
             self.tip_window.destroy()
@@ -88,14 +88,18 @@ class BaseFrame(ctk.CTkScrollableFrame):
         ).pack(pady=(0, 10))
 
     def create_file_selector(
-        self, p: ctk.CTkFrame, l: str, iv: str = "", on_change: Optional[Callable[[str], None]] = None
+        self,
+        p: ctk.CTkFrame,
+        label_text: str,
+        iv: str = "",
+        on_change: Callable[[str], None] | None = None,
     ) -> ctk.CTkEntry:
         """
         Create a file selection row with a label, entry, and browse button.
 
         Args:
             p: The parent frame.
-            l: The label text.
+            label_text: The label text.
             iv: Initial value for the entry.
             on_change: Optional callback when value changes.
 
@@ -103,7 +107,9 @@ class BaseFrame(ctk.CTkScrollableFrame):
             The created CTkEntry widget.
         """
         frame = ctk.CTkFrame(p)
-        ctk.CTkLabel(frame, text=l, width=120, anchor="w").pack(side="left", padx=10)
+        ctk.CTkLabel(frame, text=label_text, width=120, anchor="w").pack(
+            side="left", padx=10
+        )
         entry = ctk.CTkEntry(frame)
         entry.insert(0, iv)
         if on_change:
@@ -111,25 +117,32 @@ class BaseFrame(ctk.CTkScrollableFrame):
             entry.bind("<Return>", lambda e: on_change(entry.get()))
         entry.pack(side="left", fill="x", expand=True, padx=10)
         ctk.CTkButton(
-            frame, text="Browse", width=80, command=lambda: self.browse_file(entry, on_change)
+            frame,
+            text="Browse",
+            width=80,
+            command=lambda: self.browse_file(entry, on_change),
         ).pack(side="right", padx=10)
         frame.pack(fill="x", padx=20, pady=5)
         return entry
 
-    def create_dir_selector(self, p: ctk.CTkFrame, l: str, iv: str = "") -> ctk.CTkEntry:
+    def create_dir_selector(
+        self, p: ctk.CTkFrame, label_text: str, iv: str = ""
+    ) -> ctk.CTkEntry:
         """
         Create a directory selection row with a label, entry, and browse button.
 
         Args:
             p: The parent frame.
-            l: The label text.
+            label_text: The label text.
             iv: Initial value for the entry.
 
         Returns:
             The created CTkEntry widget.
         """
         frame = ctk.CTkFrame(p)
-        ctk.CTkLabel(frame, text=l, width=120, anchor="w").pack(side="left", padx=10)
+        ctk.CTkLabel(frame, text=label_text, width=120, anchor="w").pack(
+            side="left", padx=10
+        )
         entry = ctk.CTkEntry(frame)
         entry.insert(0, iv)
         entry.pack(side="left", fill="x", expand=True, padx=10)
@@ -139,25 +152,29 @@ class BaseFrame(ctk.CTkScrollableFrame):
         frame.pack(fill="x", padx=20, pady=5)
         return entry
 
-    def create_entry(self, p: ctk.CTkFrame, l: str) -> ctk.CTkEntry:
+    def create_entry(self, p: ctk.CTkFrame, label_text: str) -> ctk.CTkEntry:
         """
         Create a simple entry row with a label and entry.
 
         Args:
             p: The parent frame.
-            l: The label text.
+            label_text: The label text.
 
         Returns:
             The created CTkEntry widget.
         """
         f = ctk.CTkFrame(p)
         f.pack(fill="x", padx=20, pady=5)
-        ctk.CTkLabel(f, text=l, width=120, anchor="w").pack(side="left", padx=10)
+        ctk.CTkLabel(f, text=label_text, width=120, anchor="w").pack(
+            side="left", padx=10
+        )
         e = ctk.CTkEntry(f)
         e.pack(side="right", fill="x", expand=True, padx=10)
         return e
 
-    def browse_file(self, e: ctk.CTkEntry, on_change: Optional[Callable[[str], None]] = None) -> None:
+    def browse_file(
+        self, e: ctk.CTkEntry, on_change: Callable[[str], None] | None = None
+    ) -> None:
         """Open a file dialog and update the entry."""
         f = filedialog.askopenfilename()
         if f:

@@ -289,6 +289,7 @@ def cmd_vep(args):
         )
 
         try:
+            assert resolved_ref is not None
             p1 = subprocess.Popen(
                 [
                     "bcftools",
@@ -312,7 +313,8 @@ def cmd_vep(args):
                 stdin=p1.stdout,
                 stderr=subprocess.PIPE,
             )
-            p1.stdout.close()
+            if p1.stdout:
+                p1.stdout.close()
             _, stderr = p2.communicate()
             if p2.returncode != 0:
                 logging.error(f"Variant calling failed: {stderr.decode()}")

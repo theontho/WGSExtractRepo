@@ -1,8 +1,10 @@
 """Shared UI metadata and constants for WGS Extract GUI."""
 
+from typing import Any
+
 from wgsextract_cli.core.help_texts import UI_TOOLTIPS
 
-MICROARRAY_FORMATS = [
+MICROARRAY_FORMATS: list[dict[str, Any]] = [
     {
         "id": "all",
         "label": "Combined ALL SNPs (GEDMATCH)",
@@ -61,7 +63,11 @@ UI_METADATA = {
         "help": "Basic analysis and alignment",
         "commands": [
             {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
-            {"label": "Clear Info Cache", "cmd": "clear-cache", "help": "Delete the cached .wgse_info.json for the current input file."},
+            {
+                "label": "Clear Info Cache",
+                "cmd": "clear-cache",
+                "help": "Delete the cached .wgse_info.json for the current input file.",
+            },
             {
                 "label": "Calc Coverage",
                 "cmd": "calculate-coverage",

@@ -7,20 +7,21 @@ import re
 import subprocess
 import time
 from collections.abc import Callable
+from typing import Any
 from urllib.request import Request, urlopen
 
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.utils import run_command
 
 # Global cache for genome data
-_GENOME_DATA_CACHE = []
+_GENOME_DATA_CACHE: list[dict[str, Any]] = []
 
 
 def download_file(
     url: str,
     dest: str,
     progress_callback: Callable[[int, int, float], None] | None = None,
-    cancel_event: any | None = None,
+    cancel_event: Any | None = None,
 ) -> bool:
     """Downloads a file with progress reporting, optional cancellation, and resume support."""
     partial_dest = dest + ".partial"
@@ -59,7 +60,7 @@ def download_file(
             total_size = initial_size + content_length
             bytes_downloaded = initial_size
             start_time = time.time()
-            last_report_time = 0
+            last_report_time = 0.0
 
             with open(partial_dest, mode) as f:
                 while True:
@@ -240,7 +241,7 @@ def download_and_process_genome(
     reflib_dir: str,
     interactive: bool = True,
     progress_callback: Callable | None = None,
-    cancel_event: any | None = None,
+    cancel_event: Any | None = None,
     restart: bool = False,
 ):
     verify_dependencies(["samtools", "bgzip", "gzip"])
@@ -287,21 +288,21 @@ def download_and_process_genome(
 
 def process_reference_file(fasta_path: str):
     logging.info(f"Processing reference: {fasta_path}")
-    fasta_path = ensure_bgzf(fasta_path)
-    if not fasta_path:
+    bgzf_path = ensure_bgzf(fasta_path)
+    if not bgzf_path:
         return False
-    base_name = re.sub(r"\.(fasta|fna|fa)\.gz$", "", fasta_path)
+    base_name = re.sub(r"\.(fasta|fna|fa)\.gz$", "", bgzf_path)
     dict_path = base_name + ".dict"
     try:
-        run_command(["samtools", "dict", fasta_path, "-o", dict_path])
-        run_command(["samtools", "faidx", fasta_path])
+        run_command(["samtools", "dict", bgzf_path, "-o", dict_path])
+        run_command(["samtools", "faidx", bgzf_path])
     except Exception as e:
         logging.error(f"Indexing failed: {e}")
         return False
 
-    analyzer = ReferenceAnalyzer(fasta_path, dict_path)
+    analyzer = ReferenceAnalyzer(bgzf_path, dict_path)
     analyzer.analyze()
-    cataloger = ReferenceCataloger(fasta_path, dict_path)
+    cataloger = ReferenceCataloger(bgzf_path, dict_path)
     cataloger.update_catalog()
     return True
 
@@ -322,7 +323,8 @@ def ensure_bgzf(path: str) -> str | None:
             with open(tmp_path, "wb") as f_out:
                 p1 = subprocess.Popen(["gunzip", "-c", path], stdout=subprocess.PIPE)
                 p2 = subprocess.Popen(["bgzip", "-c"], stdin=p1.stdout, stdout=f_out)
-                p1.stdout.close()
+                if p1.stdout:
+                    p1.stdout.close()
                 p2.communicate()
             os.remove(path)
             os.rename(tmp_path, path)

@@ -129,7 +129,8 @@ def run(args):
             + ["-m", "-V", "indels", "-Oz", "-o", out_vcf],
             stdin=p1.stdout,
         )
-        p1.stdout.close()
+        if p1.stdout:
+            p1.stdout.close()
         p2.communicate()
 
         ensure_vcf_indexed(out_vcf)
@@ -140,7 +141,6 @@ def run(args):
     # 2. Liftover if needed (to hg19 for most vendors)
     # The All_SNPs tab file is usually build-specific.
     # If the input was hg38, we might need to liftover the results to hg19.
-    final_vcf = out_vcf
     if lib.build and "38" in lib.build:
         logging.info(
             "Input build is hg38. Liftover to hg19 may be required for some formats."

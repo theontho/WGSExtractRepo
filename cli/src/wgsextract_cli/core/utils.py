@@ -386,9 +386,11 @@ def ensure_vcf_indexed(vcf_path):
     return False
 
 
-def get_bam_header(bam_path, cram_opt=[]):
+def get_bam_header(bam_path, cram_opt=None):
     """Fetch BAM/CRAM header using samtools view -H."""
     # Attempt 1: As provided
+    if cram_opt is None:
+        cram_opt = []
     cmd = ["samtools", "view", "-H"]
     if cram_opt:
         if isinstance(cram_opt, list):

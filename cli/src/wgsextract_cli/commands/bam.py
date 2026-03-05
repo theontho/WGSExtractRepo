@@ -164,7 +164,8 @@ def cmd_sort(args):
         try:
             p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
             p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout)
-            p1.stdout.close()
+            if p1.stdout:
+                p1.stdout.close()
             p2.communicate()
             if p2.returncode != 0:
                 logging.error("Sort failed.")
@@ -347,9 +348,11 @@ def cmd_unalign(args):
         try:
             p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
             p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout, stdout=subprocess.PIPE)
-            p1.stdout.close()
+            if p1.stdout:
+                p1.stdout.close()
             p3 = subprocess.Popen(fastq_cmd, stdin=p2.stdout)
-            p2.stdout.close()
+            if p2.stdout:
+                p2.stdout.close()
             p3.communicate()
         except Exception as e:
             logging.error(f"Unalign failed: {e}")

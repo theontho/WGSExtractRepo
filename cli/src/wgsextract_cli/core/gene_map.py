@@ -2,6 +2,7 @@ import csv
 import gzip
 import logging
 import os
+from typing import Any
 
 from wgsextract_cli.core.utils import run_command
 
@@ -35,7 +36,7 @@ class GeneMap:
             return False
 
         try:
-            gene_dict = {}
+            gene_dict: dict[str, str] = {}
             with open(map_file) as f:
                 reader = csv.DictReader(f, delimiter="\t")
                 for row in reader:
@@ -83,7 +84,7 @@ def download_gene_maps(reflib_dir):
 
             # 2. Parse UCSC format to simple TSV
             # UCSC refGene columns: 2=chrom, 4=txStart, 5=txEnd, 12=name2(Symbol)
-            gene_data = {}  # Symbol -> (chrom, start, end)
+            gene_data: dict[str, list[Any]] = {}  # Symbol -> (chrom, start, end)
 
             with gzip.open(gz_path, "rt") as f_in:
                 for line in f_in:
@@ -100,8 +101,8 @@ def download_gene_maps(reflib_dir):
                         gene_data[symbol] = [chrom, start, end]
                     else:
                         # Expand range to cover all transcripts/isoforms
-                        gene_data[symbol][1] = min(gene_data[symbol][1], start)
-                        gene_data[symbol][2] = max(gene_data[symbol][2], end)
+                        gene_data[symbol][1] = min(int(gene_data[symbol][1]), start)
+                        gene_data[symbol][2] = max(int(gene_data[symbol][2]), end)
 
             # 3. Write processed TSV
             with open(tsv_path, "w") as f_out:
