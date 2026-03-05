@@ -5,6 +5,7 @@ import tkinter as tk
 import threading
 from typing import Any, Dict, Optional
 
+from PIL import Image
 import customtkinter as ctk
 
 from wgsextract_cli.ui.constants import UI_METADATA
@@ -21,6 +22,15 @@ class InfoWindow(ctk.CTkToplevel):
         super().__init__(parent)
         self.title(title)
         self.geometry("900x700")
+
+        # Set window icon if available
+        icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+        if os.path.exists(icon_path):
+            try:
+                img = tk.PhotoImage(file=icon_path)
+                self.iconphoto(False, img)
+            except Exception:
+                pass
 
         # Use a textbox for scrollable, monospace text
         self.textbox = ctk.CTkTextbox(self, font=ctk.CTkFont(family="Courier", size=13))
@@ -42,21 +52,36 @@ class WGSExtractGUI(ctk.CTk):
         self.geometry("1100x850")
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
-        
+
+        # Load assets
+        self.icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
+        self.logo_image: Optional[ctk.CTkImage] = None
+        if os.path.exists(self.icon_path):
+            try:
+                # Set window icon
+                img = tk.PhotoImage(file=self.icon_path)
+                self.iconphoto(True, img)
+
+                # Load for sidebar
+                pil_img = Image.open(self.icon_path)
+                self.logo_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(100, 100))
+            except Exception:
+                pass
+
         # State management
         self.active_downloads: Dict[str, Any] = {}
         self.vep_cancel_event: Optional[threading.Event] = None
         self.controller = GUIController(self)
-        
+
         # UI Layout
         self._setup_sidebar()
         self._setup_main_content()
         self._setup_output_area()
         self._setup_frames()
-        
+
         # Default view
         self.show_frame("gen")
-        
+
         # Event bindings
         self.bind_all("<MouseWheel>", self._on_mousewheel)
         self.bind_all("<Button-4>", self._on_mousewheel)
@@ -68,20 +93,28 @@ class WGSExtractGUI(ctk.CTk):
         self.sidebar_frame.grid(row=0, column=0, rowspan=2, sticky="nsew")
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
-        
+
+        # Logo/Icon in Sidebar
+        if self.logo_image:
+            self.logo_label = ctk.CTkLabel(
+                self.sidebar_frame,
+                text="",
+                image=self.logo_image,
+            )
+            self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 0))
+
         ctk.CTkLabel(
             self.sidebar_frame,
             text="WGS Extract",
             font=ctk.CTkFont(size=20, weight="bold"),
-        ).grid(row=0, column=0, padx=20, pady=(20, 10))
-        
+        ).grid(row=1, column=0, padx=20, pady=(10, 20))
+
         for i, (key, meta) in enumerate(UI_METADATA.items()):
             ctk.CTkButton(
                 self.sidebar_frame,
                 text=meta["title"],
                 command=lambda k=key: self.show_frame(k),
-            ).grid(row=i + 1, column=0, padx=20, pady=10)
-
+            ).grid(row=i + 2, column=0, padx=20, pady=10)
     def _setup_main_content(self) -> None:
         """Set up the main content area where tab frames are displayed."""
         self.main_content = ctk.CTkFrame(self)
