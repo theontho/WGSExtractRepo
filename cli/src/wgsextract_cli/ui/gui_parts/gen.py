@@ -81,7 +81,7 @@ class GenericFrame(BaseFrame):
                 text=cmd_m["label"],
                 fg_color=btn_color,
                 hover_color="#9a0007" if is_destructive else None,
-                command=lambda cc=cmd_m["cmd"]: self.main_app.run_dispatch(cc, self),
+                command=lambda cc=cmd_m["cmd"]: self.handle_button_click(cc),
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cmd_m["help"])
@@ -151,3 +151,30 @@ class GenericFrame(BaseFrame):
             ctk.CTkLabel(
                 self.info_frame, text=val, font=ctk.CTkFont(size=13), anchor="w"
             ).grid(row=i, column=1, sticky="w")
+
+    def handle_button_click(self, cmd_key: str) -> None:
+        """Handle button click, either running a new command or cancelling an active one."""
+        if cmd_key in self.main_app.controller.active_processes:
+            self.main_app.controller.cancel_cmd(cmd_key)
+        else:
+            self.main_app.run_dispatch(cmd_key, self)
+
+    def set_button_state(self, cmd_key: str, state: str) -> None:
+        """Update button text and color based on execution state."""
+        if cmd_key not in self.cmd_buttons:
+            return
+
+        btn = self.cmd_buttons[cmd_key]
+        if state == "running":
+            btn.configure(
+                text="Cancel", fg_color=("#cfd8dc", "#455a64"), hover_color=("#b0bec5", "#37474f"), text_color=("#000000", "#ffffff")
+            )
+        else:
+            # Restore original label and color from meta
+            label = next(c["label"] for c in self.meta["commands"] if c["cmd"] == cmd_key)
+            is_destructive = cmd_key in ["clear-cache", "unsort", "unindex"]
+            orig_color = ("#d32f2f", "#b71c1c") if is_destructive else ("#3a7ebf", "#1f538d")
+            orig_hover = "#9a0007" if is_destructive else ("#325882", "#14375e")
+            orig_text = "#ffffff"
+
+            btn.configure(text=label, fg_color=orig_color, hover_color=orig_hover, text_color=orig_text)

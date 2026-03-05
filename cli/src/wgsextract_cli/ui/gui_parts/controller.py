@@ -21,15 +21,21 @@ class GUIController:
             main_app: The main application instance (WGSExtractGUI).
         """
         self.main_app = main_app
+        self.active_processes: dict[str, subprocess.Popen] = {}
 
-    def run_cmd(self, command: list[str]) -> None:
+    def run_cmd(self, command: list[str], cmd_key: Optional[str] = None, frame: Any = None) -> None:
         """
         Execute a shell command in a background thread and log output.
 
         Args:
             command: The command and its arguments as a list of strings.
+            cmd_key: Unique identifier for this command (to support cancellation).
+            frame: The UI frame that triggered the command.
         """
         self.main_app.log(f"Running: {' '.join(command)}")
+        
+        if cmd_key and frame:
+            self.main_app.after(0, lambda: frame.set_button_state(cmd_key, "running"))
 
         def run() -> None:
             process = subprocess.Popen(
@@ -39,21 +45,51 @@ class GUIController:
                 text=True,
                 bufsize=1,
             )
+            
+            if cmd_key:
+                self.active_processes[cmd_key] = process
+
             if process.stdout:
                 for line in process.stdout:
                     self.main_app.after(0, lambda l=line: self.main_app.log(l.strip()))
+            
             process.wait()
+            
+            if cmd_key in self.active_processes:
+                del self.active_processes[cmd_key]
+                
             self.main_app.after(
                 0, lambda: self.main_app.log(f"Finished (Exit {process.returncode})")
             )
+            if cmd_key and frame:
+                self.main_app.after(0, lambda: frame.set_button_state(cmd_key, "normal"))
 
         threading.Thread(target=run, daemon=True).start()
 
-    def run_info_detailed(self, input_path: str, ref_path: str) -> None:
+    def cancel_cmd(self, cmd_key: str) -> None:
+        """Terminate a running process."""
+        if cmd_key in self.active_processes:
+            proc = self.active_processes[cmd_key]
+            self.main_app.log(f"Cancelling process {proc.pid}...")
+            proc.terminate()
+            # On Unix, we might need kill if it doesn't respond to terminate
+            self.main_app.after(1000, lambda: self._force_kill_if_alive(cmd_key, proc))
+
+    def _force_kill_if_alive(self, cmd_key: str, proc: subprocess.Popen) -> None:
+        if proc.poll() is None:
+            proc.kill()
+            self.main_app.log(f"Force killed process {proc.pid}.")
+        if cmd_key in self.active_processes:
+            del self.active_processes[cmd_key]
+
+    def run_info_detailed(self, input_path: str, ref_path: str, frame: Any = None) -> None:
         """Run detailed info command and show results in a separate window."""
         if not input_path:
             self.main_app.log("Error: --input required for info.")
             return
+
+        if frame:
+            self.main_app.after(0, lambda: frame.set_button_state("info", "running"))
 
         def run() -> None:
             # Skip environment variables for stability
@@ -65,14 +101,25 @@ class GUIController:
             
             self.main_app.log(f"Running: {' '.join(cmd)}")
             try:
-                result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+                process = subprocess.Popen(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env
+                )
+                self.active_processes["info"] = process
+                
+                output, _ = process.communicate()
+                
                 # Filter out "Analyzing..." line
-                lines = [l for l in result.stdout.splitlines() if not l.startswith("Analyzing")]
+                lines = [l for l in output.splitlines() if not l.startswith("Analyzing")]
                 clean_info = "\n".join(lines).strip()
                 title = f"Detailed Info: {os.path.basename(input_path)}"
                 self.main_app.after(0, lambda: self.main_app.show_info_window(title, clean_info))
             except Exception as e:
                 self.main_app.log(f"Error running info: {e}")
+            finally:
+                if "info" in self.active_processes:
+                    del self.active_processes["info"]
+                if frame:
+                    self.main_app.after(0, lambda: frame.set_button_state("info", "normal"))
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -268,7 +315,7 @@ class GUIController:
         ref_val = ref_path.get() if ref_path else ""
 
         if cmd == "info":
-            self.run_info_detailed(input_val, ref_val)
+            self.run_info_detailed(input_val, ref_val, frame=frame)
         
         elif cmd == "clear-cache":
             self.run_clear_cache(input_val, frame)
@@ -278,13 +325,13 @@ class GUIController:
             region = getattr(frame, "region_entry", None)
             if region and region.get():
                 c.extend(["-r", region.get()])
-            self.run_cmd(c)
+            self.run_cmd(c, cmd_key=cmd, frame=frame)
             
         elif cmd == "align":
             c = bc + ["align", "--r1", frame.align_r1.get(), "--ref", ref_val]
             if hasattr(frame, "align_r2") and frame.align_r2.get():
                 c.extend(["--r2", frame.align_r2.get()])
-            self.run_cmd(c)
+            self.run_cmd(c, cmd_key=cmd, frame=frame)
             
         elif cmd in ["sort", "index", "unindex", "unsort", "to-cram", "to-bam", "unalign", "subset", "mt-extract"]:
             c = bc + ["bam", cmd, "--input", input_val]
@@ -293,10 +340,10 @@ class GUIController:
             extra = getattr(frame, "extra_entry", None)
             if cmd == "subset" and extra and extra.get():
                 c.append(extra.get())
-            self.run_cmd(c)
+            self.run_cmd(c, cmd_key=cmd, frame=frame)
             
         elif cmd.startswith("repair-"):
-            self.run_cmd(bc + ["repair", cmd.replace("repair-", ""), "--input", input_val])
+            self.run_cmd(bc + ["repair", cmd.replace("repair-", ""), "--input", input_val], cmd_key=cmd, frame=frame)
             
         elif cmd in ["mito", "ydna", "unmapped", "custom"]:
             c = bc + ["extract"]
@@ -308,7 +355,7 @@ class GUIController:
             out_dir = getattr(frame, "out_dir", None)
             if out_dir and out_dir.get():
                 c.extend(["--outdir", out_dir.get()])
-            self.run_cmd(c)
+            self.run_cmd(c, cmd_key=cmd, frame=frame)
             
         elif cmd in [
             "snp", "indel", "sv", "cnv", "freebayes", "gatk", "deepvariant",
@@ -321,16 +368,16 @@ class GUIController:
             if not sel:
                 self.main_app.log("Error: No formats selected.")
                 return
-            self.run_cmd(bc + ["microarray", "--input", input_val, "--ref", ref_val, "--formats", ",".join(sel)])
+            self.run_cmd(bc + ["microarray", "--input", input_val, "--ref", ref_val, "--formats", ",".join(sel)], cmd_key=cmd, frame=frame)
             
         elif cmd == "lineage-y":
-            self.run_cmd(bc + ["lineage", "y-dna", "--input", input_val, "--yleaf-path", frame.yleaf_path.get(), "--pos-file", frame.yleaf_pos.get()])
+            self.run_cmd(bc + ["lineage", "y-dna", "--input", input_val, "--yleaf-path", frame.yleaf_path.get(), "--pos-file", frame.yleaf_pos.get()], cmd_key=cmd, frame=frame)
             
         elif cmd == "lineage-mt":
-            self.run_cmd(bc + ["lineage", "mt-dna", "--input", input_val, "--haplogrep-path", frame.haplogrep_path.get()])
+            self.run_cmd(bc + ["lineage", "mt-dna", "--input", input_val, "--haplogrep-path", frame.haplogrep_path.get()], cmd_key=cmd, frame=frame)
             
         elif cmd in ["fastqc", "fastp"]:
-            self.run_cmd(bc + ["qc", cmd, "--input", input_val])
+            self.run_cmd(bc + ["qc", cmd, "--input", input_val], cmd_key=cmd, frame=frame)
             
         elif cmd.startswith("ref-"):
             sub = cmd.replace("ref-", "")
@@ -339,7 +386,7 @@ class GUIController:
                 c += ["--input", input_val]
             if sub not in ["download", "download-genes"] and ref_val:
                 c += ["--ref", ref_val]
-            self.run_cmd(c)
+            self.run_cmd(c, cmd_key=cmd, frame=frame)
 
     def _dispatch_vcf_vep(self, cmd: str, sub_cmd: str, frame: Any, input_val: str, ref_val: str, bc: list[str]) -> None:
         """Helper to handle VCF and VEP command dispatching."""
@@ -373,4 +420,4 @@ class GUIController:
             if cv: c += ["--vep-cache", cv]
             if sub == "run" and frame.vcf_vep_args.get():
                 c += ["--vep-args", frame.vcf_vep_args.get()]
-        self.run_cmd(c)
+        self.run_cmd(c, cmd_key=cmd, frame=frame)
