@@ -1,35 +1,49 @@
+"""Microarray simulation tab frame for generating CombinedKit formats."""
+
 import os
+from typing import Any
+
 import customtkinter as ctk
-from .common import BaseFrame
+
 from wgsextract_cli.ui.constants import MICROARRAY_FORMATS
+from .common import BaseFrame
+
 
 class MicroFrame(BaseFrame):
-    def setup_ui(self):
+    """
+    A frame for configuring and launching microarray simulations for various vendors
+    (23andMe, AncestryDNA, FTDNA, MyHeritage, etc.).
+    """
+
+    def setup_ui(self) -> None:
+        """Set up the UI elements for the microarray frame."""
         super().setup_ui()
         key = self.key
-        meta = self.meta
-        
+
+        # File Selectors
         self.input_entry = self.create_file_selector(
             self, "Input:", os.environ.get("WGSE_INPUT", "")
         )
         self.ref_entry = self.create_file_selector(
             self, "Reference:", os.environ.get("WGSE_REF", "")
         )
-        
+
         ctk.CTkLabel(
             self,
             text="Select Target Formats:",
             font=ctk.CTkFont(size=14, weight="bold"),
         ).pack(pady=(10, 5))
-        
+
+        # Format Selection Grid
         ff = ctk.CTkFrame(self)
         ff.pack(fill="x", padx=20, pady=5)
-        
-        vds = {}
+
+        # Group formats by vendor
+        vds: dict[str, list[dict[str, Any]]] = {}
         for f in MICROARRAY_FORMATS:
             vds.setdefault(f["vendor"], []).append(f)
-            
-        self.micro_formats_vars = {}
+
+        self.micro_formats_vars: dict[str, ctk.BooleanVar] = {}
         ri = 0
         for vendor, fmts in vds.items():
             ctk.CTkLabel(
@@ -44,7 +58,8 @@ class MicroFrame(BaseFrame):
                     row=ri + r, column=c, sticky="w", padx=20, pady=2
                 )
             ri += (len(fmts) + 2) // 3
-            
+
+        # Selection Utility Buttons
         sf = ctk.CTkFrame(self, fg_color="transparent")
         sf.pack(fill="x", padx=20, pady=10)
         ctk.CTkButton(
@@ -59,7 +74,8 @@ class MicroFrame(BaseFrame):
             width=150,
             command=self.micro_select_recommended,
         ).pack(side="left", padx=5)
-        
+
+        # Action Button
         btn = ctk.CTkButton(
             self,
             text="Generate CombinedKit",
@@ -67,15 +83,18 @@ class MicroFrame(BaseFrame):
         )
         btn.pack(pady=20)
 
-    def micro_select_all(self):
+    def micro_select_all(self) -> None:
+        """Select all available microarray formats."""
         for v in self.micro_formats_vars.values():
             v.set(True)
 
-    def micro_unselect_all(self):
+    def micro_unselect_all(self) -> None:
+        """Unselect all microarray formats."""
         for v in self.micro_formats_vars.values():
             v.set(False)
 
-    def micro_select_recommended(self):
+    def micro_select_recommended(self) -> None:
+        """Select only the recommended microarray formats."""
         ids = [f["id"] for f in MICROARRAY_FORMATS if f.get("recommended")]
         for fid, v in self.micro_formats_vars.items():
             v.set(fid in ids)

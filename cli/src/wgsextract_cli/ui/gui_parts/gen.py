@@ -1,23 +1,38 @@
+"""Generic tab frame for various CLI commands."""
+
 import os
+from typing import Any
+
 import customtkinter as ctk
+
 from .common import BaseFrame, ToolTip
 
+
 class GenericFrame(BaseFrame):
-    def setup_ui(self):
+    """
+    A generic frame that can handle multiple command types based on metadata.
+    Used for General, BAM, Extract, Ancestry, QC, and VCF tabs.
+    """
+
+    def setup_ui(self) -> None:
+        """Set up the UI elements for the generic frame."""
         super().setup_ui()
         key = self.key
         meta = self.meta
-        
+
+        # Common Input Field
         if key in ["gen", "bam", "ext", "anc", "qc", "vcf"]:
             self.input_entry = self.create_file_selector(
                 self, "Input:", os.environ.get("WGSE_INPUT", "")
             )
-        
+
+        # Common Reference Field
         if key in ["gen", "bam", "vcf"]:
             self.ref_entry = self.create_file_selector(
                 self, "Reference:", os.environ.get("WGSE_REF", "")
             )
-            
+
+        # Tab-Specific Fields
         if key == "gen":
             self.region_entry = self.create_entry(self, "Region (e.g. chrM):")
             self.align_r1 = self.create_file_selector(self, "FASTQ R1 (for Align):")
@@ -41,6 +56,7 @@ class GenericFrame(BaseFrame):
             )
             self.vcf_vep_args = self.create_entry(self, "Extra VEP Args:")
 
+        # Action Buttons Grid
         grid_f = ctk.CTkFrame(self, fg_color="transparent")
         grid_f.pack(fill="x", padx=20, pady=10)
         for i, cmd_m in enumerate(meta["commands"]):
