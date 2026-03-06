@@ -4,7 +4,7 @@ from typing import Any
 
 import customtkinter as ctk
 
-from wgsextract_cli.ui.constants import MICROARRAY_FORMATS
+from wgsextract_cli.ui.constants import BUTTON_FONT, MICROARRAY_FORMATS
 
 from .common import BaseFrame, ToolTip
 
@@ -26,11 +26,11 @@ class MicroFrame(BaseFrame):
             variable=self.main_app.bam_path_var,
             info_text="Select your aligned DNA data (BAM or CRAM file).",
         )
-        self.ref_entry = self.create_file_selector(
+        self.ref_entry = self.create_dir_selector(
             self,
             "Reference:",
             variable=self.main_app.ref_path_var,
-            info_text="Select the reference genome (FASTA) that matches your BAM/CRAM build.",
+            info_text="Select the directory containing the reference genome library.",
         )
         self.out_dir = self.create_dir_selector(
             self,
@@ -50,13 +50,21 @@ class MicroFrame(BaseFrame):
         bf.pack(fill="x", padx=20, pady=5)
 
         btn_all = ctk.CTkButton(
-            bf, text="Select All", width=100, command=self.micro_select_all
+            bf,
+            text="Select All",
+            width=100,
+            command=self.micro_select_all,
+            font=BUTTON_FONT,
         )
         btn_all.pack(side="left", padx=5)
         ToolTip(btn_all, "Select all available microarray vendor formats.")
 
         btn_none = ctk.CTkButton(
-            bf, text="Unselect All", width=100, command=self.micro_unselect_all
+            bf,
+            text="Unselect All",
+            width=100,
+            command=self.micro_unselect_all,
+            font=BUTTON_FONT,
         )
         btn_none.pack(side="left", padx=5)
         ToolTip(btn_none, "Deselect all microarray vendor formats.")
@@ -66,6 +74,7 @@ class MicroFrame(BaseFrame):
             text="Select Recommended",
             width=150,
             command=self.micro_select_recommended,
+            font=BUTTON_FONT,
         )
         btn_rec.pack(side="left", padx=5)
         ToolTip(btn_rec, "Select only the most common and compatible vendor formats.")
@@ -74,6 +83,7 @@ class MicroFrame(BaseFrame):
             bf,
             text="Generate CombinedKit",
             command=lambda: self.handle_button_click("microarray"),
+            font=BUTTON_FONT,
         )
         btn_gen.pack(side="right", padx=5)
         self.cmd_buttons["microarray"] = btn_gen

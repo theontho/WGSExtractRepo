@@ -9,7 +9,7 @@ from typing import Any
 import customtkinter as ctk
 from PIL import Image
 
-from wgsextract_cli.ui.constants import UI_METADATA
+from wgsextract_cli.ui.constants import BUTTON_FONT, UI_METADATA
 from wgsextract_cli.ui.gui_parts.controller import GUIController
 from wgsextract_cli.ui.gui_parts.gen import GenericFrame
 from wgsextract_cli.ui.gui_parts.lib import LibFrame
@@ -179,6 +179,7 @@ class WGSExtractGUI(ctk.CTk):
                 self.sidebar_frame,
                 text=meta["title"],
                 command=lambda k=key: self.show_frame(k),
+                font=BUTTON_FONT,
             ).grid(row=i + 2, column=0, padx=20, pady=10)
 
     def _setup_main_content(self) -> None:

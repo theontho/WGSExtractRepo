@@ -4,6 +4,8 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.ui.constants import BUTTON_FONT
+
 from .common import BaseFrame, ToolTip
 
 
@@ -21,11 +23,11 @@ class GenericFrame(BaseFrame):
 
         # Shared Reference Field
         if key in ["gen", "vcf", "fastq"]:
-            self.ref_entry = self.create_file_selector(
+            self.ref_entry = self.create_dir_selector(
                 self,
                 "Reference:",
                 variable=self.main_app.ref_path_var,
-                info_text="Path to the reference genome FASTA file (.fa or .fasta).",
+                info_text="Path to the directory containing your reference genomes (FASTA files).",
             )
 
         # Shared Output Directory Field
@@ -185,11 +187,11 @@ class GenericFrame(BaseFrame):
             vep_cmd = next(c for c in meta["commands"] if c["cmd"] == "vep-run")
 
             # 1. Variant Calling & Annotation Section
-            ctk.CTkLabel(
+            self.create_section_title(
                 self,
-                text="Variant Calling & Annotation",
-                font=ctk.CTkFont(size=14, weight="bold"),
-            ).pack(pady=(15, 5))
+                "Variant Calling & Annotation",
+                "Identify SNPs, InDels, and Structural Variants, then add metadata to the resulting VCF file.",
+            )
 
             self.vcf_region = self.create_entry(
                 self,
@@ -204,16 +206,10 @@ class GenericFrame(BaseFrame):
             )
 
             # Gap-aware filtering checkbox
-            gap_f = ctk.CTkFrame(self, fg_color="transparent")
-            gap_f.pack(fill="x", padx=30, pady=2)
-            ctk.CTkCheckBox(
-                gap_f,
-                text="Gap-Aware Filtering",
-                variable=self.main_app.vcf_exclude_gaps_var,
-                font=ctk.CTkFont(size=12),
-            ).pack(side="left", padx=10)
-            ToolTip(
-                gap_f,
+            self.create_checkbox_with_info(
+                self,
+                "Gap-Aware Filtering",
+                self.main_app.vcf_exclude_gaps_var,
                 "Exclude variants in or near genomic gaps (requires Count Ns output for the reference).",
             )
 
@@ -257,9 +253,11 @@ class GenericFrame(BaseFrame):
                 cmds_to_hide.add(c["cmd"])
 
             # 2. Trio Analysis Section
-            ctk.CTkLabel(
-                self, text="Trio Analysis", font=ctk.CTkFont(size=14, weight="bold")
-            ).pack(pady=(15, 5))
+            self.create_section_title(
+                self,
+                "Trio Analysis",
+                "Compare variant calls between a child (proband) and their parents to identify inheritance patterns and de novo mutations.",
+            )
 
             self.vcf_mother = self.create_file_selector(
                 self,
@@ -279,9 +277,11 @@ class GenericFrame(BaseFrame):
             cmds_to_hide.add("trio")
 
             # 3. VEP Analysis Section
-            ctk.CTkLabel(
-                self, text="VEP Analysis", font=ctk.CTkFont(size=14, weight="bold")
-            ).pack(pady=(15, 5))
+            self.create_section_title(
+                self,
+                "VEP Analysis",
+                "Predict the functional impact of your variants using the Ensembl Variant Effect Predictor.",
+            )
 
             self.vcf_vep_cache = self.create_read_only_entry_with_info(
                 self,
@@ -303,8 +303,8 @@ class GenericFrame(BaseFrame):
 
         # Action Buttons Section
         if key == "gen":
-            self._create_section("Info Commands", meta["info_commands"])
-            self._create_section("BAM / CRAM Management", meta["bam_commands"])
+            self._create_section("Info Commands", meta["info_commands"], cols=4)
+            self._create_section("BAM / CRAM Management", meta["bam_commands"], cols=4)
         else:
             # Filter commands that are already in entries
             cmds_to_show = [c for c in meta["commands"] if c["cmd"] not in cmds_to_hide]
@@ -328,22 +328,25 @@ class GenericFrame(BaseFrame):
             )
 
     def _create_section(
-        self, title: str | None, commands: list[dict[str, Any]]
+        self, title: str | None, commands: list[dict[str, Any]], cols: int = 3
     ) -> None:
         """Helper to create a section of command buttons."""
         if not commands:
             return
 
         if title:
-            ctk.CTkLabel(
-                self, text=title, font=ctk.CTkFont(size=14, weight="bold")
-            ).pack(pady=(15, 5))
+            # Map known titles to tooltips
+            help_map = {
+                "Info Commands": "Rapidly analyze file metadata and calculate genomic coverage depth.",
+                "BAM / CRAM Management": "Standard file maintenance tasks including sorting, indexing, and format conversion.",
+            }
+            self.create_section_title(self, title, help_map.get(title))
 
         grid_f = ctk.CTkFrame(self, fg_color="transparent")
         grid_f.pack(fill="x", padx=20, pady=5)
 
         for i, cmd_m in enumerate(commands):
-            r, c = divmod(i, 3)
+            r, c = divmod(i, cols)
             grid_f.grid_columnconfigure(c, weight=1)
 
             # Special styling for destructive commands
@@ -356,6 +359,7 @@ class GenericFrame(BaseFrame):
                 fg_color=btn_color,
                 hover_color="#9a0007" if is_destructive else None,
                 command=lambda cc=cmd_m["cmd"]: self.handle_button_click(cc),
+                font=BUTTON_FONT,
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cmd_m["help"])
@@ -372,6 +376,21 @@ class GenericFrame(BaseFrame):
                 "to-cram",
             ]:
                 btn.grid_remove()
+
+    def update_info_display(self, data: Any) -> None:
+        """Override to also handle greying out Y buttons."""
+        super().update_info_display(data)
+        if self.key == "ext" and isinstance(data, dict):
+            gender = data.get("gender", "").lower()
+            is_female = "female" in gender
+            for cmd, btn in self.cmd_buttons.items():
+                if cmd in ["ydna-bam", "ydna-vcf", "y-mt-extract"]:
+                    if is_female:
+                        btn.configure(state="disabled", fg_color="gray")
+                    else:
+                        # Restore original color
+                        orig_color = ("#3a7ebf", "#1f538d")
+                        btn.configure(state="normal", fg_color=orig_color)
 
     def on_input_change(self, value: str) -> None:
         """Called when the input file path changes."""

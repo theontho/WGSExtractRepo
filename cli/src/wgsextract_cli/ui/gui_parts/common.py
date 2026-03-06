@@ -7,6 +7,8 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.ui.constants import BUTTON_FONT
+
 
 class ToolTip:
     """A tooltip widget that displays text when hovering over another widget."""
@@ -99,7 +101,10 @@ class BaseFrame(ctk.CTkScrollableFrame):
             self, text=self.meta["title"], font=ctk.CTkFont(size=18, weight="bold")
         ).pack(pady=10)
         ctk.CTkLabel(
-            self, text=self.meta["help"], font=ctk.CTkFont(size=12, slant="italic")
+            self,
+            text=self.meta["help"],
+            font=ctk.CTkFont(size=12, slant="italic"),
+            wraplength=800,
         ).pack(pady=(0, 10))
 
     def set_button_state(self, cmd_key: str, state: str) -> None:
@@ -234,16 +239,19 @@ class BaseFrame(ctk.CTkScrollableFrame):
             ("File Stats:", stats_str),
             (
                 "Avg Read Length:",
-                f"{data.get('avg_read_len', 0):.0f} bp, {data.get('std_read_len', 0):.0f} σ, {'Paired-end' if data.get('is_paired') else 'Single-end'}",
+                f"{data.get('avg_read_len', 0):.0f} bp (SD={data.get('std_read_len', 0):.0f} bp), {'Paired-end' if data.get('is_paired') else 'Single-end'}",
             ),
             (
                 "Avg Insert Size:",
-                f"{data.get('avg_insert_size', 0):.0f} bp, {data.get('std_insert_size', 0):.0f} σ",
+                f"{data.get('avg_insert_size', 0):.0f} bp (SD={data.get('std_insert_size', 0):.0f} bp)",
             ),
         ]
 
-        if data.get("sequencer") and data.get("sequencer") != "Unknown":
-            items.append(("Sequencer:", data.get("sequencer")))
+        if data.get("sequencer"):
+            if data["sequencer"] != "Unknown":
+                items.append(("Sequencer:", data["sequencer"]))
+            elif data.get("first_qname"):
+                items.append(("Sequencer:", f"Unknown: {data['first_qname']}"))
 
         for i, (label, val) in enumerate(items):
             ctk.CTkLabel(
@@ -325,10 +333,13 @@ class BaseFrame(ctk.CTkScrollableFrame):
             text="Browse",
             width=80,
             command=lambda: self.browse_file(entry, variable, on_change),
+            font=BUTTON_FONT,
         ).pack(side="left", padx=5)
 
         if button_text:
-            btn = ctk.CTkButton(btn_f, text=button_text, width=120, command=command)
+            btn = ctk.CTkButton(
+                btn_f, text=button_text, width=120, command=command, font=BUTTON_FONT
+            )
             btn.pack(side="left", padx=5)
             entry.action_button = btn
 
@@ -383,6 +394,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
             text="Browse",
             width=80,
             command=lambda: self.browse_dir(entry, variable),
+            font=BUTTON_FONT,
         ).pack(side="right", padx=10)
         frame.pack(fill="x", padx=20, pady=5)
         return entry
@@ -430,7 +442,9 @@ class BaseFrame(ctk.CTkScrollableFrame):
         e = ctk.CTkEntry(f)
         if button_text:
             e.pack(side="left", fill="x", expand=True, padx=10)
-            btn = ctk.CTkButton(f, text=button_text, width=120, command=command)
+            btn = ctk.CTkButton(
+                f, text=button_text, width=120, command=command, font=BUTTON_FONT
+            )
             btn.pack(side="right", padx=10)
             # Store button on entry so it can be accessed if needed (e.g. for tooltips)
             e.action_button = btn
@@ -524,12 +538,77 @@ class BaseFrame(ctk.CTkScrollableFrame):
         e = ctk.CTkEntry(f, textvariable=variable, state="readonly")
         if button_text:
             e.pack(side="left", fill="x", expand=True, padx=10)
-            btn = ctk.CTkButton(f, text=button_text, width=120, command=command)
+            btn = ctk.CTkButton(
+                f, text=button_text, width=120, command=command, font=BUTTON_FONT
+            )
             btn.pack(side="right", padx=10)
             e.action_button = btn
         else:
             e.pack(side="right", fill="x", expand=True, padx=10)
         return e
+
+    def create_checkbox_with_info(
+        self,
+        p: ctk.CTkFrame,
+        text: str,
+        variable: ctk.Variable,
+        info_text: str,
+    ) -> ctk.CTkCheckBox:
+        """
+        Create a checkbox with an info icon and tooltip.
+
+        Args:
+            p: The parent frame.
+            text: The checkbox label text.
+            variable: The variable to bind to the checkbox.
+            info_text: The tooltip text for the info icon.
+
+        Returns:
+            The created CTkCheckBox widget.
+        """
+        f = ctk.CTkFrame(p, fg_color="transparent")
+        f.pack(fill="x", padx=20, pady=2)
+
+        cb = ctk.CTkCheckBox(
+            f,
+            text=text,
+            variable=variable,
+            font=ctk.CTkFont(size=12),
+        )
+        cb.pack(side="left", padx=10)
+
+        i_lbl = ctk.CTkLabel(
+            f,
+            text=" ⓘ",
+            font=ctk.CTkFont(size=14),
+            text_color="#55aaff",
+            cursor="hand2",
+        )
+        i_lbl.pack(side="left")
+        ToolTip(i_lbl, info_text)
+
+        return cb
+
+    def create_section_title(
+        self, p: ctk.CTkFrame, text: str, info_text: str | None = None
+    ) -> None:
+        """Create a section title with an optional info icon and tooltip."""
+        f = ctk.CTkFrame(p, fg_color="transparent")
+        f.pack(pady=(15, 5))
+
+        lbl = ctk.CTkLabel(f, text=text, font=ctk.CTkFont(size=14, weight="bold"))
+        lbl.pack(side="left")
+
+        if info_text:
+            i_lbl = ctk.CTkLabel(
+                f,
+                text=" ⓘ",
+                font=ctk.CTkFont(size=14),
+                text_color="#55aaff",
+                cursor="hand2",
+            )
+            i_lbl.pack(side="left")
+            ToolTip(i_lbl, info_text)
 
     def browse_file(
         self,

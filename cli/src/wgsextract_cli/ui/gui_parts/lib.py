@@ -5,6 +5,8 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.ui.constants import BUTTON_FONT
+
 from .common import BaseFrame, ToolTip
 
 
@@ -91,6 +93,7 @@ class LibFrame(BaseFrame):
                 fg_color=fg_color,
                 hover_color=hover_color,
                 command=lambda cc=cmd: self.handle_button_click(cc),
+                font=BUTTON_FONT,
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
@@ -141,6 +144,7 @@ class LibFrame(BaseFrame):
                 vep_btn_f,
                 text=cm["label"],
                 command=lambda cc=cm["cmd"]: self.handle_button_click(cc),
+                font=BUTTON_FONT,
             )
             btn.grid(row=0, column=i, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
@@ -164,6 +168,7 @@ class LibFrame(BaseFrame):
             width=60,
             fg_color="#666666",
             command=self.main_app.cancel_vep_download,
+            font=BUTTON_FONT,
         )
 
     def _setup_ref_list_section(
@@ -186,9 +191,9 @@ class LibFrame(BaseFrame):
         ToolTip(ii, "Baseline DNA sequences used for comparison during analysis.")
 
         # Refresh List button moved here
-        ctk.CTkButton(hf, text="Refresh List", width=100, command=self.setup_ui).pack(
-            side="right", padx=10
-        )
+        ctk.CTkButton(
+            hf, text="Refresh List", width=100, command=self.setup_ui, font=BUTTON_FONT
+        ).pack(side="right", padx=10)
 
         dest = self.main_app.ref_path_var.get()
         grouped = get_grouped_genomes()
@@ -264,6 +269,7 @@ class LibFrame(BaseFrame):
             hover_color=("#b0bec5", "#37474f"),
             text_color=("#000000", "#ffffff"),
             command=lambda f=fn: self.main_app.cancel_lib_download(f),
+            font=BUTTON_FONT,
         )
         cbtn.pack(side="left", padx=5)
 
@@ -287,6 +293,7 @@ class LibFrame(BaseFrame):
             fg_color="#992222",
             hover_color="#bb3333",
             command=lambda g=group: self.main_app.run_lib_delete(g, self),
+            font=BUTTON_FONT,
         )
         del_btn.pack(side="right", padx=5)
         ToolTip(del_btn, f"Remove {group['final']} and index files.")
@@ -297,6 +304,7 @@ class LibFrame(BaseFrame):
             text="Verify",
             width=60,
             command=lambda g=group: self.main_app.run_ref_verify(g, self),
+            font=BUTTON_FONT,
         )
         ver_btn.pack(side="right", padx=5)
         ToolTip(ver_btn, f"Verify integrity of {group['final']}.")
@@ -310,6 +318,7 @@ class LibFrame(BaseFrame):
             fg_color="#992222",
             hover_color="#bb3333",
             command=lambda g=group: self.main_app.run_ref_unindex(g, self),
+            font=BUTTON_FONT,
         )
         unidx_btn.pack(side="right", padx=5)
         ToolTip(unidx_btn, f"Remove index files for {group['final']}.")
@@ -323,6 +332,7 @@ class LibFrame(BaseFrame):
                 fg_color="#992222",
                 hover_color="#bb3333",
                 command=lambda g=group: self.main_app.run_ref_del_ns(g, self),
+                font=BUTTON_FONT,
             )
             ToolTip(ns_btn, f"Remove N-count CSV files for {group['final']}.")
             self.cmd_buttons[f"del-ns-{group['final']}"] = ns_btn
@@ -332,6 +342,7 @@ class LibFrame(BaseFrame):
                 text="Count Ns",
                 width=70,
                 command=lambda g=group: self.main_app.run_ref_count_ns(g, self),
+                font=BUTTON_FONT,
             )
             ToolTip(ns_btn, f"Analyze N segments in {group['final']}.")
             self.cmd_buttons[f"count-ns-{group['final']}"] = ns_btn
@@ -351,6 +362,7 @@ class LibFrame(BaseFrame):
             fg_color="#992222",
             hover_color="#bb3333",
             command=lambda g=group: self.main_app.run_lib_delete(g, self),
+            font=BUTTON_FONT,
         )
         del_btn.pack(side="right", padx=5)
 
@@ -362,6 +374,7 @@ class LibFrame(BaseFrame):
             fg_color="#aa6622",
             hover_color="#cc8844",
             command=lambda g=group: self.main_app.run_ref_index(g, self),
+            font=BUTTON_FONT,
         )
         idx_btn.pack(side="right", padx=5)
         ToolTip(idx_btn, f"Generate required index for {group['final']}.")
@@ -376,6 +389,7 @@ class LibFrame(BaseFrame):
                 fg_color="#992222",
                 hover_color="#bb3333",
                 command=lambda g=group: self.main_app.run_ref_del_ns(g, self),
+                font=BUTTON_FONT,
             )
             ToolTip(ns_btn, f"Remove N-count CSV files for {group['final']}.")
             self.cmd_buttons[f"del-ns-{group['final']}"] = ns_btn
@@ -385,6 +399,7 @@ class LibFrame(BaseFrame):
                 text="Count Ns",
                 width=70,
                 command=lambda g=group: self.main_app.run_ref_count_ns(g, self),
+                font=BUTTON_FONT,
             )
             ToolTip(ns_btn, f"Analyze N segments in {group['final']}.")
             self.cmd_buttons[f"count-ns-{group['final']}"] = ns_btn
@@ -407,6 +422,7 @@ class LibFrame(BaseFrame):
             fg_color="#992222",
             hover_color="#bb3333",
             command=lambda g=group: self.main_app.run_lib_delete(g, self),
+            font=BUTTON_FONT,
         ).pack(side="right", padx=10)
         ctk.CTkButton(
             row,
@@ -417,6 +433,7 @@ class LibFrame(BaseFrame):
             command=lambda g=group: self.main_app.run_lib_download(
                 g["sources"][0], self, restart=True
             ),
+            font=BUTTON_FONT,
         ).pack(side="right", padx=5)
         ctk.CTkButton(
             row,
@@ -427,6 +444,7 @@ class LibFrame(BaseFrame):
             command=lambda g=group: self.main_app.run_lib_download(
                 g["sources"][0], self
             ),
+            font=BUTTON_FONT,
         ).pack(side="right", padx=5)
         ctk.CTkLabel(
             row,
@@ -442,6 +460,7 @@ class LibFrame(BaseFrame):
                 text=sd["source"],
                 width=60,
                 command=lambda s=sd: self.main_app.run_lib_download(s, self),
+                font=BUTTON_FONT,
             )
             sb.pack(side="right", padx=5)
             ToolTip(sb, f"Download from {sd['source']}")

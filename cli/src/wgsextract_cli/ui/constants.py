@@ -4,6 +4,8 @@ from typing import Any
 
 from wgsextract_cli.core.help_texts import UI_TOOLTIPS
 
+BUTTON_FONT = ("Courier", 13, "bold")
+
 MICROARRAY_FORMATS: list[dict[str, Any]] = [
     {
         "id": "all",
@@ -61,7 +63,7 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
 UI_METADATA = {
     "gen": {
         "title": "Info / BAM",
-        "help": "BAM/CRAM analysis, management, and conversion",
+        "help": "BAM (Binary Alignment Map) and CRAM are compressed files containing your DNA sequences aligned to a reference genome. Use this tab to identify your data's build, check sequence quality, or convert between alignment formats.",
         "info_commands": [
             {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
             {
@@ -96,11 +98,30 @@ UI_METADATA = {
     },
     "ext": {
         "title": "Extract",
-        "help": "Extract specific regions or reads",
+        "help": "Extract specific subsets of your DNA data. This is useful for isolating Mitochondrial DNA (chrM) or Y-Chromosome data (chrY) for specialized analysis without processing the entire large BAM/CRAM file.",
         "commands": [
-            {"label": "Mito (chrM)", "cmd": "mito", "help": UI_TOOLTIPS["mito"]},
-            {"label": "Y-DNA (chrY)", "cmd": "ydna", "help": UI_TOOLTIPS["ydna"]},
-            {"label": "MT BAM", "cmd": "mt-extract", "help": UI_TOOLTIPS["mt-extract"]},
+            {
+                "label": "MT-only FASTA",
+                "cmd": "mito-fasta",
+                "help": UI_TOOLTIPS["mito-fasta"],
+            },
+            {
+                "label": "MT-only BAM",
+                "cmd": "mt-extract",
+                "help": UI_TOOLTIPS["mt-extract"],
+            },
+            {
+                "label": "MT-only VCF",
+                "cmd": "mito-vcf",
+                "help": UI_TOOLTIPS["mito-vcf"],
+            },
+            {"label": "Y-only BAM", "cmd": "ydna-bam", "help": UI_TOOLTIPS["ydna-bam"]},
+            {"label": "Y-only VCF", "cmd": "ydna-vcf", "help": UI_TOOLTIPS["ydna-vcf"]},
+            {
+                "label": "Y and MT BAM",
+                "cmd": "y-mt-extract",
+                "help": UI_TOOLTIPS["y-mt-extract"],
+            },
             {"label": "BAM Subset", "cmd": "subset", "help": UI_TOOLTIPS["subset"]},
             {"label": "Unmapped", "cmd": "unmapped", "help": UI_TOOLTIPS["unmapped"]},
             {"label": "Custom Extract", "cmd": "custom", "help": UI_TOOLTIPS["custom"]},
@@ -108,7 +129,7 @@ UI_METADATA = {
     },
     "micro": {
         "title": "Microarray",
-        "help": "Simulate consumer microarray formats (CombinedKit)",
+        "help": "Generate 'CombinedKit' files that simulate the raw data format used by consumer testing companies like 23andMe, AncestryDNA, and FTDNA. This allows you to upload your WGS data to third-party tools and services like Gedmatch, Geneanet, MyHeritage, Promethease, and Genvue.",
         "commands": [
             {
                 "label": "Generate CombinedKit",
@@ -119,7 +140,7 @@ UI_METADATA = {
     },
     "anc": {
         "title": "Ancestry",
-        "help": "Lineage and haplogroup prediction",
+        "help": "Identify your haplogroups and deep ancestral lineages. Y-DNA analysis (Yleaf) tracks paternal descent, while Mitochondrial (Haplogrep) tracks maternal descent based on specific markers in your DNA.",
         "commands": [
             {
                 "label": "Run Yleaf",
@@ -135,7 +156,7 @@ UI_METADATA = {
     },
     "vcf": {
         "title": "VCF",
-        "help": "Variant calling, filtering, and effect prediction",
+        "help": "VCF (Variant Call Format) files list the specific positions where your DNA differs from the reference genome. Use this tab to 'call' variants (identify SNPs, InDels, SVs), filter them by quality, or predict their biological effects (VEP).",
         "commands": [
             {"label": "SNP Call", "cmd": "snp", "help": UI_TOOLTIPS["snp"]},
             {"label": "InDel Call", "cmd": "indel", "help": UI_TOOLTIPS["indel"]},
@@ -166,7 +187,7 @@ UI_METADATA = {
     },
     "fastq": {
         "title": "FASTQ",
-        "help": "Quality control and alignment of raw reads",
+        "help": "FASTQ files contain the 'raw' reads directly from the sequencer before they are aligned. Use this tab to perform quality control (FastQC/FastP) or align these raw reads to a reference genome to create a BAM/CRAM file.",
         "commands": [
             {"label": "Run Align", "cmd": "align", "help": UI_TOOLTIPS["align"]},
             {"label": "Unalign", "cmd": "unalign", "help": UI_TOOLTIPS["unalign"]},
@@ -176,7 +197,7 @@ UI_METADATA = {
     },
     "lib": {
         "title": "Library",
-        "help": "Reference data and VEP management",
+        "help": "Manage your reference data library. Download and verify standardized reference genomes (FASTA), gene maps for annotation, and VEP caches required for advanced variant effect prediction.",
         "commands": [
             {
                 "label": "Gene Map",

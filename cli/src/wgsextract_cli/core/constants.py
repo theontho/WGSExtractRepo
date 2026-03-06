@@ -32,10 +32,12 @@ SEQUENCERS = {
     "MGI DNB T10 v1": r"^(FP20\d{7})(L\d)(C\d{3})(R\d{3})(\d{6,8})([/1]?|[/2]?)$",
     "MGI DNB T10 v2.7": r"^(FP27\d{7})(L\d)(C\d{3})(R\d{3})(\d{6,8})([/1]?|[/2]?)$",
     "MGI DNB G400": r"^(V3[05]0\d{6})(L\d)(C\d{3})(R\d{3})(\d{6,8})([/1]?|[/2]?)$",
+    "MGI DNB G400 (ML)": r"^(ML\d{9})(L\d)(C\d{3})(R\d{3})(\d{6,8})([/1]?|[/2]?)$",
     "MGI DNB G400 FAST": r"^([CV]L?100\d{6})(L\d)(C\d{3})(R\d{3})_?(\d{6,8})([/1]?|[/2]?)$",
     "MGI DNB G400 (YSEQ)": r"^(YSEQ1):\d+:[A-Z0-9]{10,12}:\d:\d{5,7}:\d{3}:\d{3}$",
     "PacBio HiFi Revio": r"^(m\d{5}e?)_\d{6}_\d{6}(_s\d+)?/\d{9}/ccs",
     "Oxford Nanopore": r"^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$",
+    "Unknown": r"^[\S]+$",
 }
 
 REFERENCE_MODELS = {
@@ -105,13 +107,67 @@ REFERENCE_MODELS = {
     ],
 }
 
+# New approach: Use SN count from BAM header to identify likely reference
+REFGEN_BY_SNCOUNT = {
+    25: [True, "hg19_WGSEv2.fa.gz", "chrM"],
+    84: [True, "human_g1k_v37.fasta.gz", "MT"],
+    85: [False, "GCA_000001405.14_GRCh37.p13_no_alt_analysis_set.fna.gz", "chrM"],
+    86: [True, "hs37d5.fa.gz", "MT"],
+    93: [False, "hg19.fa.gz", "chrM"],
+    195: [True, "GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz", "chrM"],
+    297: [False, "Homo_sapiens.GRCh37.75.dna.toplevel.fa.gz", "MT"],
+    298: [False, "GCA_000001405.14_GRCh37.p13_full_analysis_set.fna.gz", "chrM"],
+    389: [False, "Homo_sapiens.GRCh38.89.dna.toplevel.fa.gz", "MT"],
+    455: [False, "hg38.fa.gz", "chrM"],
+    456: [False, "GCA_000001405.15_GRCh38_full_analysis_set.fna.gz", "chrM"],
+    524: [False, "Homo_sapiens.GRCh38.86.dna.toplevel.fa.gz", "MT"],
+    555: [False, "Homo_sapiens.GRCh38.91i.dna.toplevel.fa.gz", "MT"],
+    593: [False, "Homo_sapiens.GRCh38.97i.dna.toplevel.fa.gz", "MT"],
+    595: [True, "hg38p12.fa.gz", "chrM"],
+    639: [False, "Homo_sapiens.GRCh38.current_fasta.dna.toplevel.fa.gz", "MT"],
+    2580: [
+        False,
+        "GCA_000001405.15_GRCh38_no_alt_plus_hs38d1_analysis_set.fna.gz",
+        "chrM",
+    ],
+    2841: [
+        False,
+        "GCA_000001405.15_GRCh38_full_plus_hs38d1_analysis_set.fna.gz",
+        "chrM",
+    ],
+    3366: [False, "GRCh38_full_analysis_set_plus_decoy_hla.fa.gz", "chrM"],
+}
+
 REF_GENOME_FILENAMES = {
     "hg19": "hg19.fa.gz",
+    "hg37": "hg19_yseq.fa.gz",
+    "hg37w": "hg19_WGSE.fa.gz",
+    "hs37-": "human_g1k_v37.fasta.gz",
+    "hs37": "hs37.fa.gz",
     "hs37d5": "hs37d5.fa.gz",
+    "GRCh37-": "GRCh37.primary_assembly.genome.fa.gz",
+    "GRCh37": "Homo_sapiens.GRCh37.dna.toplevel.fa.gz",
     "hg38": "hg38.fa.gz",
+    "hs38": "hs38.fa.gz",
+    "hs38a": "hs38a.fna.gz",
+    "hs38d1": "hs38d1.fna.gz",
+    "hs38d1s": "hs38d1s.fa.gz",
+    "hs38d1v": "GRCh38_Verily_v1.genome.fa.gz",
+    "hs38d1a": "hs38d1a.fna.gz",
     "hs38DH": "hs38DH.fa.gz",
     "GRCh38": "Homo_sapiens.GRCh38.dna.toplevel.fa.gz",
-    "GRCh37": "Homo_sapiens.GRCh37.dna.toplevel.fa.gz",
+    "GRCh38-": "GRCh38.primary_assembly.genome.fa.gz",
+    "THGv27": "hg002xy_v2.7.fasta.gz",
+    "THGv20": "hg002xy_v2.fasta.gz",
+    "HPPv11": "CHM13v11Y.fa.gz",
+    "HPPv1": "CHM13v1Y.fa.gz",
+    "THG1243v3": "hg01243_v3.fna.gz",
+    "THGySeqp": "hg38_CP086569.fasta.gz",
+    "T2Tv20": "chm13v2.0.fa.gz",
+    "T2Tv20a": "GCA_009914755.4.fna.gz",
+    "T2Tv11": "chm13.draft_v1.1.fasta.gz",
+    "T2Tv10": "chm13.draft_v1.0.fasta.gz",
+    "T2Tv09": "chm13.draft_v0.9.fasta.gz",
 }
 
 N_ADJUST = {

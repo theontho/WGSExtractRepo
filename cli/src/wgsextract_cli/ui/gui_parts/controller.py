@@ -805,13 +805,30 @@ class GUIController:
                 frame=frame,
             )
 
-        elif cmd in ["mito", "ydna", "unmapped", "custom"]:
+        elif cmd in [
+            "mito",
+            "ydna",
+            "unmapped",
+            "custom",
+            "mito-fasta",
+            "mito-vcf",
+            "ydna-bam",
+            "ydna-vcf",
+            "y-mt-extract",
+        ]:
             c = bc + ["extract"]
             region = getattr(frame, "region_entry", None)
             if cmd == "custom" and region:
                 c.extend(["--input", bam_val, "-r", region.get()])
             else:
-                c.extend([cmd, "--input", bam_val])
+                sub = (
+                    "mito-fasta"
+                    if cmd == "mito"
+                    else "ydna-bam"
+                    if cmd == "ydna"
+                    else cmd
+                )
+                c.extend([sub, "--input", bam_val])
             out_dir = getattr(frame, "out_dir", None)
             if out_dir and out_dir.get():
                 c.extend(["--outdir", out_dir.get()])
@@ -1028,6 +1045,11 @@ class GUIController:
             "unalign",
             "subset",
             "mt-extract",
+            "mito-fasta",
+            "mito-vcf",
+            "ydna-bam",
+            "ydna-vcf",
+            "y-mt-extract",
             "repair-ftdna-bam",
             "mito",
             "ydna",

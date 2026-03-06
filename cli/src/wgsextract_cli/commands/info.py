@@ -12,6 +12,7 @@ from typing import Any
 from wgsextract_cli.core.constants import (
     N_ADJUST,
     REFERENCE_MODELS,
+    REFGEN_BY_SNCOUNT,
     SEQUENCERS,
 )
 from wgsextract_cli.core.dependencies import verify_dependencies
@@ -34,8 +35,8 @@ def determine_sequencer(qname):
             if "6xxx" in name:
                 return name.replace("6xxx", qname[6:10] + " bad")
             return name
-    # Fallback from legacy: return truncated QNAME if unrecognized
-    return qname[0:23] + "..." if len(qname) > 25 else qname
+    # If unrecognized, return "Unknown" so we can show the full QNAME in detailed info
+    return "Unknown"
 
 
 def register(subparsers, base_parser):
@@ -176,16 +177,36 @@ def load_n_counts(ref_path):
     n_counts = {}
     try:
         with open(ncnt_file, newline="") as f:
-            reader = csv.reader(f)
+            # Try to detect if it's tab-separated or comma-separated
+            first_line = f.readline()
+            f.seek(0)
+            delimiter = "\t" if "\t" in first_line else ","
+            reader = csv.reader(f, delimiter=delimiter)
             for row in reader:
-                if len(row) >= 2:
-                    chrom, count = row[0], row[1]
+                if (
+                    len(row) >= 3
+                ):  # countingNs script uses SN, NumBP, NumNs (so index 2)
+                    chrom, count = row[0], row[2]
+                    if chrom.startswith("#"):
+                        continue
                     # Normalize chrom name like generate_chrom_table does
                     cnum = chrom.upper().replace("CHR", "").replace("MT", "M")
                     try:
-                        n_counts[cnum] = int(count)
+                        # Remove commas from number if present (e.g. 1,234,567)
+                        clean_count = count.replace(",", "")
+                        n_counts[cnum] = int(float(clean_count))
                     except ValueError:
-                        pass  # Header or junk
+                        pass
+                elif len(row) >= 2:
+                    chrom, count = row[0], row[1]
+                    if chrom.startswith("#"):
+                        continue
+                    cnum = chrom.upper().replace("CHR", "").replace("MT", "M")
+                    try:
+                        clean_count = count.replace(",", "")
+                        n_counts[cnum] = int(float(clean_count))
+                    except ValueError:
+                        pass
     except Exception as e:
         logging.debug(f"Failed to read {ncnt_file}: {e}")
 
@@ -232,15 +253,18 @@ def generate_chrom_table(
 
     build = (
         "38"
-        if "38" in ref_model_name
+        if any(x in ref_model_name.upper() for x in ["38", "HG38", "GRCH38"])
         else "37"
-        if "37" in ref_model_name
+        if any(x in ref_model_name.upper() for x in ["37", "HG19", "GRCH37"])
         else "19"
         if "19" in ref_model_name
         else "99"
     )
     # Use loaded N counts if available, otherwise fallback to hardcoded defaults
-    n_adjust_map = n_counts if n_counts else N_ADJUST.get(build, {})
+    # Merge them so that if sidecar is incomplete, we still have baseline defaults
+    n_adjust_map = N_ADJUST.get(build, {}).copy()
+    if n_counts:
+        n_adjust_map.update(n_counts)
 
     stats_total: list[Any] = ["T", "Total", 0, 0, 0, 0.0, 0.0, ""]
     stats_altcont: list[Any] = ["O", "Other", 0, 0, 0, 0.0, 0.0, ""]
@@ -358,10 +382,10 @@ def render_info(data, detailed=False):
 
     if data.get("avg_read_len", 0) > 0:
         output_lines.append(
-            f"{'Avg Read Length':<28}{data['avg_read_len']:.0f} bp, {data.get('std_read_len', 0):.0f} σ, {'Paired-end' if data.get('is_paired') else 'Single-end'}"
+            f"{'Avg Read Length':<28}{data['avg_read_len']:.0f} bp (SD={data.get('std_read_len', 0):.0f} bp), {'Paired-end' if data.get('is_paired') else 'Single-end'}"
         )
         output_lines.append(
-            f"{'Avg Insert Size':<28}{data.get('avg_insert_size', 0):.0f} bp, {data.get('std_insert_size', 0):.0f} σ"
+            f"{'Avg Insert Size':<28}{data.get('avg_insert_size', 0):.0f} bp (SD={data.get('std_insert_size', 0):.0f} bp)"
         )
     else:
         output_lines.append(f"{'Avg Read Length':<28}Could not compute")
@@ -373,13 +397,56 @@ def render_info(data, detailed=False):
 
     if data.get("gender") and data.get("gender") != "Unknown":
         output_lines.append(f"{'Bio Gender':<28}{data.get('gender')}")
-    if data.get("sequencer") and data.get("sequencer") != "Unknown":
-        output_lines.append(f"{'Sequencer':<28}{data.get('sequencer')}")
+    if data.get("sequencer"):
+        if data["sequencer"] != "Unknown":
+            output_lines.append(f"{'Sequencer':<28}{data.get('sequencer')}")
+        elif detailed and data.get("first_qname"):
+            output_lines.append(f"{'Sequencer':<28}Unknown: {data['first_qname']}")
 
     fstats = data.get("file_stats", {})
     output_lines.append(
         f"{'File Stats':<28}{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
     )
+
+    if detailed:
+        glossary = [
+            "\n" + "=" * 60,
+            "GLOSSARY",
+            "=" * 60,
+            "TABLE COLUMNS:",
+            "  Seq Name        - Reference sequence or chromosome name.",
+            "  Model Len       - Total length of the reference sequence.",
+            "  Model 'N' Len   - Number of 'N' bases (gaps) in the reference.",
+            "  # Segs Map      - Count of read segments mapped to this sequence.",
+            "  Map Gbases      - Billions of bases mapped to this sequence.",
+            "  Map ARD         - Average Read Depth (Gbases / Effective Length).",
+            "  Breadth Coverage- % of sequence covered by at least one read.",
+            "",
+            "METRICS SUMMARY:",
+            "  MAPPED          - Statistics for reads aligned to the reference.",
+            "  RAW             - Statistics for all reads (aligned + unaligned).",
+            "  Avg Read Depth  - Mean depth across all positions.",
+            "  ARD (WES)       - Estimated depth if limited to exome regions.",
+            "  Gigabases       - Total data volume in billions of base pairs.",
+            "  Read Segs       - Total number of reads/segments in millions.",
+            "  Reads %         - Percentage of total reads successfully mapped.",
+            "",
+            "REFERENCE GENOME:",
+            "  Build Name      - e.g., hs38DH, hg19. (Chr)=Primary only, (Full)=All.",
+            "  Mito Type       - rCRS (Modern) or Yoruba (Legacy) mtDNA reference.",
+            "  SNs             - Total count of named sequences in the reference.",
+            "",
+            "OTHER:",
+            "  Bio Gender      - Predicted biological sex based on X/Y ratio.",
+            "  Avg Read Length - Mean base pairs per read (SD = standard deviation).",
+            "  Avg Insert Size - Mean distance between pairs (inner + reads).",
+            "  File Content    - Auto (Autosomes), X/Y, Mito, Other (Alts), Unmap.",
+            "  Sequencer       - Identified sequencing platform based on read IDs.",
+            "  File Stats      - Binary status (Sorted/Indexed) and file size.",
+            "=" * 60,
+        ]
+        output_lines.extend(glossary)
+
     return "\n".join(output_lines) + "\n"
 
 
@@ -598,6 +665,27 @@ def run(args):
         num_sns = len([line for line in header.splitlines() if line.startswith("@SQ")])
 
         ref_model_name, ref_mito, _ = REFERENCE_MODELS.get(md5_sig, ("Unknown", "", ""))
+
+        # Guess from SN count if MD5 is unknown
+        if ref_model_name == "Unknown" and num_sns in REFGEN_BY_SNCOUNT:
+            # Entry format: [is_primary, filename, mito_tag]
+            _, ref_fname, ref_mito = REFGEN_BY_SNCOUNT[num_sns]
+            # Deduce name from filename
+            if "hg19" in ref_fname.lower() or "grch37" in ref_fname.lower():
+                ref_model_name = "hg19"
+            elif "hg38" in ref_fname.lower() or "grch38" in ref_fname.lower():
+                ref_model_name = "hg38"
+            else:
+                ref_model_name = ref_fname.split(".")[0]
+
+        # Guess from filename if still unknown
+        if ref_model_name == "Unknown" and resolved_ref:
+            bn = os.path.basename(resolved_ref).upper()
+            if any(x in bn for x in ["38", "HG38", "GRCH38"]):
+                ref_model_name = "hg38"
+            elif any(x in bn for x in ["37", "HG19", "GRCH37"]):
+                ref_model_name = "hg19"
+
         ref_model_str = (
             f"{ref_model_name} (Chr), {ref_mito}, {num_sns} SNs"
             if ref_model_name != "Unknown"
@@ -635,6 +723,7 @@ def run(args):
                 "avg_insert_size": avg_tlen,
                 "std_insert_size": std_tlen,
                 "sequencer": sequencer,
+                "first_qname": first_qname,
             }
         )
 
