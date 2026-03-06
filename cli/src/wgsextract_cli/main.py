@@ -20,6 +20,7 @@ from .commands import (
     vcf,
     vep,
 )
+from .core.messages import CLI_HELP
 
 
 def main():
@@ -42,51 +43,49 @@ def main():
         "--debug",
         action="store_true",
         default=os.environ.get("WGSE_DEBUG") == "1",
-        help="Enable verbose debug logging. (Env: WGSE_DEBUG=1)",
+        help=CLI_HELP["arg_debug"],
     )
     base_parser.add_argument(
         "--input",
         "-i",
         default=os.environ.get("WGSE_INPUT"),
-        help="Path to the input BAM/CRAM or FASTQ file. (Env: WGSE_INPUT)",
+        help=CLI_HELP["arg_input"],
     )
     base_parser.add_argument(
         "--outdir",
         "-o",
         default=os.environ.get("WGSE_OUTDIR"),
-        help="Destination directory for outputs. (Env: WGSE_OUTDIR)",
+        help=CLI_HELP["arg_outdir"],
     )
     base_parser.add_argument(
         "--ref",
         default=os.environ.get("WGSE_REF"),
-        help="Path to the reference genome FASTA. (Env: WGSE_REF)",
+        help=CLI_HELP["arg_ref"],
     )
     base_parser.add_argument(
         "--threads",
         "-t",
         type=int,
         default=os.environ.get("WGSE_THREADS"),
-        help="CPU threads to use. (Env: WGSE_THREADS)",
+        help=CLI_HELP["arg_threads"],
     )
     base_parser.add_argument(
         "--memory",
         "-m",
         default=os.environ.get("WGSE_MEMORY"),
-        help="Memory limit per thread (e.g., '2G'). (Env: WGSE_MEMORY)",
+        help=CLI_HELP["arg_memory"],
     )
 
     # 2. Main parser
     parser = argparse.ArgumentParser(
-        description="WGS Extract Command-Line Interface (CLI)", parents=[base_parser]
+        description=CLI_HELP["description"], parents=[base_parser]
     )
     subparsers = parser.add_subparsers(
         dest="command", required=True, title="subcommands"
     )
 
     # UI Commands
-    gui_parser = subparsers.add_parser(
-        "gui", help="Launch the Graphical User Interface (GUI)"
-    )
+    gui_parser = subparsers.add_parser("gui", help=CLI_HELP["cmd_gui"])
     gui_parser.set_defaults(
         func=lambda args: __import__("wgsextract_cli.ui.gui", fromlist=["main"]).main()
     )

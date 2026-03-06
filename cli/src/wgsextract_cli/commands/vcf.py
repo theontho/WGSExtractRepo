@@ -4,7 +4,7 @@ import shutil
 import subprocess
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     ReferenceLibrary,
     calculate_bam_md5,
@@ -24,8 +24,9 @@ def register(subparsers, base_parser):
     vcf_subs = parser.add_subparsers(dest="vcf_cmd", required=True)
 
     snp_parser = vcf_subs.add_parser(
-        "snp", parents=[base_parser], help=HELP_TEXTS["snp"]
+        "snp", parents=[base_parser], help=CLI_HELP["cmd_snp"]
     )
+
     snp_group = snp_parser.add_mutually_exclusive_group(required=False)
     snp_group.add_argument(
         "--ploidy-file",
@@ -38,7 +39,7 @@ def register(subparsers, base_parser):
     snp_parser.set_defaults(func=cmd_snp)
 
     indel_parser = vcf_subs.add_parser(
-        "indel", parents=[base_parser], help=HELP_TEXTS["indel"]
+        "indel", parents=[base_parser], help=CLI_HELP["cmd_indel"]
     )
     indel_group = indel_parser.add_mutually_exclusive_group(required=False)
     indel_group.add_argument(
@@ -52,7 +53,7 @@ def register(subparsers, base_parser):
     indel_parser.set_defaults(func=cmd_indel)
 
     annotate_parser = vcf_subs.add_parser(
-        "annotate", parents=[base_parser], help=HELP_TEXTS["annotate"]
+        "annotate", parents=[base_parser], help=CLI_HELP["cmd_annotate"]
     )
     annotate_parser.add_argument(
         "--ann-vcf", help="Annotation VCF file (auto-resolved from --ref if possible)"
@@ -61,7 +62,7 @@ def register(subparsers, base_parser):
     annotate_parser.set_defaults(func=cmd_annotate)
 
     filter_parser = vcf_subs.add_parser(
-        "filter", parents=[base_parser], help=HELP_TEXTS["filter"]
+        "filter", parents=[base_parser], help=CLI_HELP["cmd_filter"]
     )
     filter_parser.add_argument(
         "--expr", help="bcftools filter expression (e.g. 'QUAL>30')"
@@ -76,7 +77,7 @@ def register(subparsers, base_parser):
     filter_parser.set_defaults(func=cmd_filter)
 
     trio_parser = vcf_subs.add_parser(
-        "trio", parents=[base_parser], help=HELP_TEXTS["trio"]
+        "trio", parents=[base_parser], help=CLI_HELP["cmd_trio"]
     )
     trio_parser.add_argument("--proband", required=True, help="VCF file for the child")
     trio_parser.add_argument("--mother", required=True, help="VCF file for the mother")
@@ -90,15 +91,18 @@ def register(subparsers, base_parser):
     trio_parser.set_defaults(func=cmd_trio)
 
     cnv_parser = vcf_subs.add_parser(
-        "cnv", parents=[base_parser], help=HELP_TEXTS["cnv"]
+        "cnv", parents=[base_parser], help=CLI_HELP["cmd_cnv"]
     )
+
     cnv_parser.set_defaults(func=cmd_cnv)
 
-    sv_parser = vcf_subs.add_parser("sv", parents=[base_parser], help=HELP_TEXTS["sv"])
+    sv_parser = vcf_subs.add_parser(
+        "sv", parents=[base_parser], help=CLI_HELP["cmd_sv"]
+    )
     sv_parser.set_defaults(func=cmd_sv)
 
     freebayes_parser = vcf_subs.add_parser(
-        "freebayes", parents=[base_parser], help=HELP_TEXTS["freebayes"]
+        "freebayes", parents=[base_parser], help=CLI_HELP["cmd_freebayes"]
     )
     freebayes_parser.add_argument(
         "-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)"
@@ -106,13 +110,13 @@ def register(subparsers, base_parser):
     freebayes_parser.set_defaults(func=cmd_freebayes)
 
     gatk_parser = vcf_subs.add_parser(
-        "gatk", parents=[base_parser], help=HELP_TEXTS["gatk"]
+        "gatk", parents=[base_parser], help=CLI_HELP["cmd_gatk"]
     )
     gatk_parser.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
     gatk_parser.set_defaults(func=cmd_gatk)
 
     deepvariant_parser = vcf_subs.add_parser(
-        "deepvariant", parents=[base_parser], help=HELP_TEXTS["deepvariant"]
+        "deepvariant", parents=[base_parser], help=CLI_HELP["cmd_deepvariant"]
     )
     deepvariant_parser.add_argument(
         "-r", "--region", help="Chromosomal region (e.g. chrM)"
@@ -123,7 +127,7 @@ def register(subparsers, base_parser):
     deepvariant_parser.set_defaults(func=cmd_deepvariant)
 
     qc_parser = vcf_subs.add_parser(
-        "qc", parents=[base_parser], help=HELP_TEXTS["vcf-qc"]
+        "qc", parents=[base_parser], help=CLI_HELP["cmd_vcf-qc"]
     )
     qc_parser.set_defaults(func=cmd_qc)
 
@@ -133,7 +137,7 @@ def get_base_args(args):
     input_file = getattr(args, "input", None) or getattr(args, "proband", None)
 
     if not input_file:
-        logging.error("--input is required.")
+        logging.error(LOG_MESSAGES["input_required"])
         return None
     threads, _ = get_resource_defaults(args.threads, None)
 
@@ -158,7 +162,7 @@ def get_base_args(args):
         return None
 
     if not resolved_ref or not os.path.isfile(resolved_ref):
-        logging.error("--ref is required (and must be a file) for variant calling.")
+        logging.error(LOG_MESSAGES["ref_required_for"].format(task="variant calling"))
         return None
     return threads, outdir, resolved_ref, lib
 
@@ -175,7 +179,7 @@ def cmd_snp(args):
 
     out_vcf = os.path.join(outdir, "snps.vcf.gz")
 
-    logging.info(f"Calling SNPs to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_snps"].format(output=out_vcf))
     region_args = ["-r", args.region] if args.region else []
 
     ploidy_args = []
@@ -241,7 +245,7 @@ def cmd_indel(args):
 
     out_vcf = os.path.join(outdir, "indels.vcf.gz")
 
-    logging.info(f"Calling InDels to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_indels"].format(output=out_vcf))
     region_args = ["-r", args.region] if args.region else []
 
     ploidy_args = []
@@ -297,7 +301,7 @@ def cmd_indel(args):
 def cmd_annotate(args):
     verify_dependencies(["bcftools", "tabix"])
     if not args.input:
-        return logging.error("--input is required.")
+        return logging.error(LOG_MESSAGES["input_required"])
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
@@ -335,7 +339,9 @@ def cmd_annotate(args):
     ensure_vcf_indexed(args.input)
     ensure_vcf_indexed(ann_vcf)
 
-    logging.info(f"Annotating {args.input} to {out_vcf}")
+    logging.info(
+        LOG_MESSAGES["vcf_annotating"].format(input=args.input, output=out_vcf)
+    )
     try:
         subprocess.run(
             [
@@ -360,7 +366,7 @@ def cmd_annotate(args):
 def cmd_filter(args):
     verify_dependencies(["bcftools", "tabix"])
     if not args.input:
-        return logging.error("--input is required.")
+        return logging.error(LOG_MESSAGES["input_required"])
 
     if not verify_paths_exist({"--input": args.input}):
         return
@@ -413,7 +419,7 @@ def cmd_filter(args):
             )
 
     ensure_vcf_indexed(args.input)
-    logging.info(f"Filtering {args.input} to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_filtering"].format(input=args.input, output=out_vcf))
     try:
         subprocess.run(
             ["bcftools", "view"]
@@ -476,7 +482,9 @@ def cmd_trio(args):
     )
     out_vcf = os.path.join(outdir, f"trio_{args.mode}.vcf.gz")
 
-    logging.info(f"Performing Trio Analysis ({args.mode}) to {out_vcf}")
+    logging.info(
+        LOG_MESSAGES["vcf_trio_analysis"].format(mode=args.mode, output=out_vcf)
+    )
 
     # 1. Merge the three VCFs (ensures they are indexed)
     for f in [args.proband, args.mother, args.father]:
@@ -517,7 +525,7 @@ def cmd_trio(args):
             check=True,
         )
         ensure_vcf_indexed(out_vcf)
-        logging.info(f"Trio analysis complete. Results: {out_vcf}")
+        logging.info(LOG_MESSAGES["vcf_trio_complete"].format(output=out_vcf))
     finally:
         if os.path.exists(merged_vcf):
             os.remove(merged_vcf)
@@ -537,7 +545,7 @@ def cmd_qc(args):
     )
     out_stats = os.path.join(outdir, "vcf_stats.txt")
 
-    logging.info(f"Running bcftools stats on {args.input} to {out_stats}")
+    logging.info(LOG_MESSAGES["vcf_stats"].format(input=args.input, output=out_stats))
     try:
         with open(out_stats, "w") as f:
             subprocess.run(["bcftools", "stats", args.input], stdout=f, check=True)
@@ -555,7 +563,7 @@ def cmd_cnv(args):
     out_bcf = os.path.join(outdir, "cnv.bcf")
     out_vcf = os.path.join(outdir, "cnv.vcf.gz")
 
-    logging.info(f"Calling CNVs using delly to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_cnv"].format(output=out_vcf))
     try:
         # delly cnv -g ref.fa -o cnv.bcf input.bam
         # For CRAM files, delly needs the reference via -g (which we have)
@@ -582,7 +590,7 @@ def cmd_sv(args):
     out_bcf = os.path.join(outdir, "sv.bcf")
     out_vcf = os.path.join(outdir, "sv.vcf.gz")
 
-    logging.info(f"Calling SVs using delly to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_sv"].format(output=out_vcf))
     try:
         # delly call -g ref.fa -o sv.bcf input.bam
         subprocess.run(
@@ -607,7 +615,7 @@ def cmd_freebayes(args):
 
     out_vcf = os.path.join(outdir, "freebayes.vcf.gz")
 
-    logging.info(f"Calling variants using freebayes to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_freebayes"].format(output=out_vcf))
     region_args = ["-r", args.region] if args.region else []
 
     # Check if input is CRAM
@@ -685,7 +693,7 @@ def cmd_gatk(args):
 
     # GATK requires a .dict file
     if not lib.dict_file:
-        logging.info("GATK .dict file not found. Generating...")
+        logging.info(LOG_MESSAGES["vcf_generating_dict"])
         dict_file = (
             ref.replace(".fa.gz", ".dict")
             .replace(".fasta.gz", ".dict")
@@ -699,7 +707,7 @@ def cmd_gatk(args):
             logging.error(f"Failed to generate .dict file: {e}")
             return
 
-    logging.info(f"Calling variants using GATK HaplotypeCaller to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_gatk"].format(output=out_vcf))
     region_args = ["-L", args.region] if args.region else []
 
     try:
@@ -750,7 +758,7 @@ def cmd_deepvariant(args):
     out_vcf = os.path.join(outdir, "deepvariant.vcf.gz")
     intermediate_vcf = os.path.join(outdir, "deepvariant.vcf")
 
-    logging.info(f"Calling variants using DeepVariant to {out_vcf}")
+    logging.info(LOG_MESSAGES["vcf_calling_deepvariant"].format(output=out_vcf))
 
     model_type = "WGS"
     if args.wes:

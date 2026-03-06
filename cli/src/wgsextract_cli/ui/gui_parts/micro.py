@@ -4,6 +4,7 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.messages import GUI_LABELS
 from wgsextract_cli.ui.constants import BUTTON_FONT, MICROARRAY_FORMATS
 
 from .common import ScrollableBaseFrame, ToolTip
@@ -28,20 +29,20 @@ class MicroFrame(ScrollableBaseFrame):
         )
         self.ref_entry = self.create_dir_selector(
             self,
-            "Reference:",
+            GUI_LABELS["ref_genome_selection"],
             variable=self.main_app.ref_path_var,
             info_text="Select the directory containing the reference genome library.",
         )
         self.out_dir = self.create_dir_selector(
             self,
-            "Out Dir:",
+            GUI_LABELS["out_dir"],
             variable=self.main_app.out_dir_var,
             info_text="Directory where generated CombinedKit files will be saved.",
         )
 
         ctk.CTkLabel(
             self,
-            text="Select Target Formats:",
+            text=GUI_LABELS["select_target_formats"],
             font=ctk.CTkFont(size=14, weight="bold"),
         ).pack(pady=(10, 5))
 
@@ -51,7 +52,7 @@ class MicroFrame(ScrollableBaseFrame):
 
         btn_all = ctk.CTkButton(
             bf,
-            text="Select All",
+            text=GUI_LABELS["btn_select_all"],
             width=100,
             command=self.micro_select_all,
             font=BUTTON_FONT,
@@ -61,7 +62,7 @@ class MicroFrame(ScrollableBaseFrame):
 
         btn_none = ctk.CTkButton(
             bf,
-            text="Unselect All",
+            text=GUI_LABELS["btn_unselect_all"],
             width=100,
             command=self.micro_unselect_all,
             font=BUTTON_FONT,
@@ -71,7 +72,7 @@ class MicroFrame(ScrollableBaseFrame):
 
         btn_rec = ctk.CTkButton(
             bf,
-            text="Select Recommended",
+            text=GUI_LABELS["btn_select_rec"],
             width=150,
             command=self.micro_select_recommended,
             font=BUTTON_FONT,
@@ -81,15 +82,15 @@ class MicroFrame(ScrollableBaseFrame):
 
         btn_gen = ctk.CTkButton(
             bf,
-            text="Generate CombinedKit",
+            text=GUI_LABELS["btn_generate_ck"],
             command=lambda: self.handle_button_click("microarray"),
             font=BUTTON_FONT,
         )
         btn_gen.pack(side="right", padx=5)
         self.cmd_buttons["microarray"] = btn_gen
-        from wgsextract_cli.ui.constants import UI_TOOLTIPS
+        from wgsextract_cli.core.messages import GUI_TOOLTIPS
 
-        ToolTip(btn_gen, UI_TOOLTIPS["microarray"])
+        ToolTip(btn_gen, GUI_TOOLTIPS["microarray"])
 
         # Format Selection Grid
         ff = ctk.CTkFrame(self, fg_color="transparent")

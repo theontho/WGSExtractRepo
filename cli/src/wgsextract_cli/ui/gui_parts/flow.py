@@ -4,6 +4,8 @@ import tkinter as tk
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.messages import FLOW_EDGES, FLOW_NODES
+
 from .common import BaseFrame, ToolTip
 
 
@@ -31,8 +33,8 @@ class FlowFrame(BaseFrame):
         self.nodes = [
             (
                 "sequencer",
-                "Sequencer",
-                "The machine that reads your DNA and produces raw reads.",
+                FLOW_NODES["sequencer"]["label"],
+                FLOW_NODES["sequencer"]["tip"],
                 200,
                 50,
                 None,
@@ -40,8 +42,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "fastq",
-                "FASTQ",
-                "Raw sequence data and quality scores from the sequencer.",
+                FLOW_NODES["fastq"]["label"],
+                FLOW_NODES["fastq"]["tip"],
                 200,
                 200,
                 "fastq",
@@ -49,8 +51,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "library",
-                "Library",
-                "Reference genomes (FASTA) and gene maps required for alignment and calling.",
+                FLOW_NODES["library"]["label"],
+                FLOW_NODES["library"]["tip"],
                 450,
                 50,
                 "lib",
@@ -58,8 +60,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "bam",
-                "BAM / CRAM",
-                "Aligned sequence data, mapped to a reference genome.",
+                FLOW_NODES["bam"]["label"],
+                FLOW_NODES["bam"]["tip"],
                 450,
                 200,
                 "gen",
@@ -67,8 +69,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "vcf",
-                "VCF / VEP",
-                "Variant calls (SNPs, InDels) and their predicted biological effects.",
+                FLOW_NODES["vcf"]["label"],
+                FLOW_NODES["vcf"]["tip"],
                 750,
                 50,
                 "vcf",
@@ -76,8 +78,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "extract",
-                "Extract",
-                "Subsets of data (e.g., MT-only, Y-only) for targeted analysis.",
+                FLOW_NODES["extract"]["label"],
+                FLOW_NODES["extract"]["tip"],
                 750,
                 150,
                 "ext",
@@ -85,8 +87,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "ancestry",
-                "Ancestry",
-                "Haplogroup and lineage prediction (Y-DNA and Mitochondrial).",
+                FLOW_NODES["ancestry"]["label"],
+                FLOW_NODES["ancestry"]["tip"],
                 750,
                 250,
                 "anc",
@@ -94,8 +96,8 @@ class FlowFrame(BaseFrame):
             ),
             (
                 "micro",
-                "Microarray",
-                "Simulated consumer DNA test data (e.g., 23andMe, AncestryDNA formats).",
+                FLOW_NODES["micro"]["label"],
+                FLOW_NODES["micro"]["tip"],
                 750,
                 350,
                 "micro",
@@ -109,57 +111,57 @@ class FlowFrame(BaseFrame):
                 "sequencer",
                 "fastq",
                 False,
-                "Creates",
-                "The sequencer generates raw FASTQ files containing nucleotide sequences and quality scores.",
+                FLOW_EDGES["sequencer_fastq"]["label"],
+                FLOW_EDGES["sequencer_fastq"]["tip"],
             ),
             (
                 "fastq",
                 "bam",
                 True,
-                "Align / Unalign",
-                "Convert raw FASTQ reads into an aligned BAM file using a reference genome, or revert a BAM back to FASTQ.",
+                FLOW_EDGES["fastq_bam"]["label"],
+                FLOW_EDGES["fastq_bam"]["tip"],
             ),
             (
                 "library",
                 "bam",
                 False,
-                "Reference",
-                "Standardized genomic sequences (FASTA) used as a coordinate system for alignment.",
+                FLOW_EDGES["library_bam"]["label"],
+                FLOW_EDGES["library_bam"]["tip"],
             ),
             (
                 "library",
                 "vcf",
                 False,
-                "Reference",
-                "Genomic annotations and reference sequences used for variant calling and effect prediction.",
+                FLOW_EDGES["library_vcf"]["label"],
+                FLOW_EDGES["library_vcf"]["tip"],
             ),
             (
                 "bam",
                 "vcf",
                 False,
-                "Variant Calling",
-                "Identify genetic variations (SNPs, InDels) by comparing aligned reads to the reference genome.",
+                FLOW_EDGES["bam_vcf"]["label"],
+                FLOW_EDGES["bam_vcf"]["tip"],
             ),
             (
                 "bam",
                 "extract",
                 False,
-                "Subsetting",
-                "Isolate specific chromosomes (like chrM or chrY) or regions for focused analysis.",
+                FLOW_EDGES["bam_extract"]["label"],
+                FLOW_EDGES["bam_extract"]["tip"],
             ),
             (
                 "bam",
                 "ancestry",
                 False,
-                "Lineage Analysis",
-                "Determine maternal (mtDNA) and paternal (Y-DNA) haplogroups to trace deep ancestry.",
+                FLOW_EDGES["bam_ancestry"]["label"],
+                FLOW_EDGES["bam_ancestry"]["tip"],
             ),
             (
                 "bam",
                 "micro",
                 False,
-                "Simulation",
-                "Convert high-density WGS data into the sparse format used by consumer DNA tests.",
+                FLOW_EDGES["bam_micro"]["label"],
+                FLOW_EDGES["bam_micro"]["tip"],
             ),
         ]
 
@@ -272,7 +274,9 @@ class FlowFrame(BaseFrame):
                         ToolTip(lbl, ltt)
 
         # 4. Place the nodes ON TOP
-        for key, (x, y, label, tt, target, is_btn) in self.node_widgets.items():
+        for key, widget_info in self.node_widgets.items():
+            x_raw, y_raw, label, tt, target, is_btn = widget_info
+            x, y = int(x_raw), int(y_raw)
             if is_btn:
                 widget = ctk.CTkButton(
                     self.canvas,

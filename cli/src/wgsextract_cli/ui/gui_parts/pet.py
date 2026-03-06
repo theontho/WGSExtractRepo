@@ -3,6 +3,7 @@
 import customtkinter as ctk
 
 from wgsextract_cli.core.help_texts import ABOUT_PET_SEQUENCING
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
 from .common import ScrollableBaseFrame, ToolTip
@@ -23,7 +24,7 @@ class PetFrame(ScrollableBaseFrame):
         f.pack(fill="x", padx=20, pady=5)
         btn = ctk.CTkButton(
             f,
-            text="About Pet Sequencing",
+            text=GUI_LABELS["about_pet_seq"],
             command=self.show_about_pets,
             font=BUTTON_FONT,
             fg_color="#2c3e50",
@@ -38,24 +39,24 @@ class PetFrame(ScrollableBaseFrame):
         self.pet_type_var = ctk.StringVar(value="Dog")
         self.create_option_menu(
             self,
-            "Pet Species:",
+            GUI_LABELS["pet_species"],
             options=["Dog", "Cat"],
             variable=self.pet_type_var,
-            info_text="Select the species of your pet to use the correct reference genome.",
+            info_text=GUI_TOOLTIPS["pet_species_tip"],
         )
 
         # Reference Library Selector
         self.ref_entry = self.create_dir_selector(
             self,
-            "Reference Library:",
+            GUI_LABELS["ref_library_path"],
             variable=self.main_app.ref_path_var,
-            info_text="Path to the directory containing your reference genomes. Ensure the animal genomes are downloaded in the Library tab.",
+            info_text=GUI_TOOLTIPS["ref_lib_tip"],
         )
 
         # Output Directory Selector
         self.out_dir = self.create_dir_selector(
             self,
-            "Out Dir:",
+            GUI_LABELS["out_dir"],
             variable=self.main_app.out_dir_var,
             info_text="Directory where the resulting BAM and VCF files will be saved.",
         )
@@ -65,28 +66,28 @@ class PetFrame(ScrollableBaseFrame):
 
         self.fastq_r1 = self.create_file_selector(
             self,
-            "FASTQ R1:",
+            GUI_LABELS["fastq_r1"],
             button_text=align_cmd["label"],
             command=lambda: self.handle_button_click("pet-analysis"),
-            info_text="First read file (R1) for alignment.",
+            info_text=GUI_TOOLTIPS["pet_r1_tip"],
         )
         self.cmd_buttons["pet-analysis"] = self.fastq_r1.action_button
         ToolTip(self.cmd_buttons["pet-analysis"], align_cmd["help"])
 
         self.fastq_r2 = self.create_file_selector(
             self,
-            "FASTQ R2 (opt):",
-            info_text="Second read file (R2) for paired-end alignment (optional).",
+            GUI_LABELS["fastq_r2"],
+            info_text=GUI_TOOLTIPS["pet_r2_tip"],
         )
 
         # Output format selection
         self.output_format_var = ctk.StringVar(value="BAM")
         self.create_option_menu(
             self,
-            "Output Format:",
+            GUI_LABELS["output_format"],
             options=["BAM", "CRAM"],
             variable=self.output_format_var,
-            info_text="Choose whether to output a standard BAM or a more compressed CRAM file.",
+            info_text=GUI_TOOLTIPS["output_fmt_tip"],
         )
 
     def handle_button_click(self, cmd_key: str) -> None:

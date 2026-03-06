@@ -3,7 +3,7 @@ import os
 import subprocess
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     ensure_vcf_indexed,
@@ -24,50 +24,50 @@ def register(subparsers, base_parser):
 
     # Mitochondrial commands
     mito_fasta_parser = ext_subs.add_parser(
-        "mito-fasta", parents=[base_parser], help=HELP_TEXTS["mito-fasta"]
+        "mito-fasta", parents=[base_parser], help=CLI_HELP["cmd_mito-fasta"]
     )
     mito_fasta_parser.set_defaults(func=cmd_mito_fasta)
 
     mito_vcf_parser = ext_subs.add_parser(
-        "mito-vcf", parents=[base_parser], help=HELP_TEXTS["mito-vcf"]
+        "mito-vcf", parents=[base_parser], help=CLI_HELP["cmd_mito-vcf"]
     )
     mito_vcf_parser.set_defaults(func=cmd_mito_vcf)
 
     # Y-DNA commands
     y_bam_parser = ext_subs.add_parser(
-        "ydna-bam", parents=[base_parser], help=HELP_TEXTS["ydna-bam"]
+        "ydna-bam", parents=[base_parser], help=CLI_HELP["cmd_ydna-bam"]
     )
     y_bam_parser.set_defaults(func=cmd_ydna_bam)
 
     y_vcf_parser = ext_subs.add_parser(
-        "ydna-vcf", parents=[base_parser], help=HELP_TEXTS["ydna-vcf"]
+        "ydna-vcf", parents=[base_parser], help=CLI_HELP["cmd_ydna-vcf"]
     )
     y_vcf_parser.set_defaults(func=cmd_ydna_vcf)
 
     # Combined command
     y_mt_parser = ext_subs.add_parser(
-        "y-mt-extract", parents=[base_parser], help=HELP_TEXTS["y-mt-extract"]
+        "y-mt-extract", parents=[base_parser], help=CLI_HELP["cmd_y-mt-extract"]
     )
     y_mt_parser.set_defaults(func=cmd_y_mt_extract)
 
     # Legacy / Other
     unmapped_parser = ext_subs.add_parser(
-        "unmapped", parents=[base_parser], help=HELP_TEXTS["unmapped"]
+        "unmapped", parents=[base_parser], help=CLI_HELP["cmd_unmapped"]
     )
     unmapped_parser.set_defaults(func=cmd_unmapped)
 
     custom_parser = ext_subs.add_parser(
-        "custom", parents=[base_parser], help=HELP_TEXTS["custom"]
+        "custom", parents=[base_parser], help=CLI_HELP["cmd_custom"]
     )
     custom_parser.add_argument(
-        "-r", "--region", required=True, help="Region to extract"
+        "-r", "--region", required=True, help=CLI_HELP["arg_region"]
     )
     custom_parser.set_defaults(func=cmd_custom)
 
 
 def get_base_args(args):
     if not args.input:
-        logging.error("--input is required.")
+        logging.error(LOG_MESSAGES["input_required"])
         return None
 
     if not verify_paths_exist({"--input": args.input}):
@@ -100,7 +100,9 @@ def cmd_mito_fasta(args):
     threads, outdir, cram_opt, resolved_ref = base
 
     if not resolved_ref:
-        logging.error("--ref is required for mitochondrial extraction.")
+        logging.error(
+            LOG_MESSAGES["ref_required_for"].format(task="mitochondrial extraction")
+        )
         return
 
     print_warning("ButtonMitoFASTA", threads=threads)
@@ -134,7 +136,7 @@ def cmd_mito_fasta(args):
         ensure_vcf_indexed(out_vcf)
 
         # 3. Generate Consensus
-        logging.info(f"Generating consensus FASTA to {out_fasta}")
+        logging.info(LOG_MESSAGES["generating_consensus"].format(output=out_fasta))
         with open(out_fasta, "w") as f:
             subprocess.run(
                 ["bcftools", "consensus", "-f", resolved_ref, "-H", "1", out_vcf],
@@ -160,7 +162,9 @@ def cmd_mito_vcf(args):
     threads, outdir, cram_opt, resolved_ref = base
 
     if not resolved_ref:
-        logging.error("--ref is required for mitochondrial extraction.")
+        logging.error(
+            LOG_MESSAGES["ref_required_for"].format(task="mitochondrial extraction")
+        )
         return
 
     print_warning("ButtonMitoVCF", threads=threads)
@@ -178,7 +182,7 @@ def cmd_mito_vcf(args):
         )
         run_command(["samtools", "index", out_bam])
 
-        logging.info(f"Calling mitochondrial variants to {out_vcf}")
+        logging.info(LOG_MESSAGES["calling_mito_variants"].format(output=out_vcf))
         p1 = subprocess.Popen(
             ["bcftools", "mpileup", "-Ou", "-f", resolved_ref, out_bam],
             stdout=subprocess.PIPE,
@@ -211,7 +215,7 @@ def cmd_ydna_bam(args):
     base_name = os.path.basename(args.input).split(".")[0]
     out_bam = os.path.join(outdir, f"{base_name}_Y.bam")
 
-    logging.info(f"Extracting Y-chromosome reads ({chr_y}) to {out_bam}")
+    logging.info(LOG_MESSAGES["extracting_y"].format(chr_y=chr_y, output=out_bam))
     try:
         run_command(
             ["samtools", "view", "-bh"]
@@ -231,7 +235,7 @@ def cmd_ydna_vcf(args):
     threads, outdir, cram_opt, resolved_ref = base
 
     if not resolved_ref:
-        logging.error("--ref is required for Y extraction.")
+        logging.error(LOG_MESSAGES["ref_required_for"].format(task="Y extraction"))
         return
 
     print_warning("ButtonYOnlyVCF", threads=threads)
@@ -249,7 +253,7 @@ def cmd_ydna_vcf(args):
         )
         run_command(["samtools", "index", out_bam])
 
-        logging.info(f"Calling Y-chromosome variants to {out_vcf}")
+        logging.info(LOG_MESSAGES["calling_y_variants"].format(output=out_vcf))
         p1 = subprocess.Popen(
             ["bcftools", "mpileup", "-Ou", "-f", resolved_ref, out_bam],
             stdout=subprocess.PIPE,
@@ -283,7 +287,7 @@ def cmd_y_mt_extract(args):
     base_name = os.path.basename(args.input).split(".")[0]
     out_bam = os.path.join(outdir, f"{base_name}_Y_MT.bam")
 
-    logging.info(f"Extracting Y and MT reads to {out_bam}")
+    logging.info(LOG_MESSAGES["extracting_y_mt"].format(output=out_bam))
     try:
         run_command(
             ["samtools", "view", "-bh"]
@@ -307,7 +311,7 @@ def cmd_unmapped(args):
     base_name = os.path.basename(args.input).split(".")[0]
     out_bam = os.path.join(outdir, f"{base_name}_unmapped.bam")
 
-    logging.info(f"Extracting unmapped reads to {out_bam}")
+    logging.info(LOG_MESSAGES["extracting_unmapped"].format(output=out_bam))
     try:
         # -f 4 gets unmapped reads
         run_command(
@@ -330,7 +334,9 @@ def cmd_custom(args):
     base_name = os.path.basename(args.input).split(".")[0]
     out_bam = os.path.join(outdir, f"{base_name}_{region.replace(':', '_')}.bam")
 
-    logging.info(f"Extracting region {region} to {out_bam}")
+    logging.info(
+        LOG_MESSAGES["extracting_region"].format(region=region, output=out_bam)
+    )
     try:
         run_command(
             ["samtools", "view", "-bh"]

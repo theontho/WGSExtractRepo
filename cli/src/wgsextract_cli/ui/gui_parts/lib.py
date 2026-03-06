@@ -5,6 +5,7 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
 from .common import ScrollableBaseFrame, ToolTip
@@ -59,7 +60,7 @@ class LibFrame(ScrollableBaseFrame):
         # Library Directory selector moved here
         self.lib_dest = self.create_dir_selector(
             self,
-            "Reference Library:",
+            GUI_LABELS["ref_library_path"],
             variable=self.main_app.ref_path_var,
             info_text="Main directory where reference genomes are stored.",
         )
@@ -79,11 +80,11 @@ class LibFrame(ScrollableBaseFrame):
 
             if cmd == "ref-gene-map":
                 if is_gene_map_installed:
-                    label = "Delete Gene Map"
+                    label = GUI_LABELS["btn_delete_gm"]
                     fg_color = "#AA3333"
                     hover_color = "#CC4444"
                 else:
-                    label = "Download Gene Map"
+                    label = GUI_LABELS["btn_download_gm"]
 
             r, c = divmod(i, 3)
             gf.grid_columnconfigure(c, weight=1)
@@ -106,7 +107,9 @@ class LibFrame(ScrollableBaseFrame):
         vep_h = ctk.CTkFrame(vep_f, fg_color="transparent")
         vep_h.pack(fill="x")
         ctk.CTkLabel(
-            vep_h, text="VEP Cache Management", font=ctk.CTkFont(size=14, weight="bold")
+            vep_h,
+            text=GUI_LABELS["vep_cache_mgmt"],
+            font=ctk.CTkFont(size=14, weight="bold"),
         ).pack(side="left")
         v_info = ctk.CTkLabel(
             vep_h,
@@ -118,15 +121,15 @@ class LibFrame(ScrollableBaseFrame):
         v_info.pack(side="left", padx=5)
         ToolTip(
             v_info,
-            "VEP (Variant Effect Predictor) uses a large cache of genomic data to determine how variants (SNPs/InDels) might affect genes and proteins.",
+            GUI_TOOLTIPS["vep_mgmt_tip"],
         )
 
         verify_cmd = next(c for c in vep_commands if c["cmd"] == "vep-verify")
         self.vep_cache = self.create_read_only_entry_with_info(
             self,
-            "VEP Cache Path:",
+            GUI_LABELS["vep_cache_path"],
             self.main_app.vep_cache_var,
-            "Location of Ensembl VEP cache data. Derived from the current Reference path.",
+            GUI_TOOLTIPS["vep_cache_tip"],
             button_text=verify_cmd["label"],
             command=lambda: self.main_app.run_dispatch("vep-verify", self),
         )
@@ -164,7 +167,7 @@ class LibFrame(ScrollableBaseFrame):
         )
         self.vep_cancel_btn = ctk.CTkButton(
             self.vep_prog_frame,
-            text="Cancel",
+            text=GUI_LABELS["btn_cancel"].split("|")[0].strip(),
             width=60,
             fg_color="#666666",
             command=self.main_app.cancel_vep_download,
@@ -178,7 +181,9 @@ class LibFrame(ScrollableBaseFrame):
         hf = ctk.CTkFrame(self, fg_color="transparent")
         hf.pack(fill="x", padx=20, pady=(20, 10))
         ctk.CTkLabel(
-            hf, text="Reference Genomes", font=ctk.CTkFont(size=16, weight="bold")
+            hf,
+            text=GUI_LABELS["ref_genomes_list"],
+            font=ctk.CTkFont(size=16, weight="bold"),
         ).pack(side="left")
         ii = ctk.CTkLabel(
             hf,
@@ -188,11 +193,15 @@ class LibFrame(ScrollableBaseFrame):
             cursor="hand2",
         )
         ii.pack(side="left", padx=5)
-        ToolTip(ii, "Baseline DNA sequences used for comparison during analysis.")
+        ToolTip(ii, GUI_TOOLTIPS["ref_genomes_tip"])
 
         # Refresh List button moved here
         ctk.CTkButton(
-            hf, text="Refresh List", width=100, command=self.setup_ui, font=BUTTON_FONT
+            hf,
+            text=GUI_LABELS["refresh_list"],
+            width=100,
+            command=self.setup_ui,
+            font=BUTTON_FONT,
         ).pack(side="right", padx=10)
 
         dest = self.main_app.ref_path_var.get()
@@ -219,7 +228,7 @@ class LibFrame(ScrollableBaseFrame):
         # Tags processing
         tags = []
         if "(Rec)" in lt:
-            tags.append(("Recommended", "#228822"))
+            tags.append((GUI_LABELS["recommended_tag"], "#228822"))
             lt = lt.replace("(Rec)", "").strip()
         lt = re.sub(r"\s+", " ", lt).strip(" -_")
 
@@ -265,7 +274,7 @@ class LibFrame(ScrollableBaseFrame):
         )
         cbtn = ctk.CTkButton(
             dc,
-            text="Cancel |",
+            text=GUI_LABELS["btn_cancel"],
             width=80,
             fg_color=("#cfd8dc", "#455a64"),
             hover_color=("#b0bec5", "#37474f"),
@@ -290,7 +299,7 @@ class LibFrame(ScrollableBaseFrame):
         # Delete button
         del_btn = ctk.CTkButton(
             row,
-            text="Delete",
+            text=GUI_LABELS["btn_delete"],
             width=60,
             fg_color="#992222",
             hover_color="#bb3333",
@@ -303,7 +312,7 @@ class LibFrame(ScrollableBaseFrame):
         # Verify button
         ver_btn = ctk.CTkButton(
             row,
-            text="Verify",
+            text=GUI_LABELS["btn_verify"],
             width=60,
             command=lambda g=group: self.main_app.run_ref_verify(g, self),
             font=BUTTON_FONT,
@@ -315,7 +324,7 @@ class LibFrame(ScrollableBaseFrame):
         # Unindex button
         unidx_btn = ctk.CTkButton(
             row,
-            text="Unindex",
+            text=GUI_LABELS["btn_unindex"],
             width=65,
             fg_color="#992222",
             hover_color="#bb3333",
@@ -329,7 +338,7 @@ class LibFrame(ScrollableBaseFrame):
         if has_ref_ns(fn, dest):
             ns_btn = ctk.CTkButton(
                 row,
-                text="Del Ns",
+                text=GUI_LABELS["btn_del_ns"],
                 width=70,
                 fg_color="#992222",
                 hover_color="#bb3333",
@@ -341,7 +350,7 @@ class LibFrame(ScrollableBaseFrame):
         else:
             ns_btn = ctk.CTkButton(
                 row,
-                text="Count Ns",
+                text=GUI_LABELS["btn_count_ns"],
                 width=70,
                 command=lambda g=group: self.main_app.run_ref_count_ns(g, self),
                 font=BUTTON_FONT,
@@ -359,7 +368,7 @@ class LibFrame(ScrollableBaseFrame):
         # Delete button
         del_btn = ctk.CTkButton(
             row,
-            text="Delete",
+            text=GUI_LABELS["btn_delete"],
             width=60,
             fg_color="#992222",
             hover_color="#bb3333",
@@ -386,7 +395,7 @@ class LibFrame(ScrollableBaseFrame):
         if has_ref_ns(fn, dest):
             ns_btn = ctk.CTkButton(
                 row,
-                text="Del Ns",
+                text=GUI_LABELS["btn_del_ns"],
                 width=70,
                 fg_color="#992222",
                 hover_color="#bb3333",
@@ -398,7 +407,7 @@ class LibFrame(ScrollableBaseFrame):
         else:
             ns_btn = ctk.CTkButton(
                 row,
-                text="Count Ns",
+                text=GUI_LABELS["btn_count_ns"],
                 width=70,
                 command=lambda g=group: self.main_app.run_ref_count_ns(g, self),
                 font=BUTTON_FONT,
@@ -409,7 +418,7 @@ class LibFrame(ScrollableBaseFrame):
 
         ctk.CTkLabel(
             row,
-            text="Needs Index",
+            text=GUI_LABELS["needs_index_tag"],
             text_color="#ffaa00",
             font=ctk.CTkFont(size=11, weight="bold"),
         ).pack(side="right", padx=10)
@@ -419,7 +428,7 @@ class LibFrame(ScrollableBaseFrame):
     ) -> None:
         ctk.CTkButton(
             row,
-            text="Delete",
+            text=GUI_LABELS["btn_delete"],
             width=70,
             fg_color="#992222",
             hover_color="#bb3333",
@@ -428,7 +437,7 @@ class LibFrame(ScrollableBaseFrame):
         ).pack(side="right", padx=10)
         ctk.CTkButton(
             row,
-            text="Restart",
+            text=GUI_LABELS["btn_restart"],
             width=70,
             fg_color="#aa6622",
             hover_color="#cc8844",
@@ -439,7 +448,7 @@ class LibFrame(ScrollableBaseFrame):
         ).pack(side="right", padx=5)
         ctk.CTkButton(
             row,
-            text="Resume",
+            text=GUI_LABELS["btn_resume"],
             width=70,
             fg_color="#228822",
             hover_color="#33aa33",
@@ -450,7 +459,7 @@ class LibFrame(ScrollableBaseFrame):
         ).pack(side="right", padx=5)
         ctk.CTkLabel(
             row,
-            text="Incomplete",
+            text=GUI_LABELS["incomplete_tag"],
             text_color="#ffaa00",
             font=ctk.CTkFont(size=11, weight="bold"),
         ).pack(side="right", padx=10)
@@ -482,7 +491,7 @@ class LibFrame(ScrollableBaseFrame):
             cmd_key = "vep-cancel"
             self.cmd_buttons[cmd_key] = self.vep_cancel_btn
             self.vep_cancel_btn.configure(
-                text="Cancel |",
+                text=GUI_LABELS["btn_cancel"],
                 fg_color=("#cfd8dc", "#455a64"),
                 hover_color=("#b0bec5", "#37474f"),
                 text_color=("#000000", "#ffffff"),
@@ -509,7 +518,7 @@ class LibFrame(ScrollableBaseFrame):
         if state == "running":
             self.running_spinners[cmd_key] = True
             btn.configure(
-                text="Cancel |",
+                text=GUI_LABELS["btn_cancel"],
                 fg_color=("#cfd8dc", "#455a64"),
                 hover_color=("#b0bec5", "#37474f"),
                 text_color=("#000000", "#ffffff"),
@@ -522,13 +531,13 @@ class LibFrame(ScrollableBaseFrame):
             # Restore original label and color
             label = ""
             if cmd_key.startswith("verify-"):
-                label = "Verify"
+                label = GUI_LABELS["btn_verify"]
             elif cmd_key.startswith("index-"):
                 label = "Index"
             elif cmd_key.startswith("count-ns-"):
-                label = "Count Ns"
+                label = GUI_LABELS["btn_count_ns"]
             elif cmd_key.startswith("del-ns-"):
-                label = "Del Ns"
+                label = GUI_LABELS["btn_del_ns"]
             else:
                 all_cmds = self.meta["commands"] + self.meta["vep_commands"]
                 label = next(c["label"] for c in all_cmds if c["cmd"] == cmd_key)

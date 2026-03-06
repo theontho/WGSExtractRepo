@@ -4,6 +4,7 @@ import os
 import subprocess
 
 from wgsextract_cli.core.constants import REF_GENOME_FILENAMES, REFERENCE_MODELS
+from wgsextract_cli.core.messages import LOG_MESSAGES
 
 try:
     import psutil
@@ -123,15 +124,33 @@ class ReferenceLibrary:
             self.build = REFERENCE_MODELS[self.md5][0]
 
         if self.fasta:
-            logging.debug(f"Auto-resolved FASTA: {self.fasta}")
+            logging.debug(
+                LOG_MESSAGES["util_auto_resolved"].format(type="FASTA", path=self.fasta)
+            )
         if self.vep_cache:
-            logging.debug(f"Auto-resolved VEP cache: {self.vep_cache}")
+            logging.debug(
+                LOG_MESSAGES["util_auto_resolved"].format(
+                    type="VEP cache", path=self.vep_cache
+                )
+            )
         if self.ploidy_file:
-            logging.debug(f"Auto-resolved ploidy: {self.ploidy_file}")
+            logging.debug(
+                LOG_MESSAGES["util_auto_resolved"].format(
+                    type="ploidy", path=self.ploidy_file
+                )
+            )
         if self.ref_vcf_tab:
-            logging.debug(f"Auto-resolved ref-vcf-tab: {self.ref_vcf_tab}")
+            logging.debug(
+                LOG_MESSAGES["util_auto_resolved"].format(
+                    type="ref-vcf-tab", path=self.ref_vcf_tab
+                )
+            )
         if self.dict_file:
-            logging.debug(f"Auto-resolved dict: {self.dict_file}")
+            logging.debug(
+                LOG_MESSAGES["util_auto_resolved"].format(
+                    type="dict", path=self.dict_file
+                )
+            )
 
     def _search_dir(self, d):
         if not os.path.isdir(d):
@@ -320,10 +339,16 @@ def verify_paths_exist(paths_dict):
     for arg, path in paths_dict.items():
         if path:
             if not os.path.exists(path):
-                logging.error(f"Required file for {arg} not found: {path}")
+                logging.error(
+                    LOG_MESSAGES["util_required_file_not_found"].format(
+                        arg=arg, path=path
+                    )
+                )
                 return False
             if os.path.isdir(path):
-                logging.error(f"Required file for {arg} is a directory: {path}")
+                logging.error(
+                    LOG_MESSAGES["util_required_file_is_dir"].format(arg=arg, path=path)
+                )
                 return False
     return True
 
@@ -335,7 +360,9 @@ def run_command(cmd_list, capture_output=False, check=True, **kwargs):
             cmd_list, capture_output=capture_output, text=True, check=check, **kwargs
         )
     except subprocess.CalledProcessError as e:
-        logging.error(f"Command failed: {' '.join(cmd_list)}")
+        logging.error(
+            LOG_MESSAGES["util_command_failed"].format(command=" ".join(cmd_list))
+        )
         if e.stderr:
             logging.error(e.stderr)
         raise
@@ -369,7 +396,7 @@ def ensure_vcf_indexed(vcf_path):
         pass
 
     if is_bgzipped:
-        logging.info(f"Auto-indexing VCF: {vcf_path}")
+        logging.info(LOG_MESSAGES["util_auto_indexing_vcf"].format(path=vcf_path))
         try:
             # Try tbi first, fall back to csi if needed (csi supports larger chromosomes)
             subprocess.run(["tabix", "-p", "vcf", vcf_path], check=True)
@@ -379,9 +406,13 @@ def ensure_vcf_indexed(vcf_path):
                 subprocess.run(["bcftools", "index", vcf_path], check=True)
                 return True
             except Exception as e:
-                logging.warning(f"Failed to auto-index {vcf_path}: {e}")
+                logging.warning(
+                    LOG_MESSAGES["util_auto_indexing_failed"].format(
+                        path=vcf_path, error=e
+                    )
+                )
     else:
-        logging.debug(f"Skipping auto-index for non-bgzipped file: {vcf_path}")
+        logging.debug(LOG_MESSAGES["util_skipping_auto_index"].format(path=vcf_path))
 
     return False
 
@@ -408,9 +439,7 @@ def get_bam_header(bam_path, cram_opt=None):
         # But often the header can be read without -T.
         if bam_path.lower().endswith(".cram") and cram_opt:
             try:
-                logging.debug(
-                    "Header fetch failed with reference, retrying without reference..."
-                )
+                logging.debug(LOG_MESSAGES["util_header_retry"])
                 result = run_command(
                     ["samtools", "view", "-H", bam_path], capture_output=True
                 )
@@ -418,7 +447,7 @@ def get_bam_header(bam_path, cram_opt=None):
             except Exception:
                 pass
 
-        logging.error(f"Failed to fetch BAM header for {bam_path}: {e}")
+        logging.error(LOG_MESSAGES["util_header_failed"].format(path=bam_path, error=e))
         return ""
 
 

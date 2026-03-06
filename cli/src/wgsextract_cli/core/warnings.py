@@ -2,6 +2,8 @@ import logging
 import os
 import shutil
 
+from wgsextract_cli.core.messages import SYSTEM_MESSAGES as MESSAGES
+
 # Internal machine benchmarks for high-performance reference
 # Obtained from 30x WGS (7.3GB CRAM) on M1 Pro class hardware
 M1_PRO_ESTIMATES = {
@@ -75,25 +77,6 @@ EXPECTED_TIME = {
     "ButtonAlignBAM": 9 * 60 * 60,
 }
 
-# Messages extracted from program/language.xlsx (English)
-MESSAGES = {
-    "infoFreeSpace": "Operation {app} needs {size} GB of Free Space in the Temporary Directory to proceed. You likely also need {final} GB of free space in the Output Directory for the final file to be created. This is in addition to any space already used. Make sure the needed space is available before continuing.",
-    "RealignBAMTimeWarnMesg": """There are several long tasks to (re)align a BAM file. Each major step and the rough time to complete it are:
-(1) Unalign the BAM to create the FASTQ files (1-3 hours)
-(2) Create new Reference Genome Index (2-3 hours)
-(3) Align FASTQ to Reference Genome (8-160 hours)
-(4) Remove Duplicates, Sort and Index to Create the Final BAM (1-2 hours)
-(5) Create the CRAM (1-2 hours)
-
-We estimate, on this machine, this will take {time} hours.""",
-    "ExpectedWait": "Expected Wait is {time}",
-    "YorubaWarning": "Your BAM file uses the Yoruba reference genome for mitochondrial DNA. This is incompatible with the rCRS genome that tools use. We cannot convert this for you at this time.",
-    "LowCoverageWarning": "This BAM file has a low mapped average read depth. This can lead to incorrect and fewer variant calls.",
-    "LongReadSequenceWarning": "The BAM file appears to be from a long-read sequencer (e.g. Nanopore). Tools have not been tuned to handle this special case.",
-    "warnBAMNoStatsNoIndex": "The specified BAM File is not sorted and / or indexed. Some commands cannot run or will take longer to run without these features. We encourage you to sort and / or index your BAM File first; which takes ~30 min each.",
-    "warnCRAMNoStats": "The stats for a CRAM file take over 30 minutes to complete with 30x WGS and so are not automatically run. You may need to run 'info --detailed' once to calculate and cache these stats.",
-}
-
 
 def format_time(seconds):
     if seconds < 60:
@@ -133,7 +116,7 @@ def print_warning(
     if action_key in EXPECTED_TIME:
         wait_time = EXPECTED_TIME[action_key]
         # Adjust for threads if it's a parallelizable action
-        # This is a rough estimation as per the original app's logic
+        # This is a rough heuristic as per the original app's logic
         if threads and action_key in [
             "ButtonAlignBAM",
             "ButtonUnalignBAM",
@@ -192,13 +175,11 @@ def check_free_space(path, required_gb):
     total, used, free = shutil.disk_usage(path)
     free_gb = free / (1024**3)
     if free_gb < required_gb:
-        logging.warning(
-            "!!! EXTRA LARGE WARNING: Insufficient Disk Space Detected! !!!"
+        logging.warning(f"!!! {MESSAGES['insufficient_disk_title']} !!!")
+        msg = MESSAGES["insufficient_disk_msg"].format(
+            detected=f"{free_gb:.1f}", path=path, needed=required_gb
         )
-        logging.warning(f"!!! Detected: {free_gb:.1f} GB available on {path} !!!")
-        logging.warning(f"!!! Estimated: {required_gb} GB needed !!!")
-        logging.warning(
-            "!!! This operation will likely consume more space than you have available. !!!"
-        )
+        for line in msg.split("\n"):
+            logging.warning(f"!!! {line} !!!")
         return False
     return True

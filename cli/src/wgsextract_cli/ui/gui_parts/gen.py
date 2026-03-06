@@ -4,6 +4,7 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
 from .common import ScrollableBaseFrame, ToolTip
@@ -29,9 +30,9 @@ class GenericFrame(ScrollableBaseFrame):
         if key in ["gen", "vcf", "fastq"]:
             self.out_dir = self.create_dir_selector(
                 self,
-                "Out Dir:",
+                GUI_LABELS["out_dir"],
                 variable=self.main_app.out_dir_var,
-                info_text="Directory where logs, caches, and results will be saved.",
+                info_text=GUI_TOOLTIPS["out_dir_tip"],
             )
 
         # Typed Input Fields
@@ -54,12 +55,12 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.bam_entry = self.create_file_selector(
                 self,
-                "BAM/CRAM:",
+                GUI_LABELS["bam_cram"],
                 variable=self.main_app.bam_path_var,
                 on_change=cb,
                 button_text=button_text,
                 command=command,
-                info_text="Input BAM or CRAM file.",
+                info_text=GUI_TOOLTIPS["bam_input_tip"],
             )
 
             if key == "fastq" and "unalign" in cmds_to_hide:
@@ -69,9 +70,9 @@ class GenericFrame(ScrollableBaseFrame):
         if key == "vcf":
             self.vcf_entry = self.create_file_selector(
                 self,
-                "VCF Input:",
+                GUI_LABELS["vcf_input"],
                 variable=self.main_app.vcf_path_var,
-                info_text="Input VCF file for processing (Annotate, Filter, QC).",
+                info_text=GUI_TOOLTIPS["vcf_input_tip"],
             )
 
         # Info Display area (for General tab)
@@ -87,10 +88,10 @@ class GenericFrame(ScrollableBaseFrame):
             align_cmd = next(c for c in meta["commands"] if c["cmd"] == "align")
             self.align_r1 = self.create_file_selector(
                 self,
-                "FASTQ R1:",
+                GUI_LABELS["fastq_r1"],
                 button_text=align_cmd["label"],
                 command=lambda: self.handle_button_click("align"),
-                info_text="First read file (R1) for alignment.",
+                info_text=GUI_TOOLTIPS["pet_r1_tip"],
             )
             self.cmd_buttons["align"] = self.align_r1.action_button
             ToolTip(self.cmd_buttons["align"], align_cmd["help"])
@@ -98,14 +99,14 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.align_r2 = self.create_file_selector(
                 self,
-                "FASTQ R2 (optional):",
-                info_text="Second read file (R2) for paired-end alignment.",
+                GUI_LABELS["fastq_r2"],
+                info_text=GUI_TOOLTIPS["pet_r2_tip"],
             )
 
             # FastQ for QC as the last field
             self.fastq_entry = self.create_file_selector(
                 self,
-                "FASTQ for QC:",
+                GUI_LABELS["fastq_qc"],
                 variable=self.main_app.fastq_path_var,
                 info_text="Primary FASTQ file for QC actions (FastQC, FastP).",
             )
@@ -113,7 +114,7 @@ class GenericFrame(ScrollableBaseFrame):
         elif key == "ext":
             self.out_dir = self.create_dir_selector(
                 self,
-                "Out Dir:",
+                GUI_LABELS["out_dir"],
                 variable=self.main_app.out_dir_var,
                 info_text="Directory where extracted files will be saved.",
             )
@@ -124,10 +125,10 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.region_entry = self.create_entry(
                 self,
-                "Region (e.g. chrM):",
+                GUI_LABELS["region_label"],
                 button_text=custom_cmd["label"],
                 command=lambda: self.handle_button_click("custom"),
-                info_text="Specify a chromosomal region (e.g., chr1:100-200) to extract.",
+                info_text=GUI_TOOLTIPS["region_tip"],
             )
             self.cmd_buttons["custom"] = self.region_entry.action_button
             ToolTip(self.cmd_buttons["custom"], custom_cmd["help"])
@@ -135,10 +136,10 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.extra_entry = self.create_entry(
                 self,
-                "Extra (e.g. -f 0.1 for subset):",
+                GUI_LABELS["extra_label"],
                 button_text=subset_cmd["label"],
                 command=lambda: self.handle_button_click("subset"),
-                info_text="Additional parameters, like fraction (-f 0.1) for subsetting reads.",
+                info_text=GUI_TOOLTIPS["extra_tip"],
             )
             self.cmd_buttons["subset"] = self.extra_entry.action_button
             ToolTip(self.cmd_buttons["subset"], subset_cmd["help"])
@@ -150,12 +151,12 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.yleaf_path = self.create_file_selector(
                 self,
-                "Yleaf Path:",
+                GUI_LABELS["yleaf_path"],
                 info_text="Path to the Yleaf executable for Y-haplogroup prediction.",
             )
             self.yleaf_pos = self.create_file_selector(
                 self,
-                "Pos File:",
+                GUI_LABELS["pos_file"],
                 button_text=y_cmd["label"],
                 command=lambda: self.handle_button_click("lineage-y"),
                 info_text="Yleaf position file (e.g., data/yleaf/pos.txt).",
@@ -166,7 +167,7 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.haplogrep_path = self.create_file_selector(
                 self,
-                "Haplogrep Path:",
+                GUI_LABELS["haplogrep_path"],
                 button_text=mt_cmd["label"],
                 command=lambda: self.handle_button_click("lineage-mt"),
                 info_text="Path to the Haplogrep jar or executable for mitochondrial lineage.",
@@ -184,33 +185,33 @@ class GenericFrame(ScrollableBaseFrame):
             # 1. Variant Calling & Annotation Section
             self.create_section_title(
                 self,
-                "Variant Calling & Annotation",
-                "Identify SNPs, InDels, and Structural Variants, then add metadata to the resulting VCF file.",
+                GUI_LABELS["var_calling_ann"],
+                GUI_TOOLTIPS["var_calling_ann_help"],
             )
 
             self.vcf_region = self.create_entry(
                 self,
-                "Region:",
+                GUI_LABELS["region_generic"],
                 info_text="Specific chromosomal region (e.g., chrM, chr1:100-200). Used by: Calling actions (BAM), Filter (VCF), and Run VEP.",
             )
 
             self.vcf_gene = self.create_entry(
                 self,
-                "Gene Name:",
+                GUI_LABELS["gene_name"],
                 info_text="Target gene name (e.g., BRCA1). Used by: Filter (VCF).",
             )
 
             # Gap-aware filtering checkbox
             self.create_checkbox_with_info(
                 self,
-                "Gap-Aware Filtering",
+                GUI_LABELS["gap_aware_filtering"],
                 self.main_app.vcf_exclude_gaps_var,
-                "Exclude variants in or near genomic gaps (requires Count Ns output for the reference).",
+                GUI_TOOLTIPS["gap_aware_tip"],
             )
 
             self.vcf_filter_expr = self.create_entry(
                 self,
-                "Filter Expr:",
+                GUI_LABELS["filter_expr"],
                 button_text=filter_cmd["label"],
                 command=lambda: self.handle_button_click("filter"),
                 info_text="BCFTools filter expression (e.g., 'QUAL>30 && DP>10'). Used by: Filter (VCF).",
@@ -221,7 +222,7 @@ class GenericFrame(ScrollableBaseFrame):
 
             self.vcf_ann_vcf = self.create_file_selector(
                 self,
-                "Annotate VCF:",
+                GUI_LABELS["annotate_vcf"],
                 button_text=ann_cmd["label"],
                 command=lambda: self.handle_button_click("annotate"),
                 info_text="VCF file to use for annotation (e.g., ClinVar, dbSNP).",
@@ -250,19 +251,19 @@ class GenericFrame(ScrollableBaseFrame):
             # 2. Trio Analysis Section
             self.create_section_title(
                 self,
-                "Trio Analysis",
-                "Compare variant calls between a child (proband) and their parents to identify inheritance patterns and de novo mutations.",
+                GUI_LABELS["trio_analysis"],
+                GUI_TOOLTIPS["trio_analysis_help"],
             )
 
             self.vcf_mother = self.create_file_selector(
                 self,
-                "Mother VCF:",
+                GUI_LABELS["mother_vcf"],
                 button_text=None,
                 info_text="Path to the mother's VCF for trio analysis.",
             )
             self.vcf_father = self.create_file_selector(
                 self,
-                "Father VCF:",
+                GUI_LABELS["father_vcf"],
                 button_text=trio_cmd["label"],
                 command=lambda: self.handle_button_click("trio"),
                 info_text="Path to the father's VCF for trio analysis. The proband should be in the primary VCF Input field.",
@@ -274,23 +275,23 @@ class GenericFrame(ScrollableBaseFrame):
             # 3. VEP Analysis Section
             self.create_section_title(
                 self,
-                "VEP Analysis",
-                "Predict the functional impact of your variants using the Ensembl Variant Effect Predictor.",
+                GUI_LABELS["vep_analysis"],
+                GUI_TOOLTIPS["vep_analysis_help"],
             )
 
             self.vcf_vep_cache = self.create_read_only_entry_with_info(
                 self,
-                "VEP Cache:",
+                GUI_LABELS["vep_cache"],
                 self.main_app.vep_cache_var,
-                "Location of Ensembl VEP cache data. Derived from the current Reference path.",
+                GUI_TOOLTIPS["vep_cache_tip"],
             )
 
             self.vcf_vep_args = self.create_entry(
                 self,
-                "Extra VEP Args:",
+                GUI_LABELS["extra_vep_args"],
                 button_text=vep_cmd["label"],
                 command=lambda: self.handle_button_click("vep-run"),
-                info_text="Additional raw command-line arguments to pass to VEP. Uses BAM/CRAM if provided, otherwise VCF Input.",
+                info_text=GUI_TOOLTIPS["vep_args_tip"],
             )
             self.cmd_buttons["vep-run"] = self.vcf_vep_args.action_button
             ToolTip(self.cmd_buttons["vep-run"], vep_cmd["help"])
@@ -326,7 +327,7 @@ class GenericFrame(ScrollableBaseFrame):
         """Create the reference directory selector."""
         self.ref_entry = self.create_dir_selector(
             p,
-            "Reference:",
+            GUI_LABELS["ref_genome_selection"],
             variable=self.main_app.ref_path_var,
             info_text="Path to the directory containing your reference genomes (FASTA files).",
         )
@@ -341,8 +342,8 @@ class GenericFrame(ScrollableBaseFrame):
         if title:
             # Map known titles to tooltips
             help_map = {
-                "Info Commands": "Rapidly analyze file metadata and calculate genomic coverage depth.",
-                "BAM / CRAM Management": "Standard file maintenance tasks including sorting, indexing, and format conversion.",
+                GUI_LABELS["info_commands"]: GUI_TOOLTIPS["info_commands_help"],
+                GUI_LABELS["bam_cram_mgmt"]: GUI_TOOLTIPS["bam_mgmt_help"],
             }
             self.create_section_title(self, title, help_map.get(title))
 
@@ -429,9 +430,11 @@ class GenericFrame(ScrollableBaseFrame):
                         self.cmd_buttons[cmd].grid_remove()
 
             # 2. Re-layout sections to fill rows (fix gaps)
-            self._relayout_grid("Info Commands", self.meta["info_commands"], cols=4)
             self._relayout_grid(
-                "BAM / CRAM Management", self.meta["bam_commands"], cols=4
+                GUI_LABELS["info_commands"], self.meta["info_commands"], cols=4
+            )
+            self._relayout_grid(
+                GUI_LABELS["bam_cram_mgmt"], self.meta["bam_commands"], cols=4
             )
 
     def _relayout_grid(

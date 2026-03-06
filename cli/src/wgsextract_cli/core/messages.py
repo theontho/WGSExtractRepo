@@ -1,0 +1,547 @@
+"""User-facing English strings for the WGS Extract CLI and GUI.
+This file centralizes all messages to facilitate future localization.
+"""
+
+# CLI Help and Descriptions
+CLI_HELP = {
+    "description": "WGS Extract Command-Line Interface (CLI)",
+    "arg_debug": "Enable verbose debug logging. (Env: WGSE_DEBUG=1)",
+    "arg_input": "Path to the input BAM/CRAM or FASTQ file. (Env: WGSE_INPUT)",
+    "arg_outdir": "Destination directory for outputs. (Env: WGSE_OUTDIR)",
+    "arg_ref": "Path to the reference genome FASTA. (Env: WGSE_REF)",
+    "arg_threads": "CPU threads to use. (Env: WGSE_THREADS)",
+    "arg_memory": "Memory limit per thread (e.g., '2G'). (Env: WGSE_MEMORY)",
+    "cmd_gui": "Launch the Graphical User Interface (GUI)",
+    "cmd_info": "Perform a rapid analysis of your BAM/CRAM file to identify the reference genome build, file integrity, and sequencing metrics. (Time: <1 min)",
+    "arg_detailed": "Perform full index and body sample analysis (detailed mode)",
+    "arg_csv": "Output the table as CSV instead of formatted text",
+    "cmd_calculate-coverage": "Generate a full breadth-of-coverage report. This accurately calculates how much of the genome was successfully sequenced. (Time: 1-3 hours, Space: 1-2 GB)",
+    "cmd_coverage-sample": "Quickly estimate sequencing coverage using statistical sampling. Provides a 'good enough' estimate. (Time: <10 seconds)",
+    "cmd_align": "Map raw FASTQ reads to a reference genome. This is the primary step to convert raw data into a usable BAM/CRAM file. (Time: 8-160 hours, Space: 150-300 GB)",
+    "cmd_sort": "Sort alignments by genomic coordinates. Required by almost all downstream tools (like variant callers) to function correctly. (Time: 1-2 hours, Space: Input Size x 2)",
+    "cmd_index": "Create a random-access index (.bai/.crai) for your file. This allows tools to jump to specific regions instantly without reading the whole file. (Time: 1-5 mins)",
+    "cmd_unindex": "Remove the index file associated with your BAM/CRAM. Use this to force a re-indexing or to clean up workspace. (Time: instant)",
+    "cmd_unsort": "Mark the file as 'unsorted' in the header. Rarely needed, but useful if a tool requires a specific header state for processing. (Time: <1 min)",
+    "cmd_to-cram": "Convert BAM to the modern CRAM format. Highly recommended for long-term storage as it is ~30-50%% smaller than BAM without losing data. (Time: 1-2 hours)",
+    "cmd_to-bam": "Convert a CRAM file back to the traditional BAM format. Useful if you need to use an older tool that doesn't support CRAM. (Time: 1-2 hours)",
+    "cmd_unalign": "Extract raw reads from a BAM/CRAM back into FASTQ format. Use this if you want to re-align your data to a different reference genome. (Time: 1-2 hours)",
+    "cmd_subset": "Create a smaller version of your BAM file using a random fraction of reads (e.g. 0.1 for 10%%). Useful for testing pipelines quickly. (Time: 10-30 mins)",
+    "cmd_mt-extract": "Isolate all mitochondrial-related reads into a new, smaller BAM file. Used for high-resolution mtDNA analysis or maternal haplogroup prediction on services like Mitoverse (Haplogrep). (Format: .BAM, Time: 5-10 mins)",
+    "cmd_repair-ftdna-bam": "Fix formatting errors specific to Family Tree DNA (FTDNA) BAM files that cause them to fail in standard tools like GATK. (Time: 1-2 hours)",
+    "cmd_repair-ftdna-vcf": "Fix formatting errors in FTDNA VCF files to make them compatible with modern annotation tools like VEP. (Time: <1 min)",
+    "cmd_mito-fasta": "Extract the Mitochondrial DNA (chrM) consensus sequence. Compatible with yFull (female-only mtDNA upload) and other sequence analysis tools. (Format: .FASTA, Time: 1-5 mins)",
+    "cmd_mito-vcf": "Call variants specifically for the mitochondrial DNA. Used by Mitoverse (Haplogrep) for haplogroup classification. (Format: .VCF, Time: 1-5 mins)",
+    "cmd_ydna-bam": "Extract all Y-chromosome reads into a separate BAM file. Compatible with yDNA Warehouse, yTree, and specialized paternal lineage tools. (Format: .BAM, Time: 5-10 mins)",
+    "cmd_ydna-vcf": "Call variants specifically for the Y-chromosome. Used by services like Cladefinder for haplogroup prediction. (Format: .VCF, Time: 5-10 mins)",
+    "cmd_y-mt-extract": "Extract both Y-chromosome and Mitochondrial reads into a single, combined BAM file. Recommended for yFull (male-only) WGS uploads. (Format: .BAM, Time: 10-15 mins)",
+    "cmd_unmapped": "Extract reads that did not align to the reference. Often used to find viral contamination or non-human DNA using services like Kaiju and CosmosID. (Time: 5-15 mins)",
+    "cmd_custom": "Extract reads from a specific chromosomal region or gene of interest. (Time: 1-5 mins)",
+    "cmd_snp": "Call Single Nucleotide Polymorphisms (SNPs) using bcftools. Best for standard ancestry analysis and finding simple point mutations. (Time: 30-60 mins)",
+    "cmd_indel": "Call Small Insertions and Deletions (InDels) using bcftools. Used to find small gaps or extra bases in the DNA sequence. (Time: 30-60 mins)",
+    "cmd_sv": "Call Structural Variants (SVs) using Delly. Identifies large-scale DNA changes (over 50bp) like inversions, translocations, and large deletions. (Time: 1-2 hours)",
+    "cmd_cnv": "Call Copy Number Variants (CNVs) using Delly. Detects large regions of DNA that have been duplicated or deleted, affecting gene dosage. (Time: 1-2 hours)",
+    "cmd_freebayes": "A Bayesian genetic variant detector. Excellent for finding small variants in complex regions or when you have variable sequencing depth. (Time: 2-10 hours)",
+    "cmd_gatk": "Industry-standard GATK HaplotypeCaller. Best for high-accuracy clinical-grade SNP and InDel calling using local de novo assembly. (Time: 10-30 hours)",
+    "cmd_deepvariant": "Google's Deep Variant variant caller. Highly recommended for 30x+ WGS; uses a neural network to achieve superior accuracy by 'looking' at read alignments as images. (Time: 2-6 hours)",
+    "cmd_annotate": "Add external metadata (like population frequencies or disease risk) to your VCF file. (Time: 5-15 mins)",
+    "cmd_filter": "Filter your results. Use this to focus on specific genes of interest or to remove low-quality 'noisy' variant calls. (Time: <1 min)",
+    "cmd_trio": "Analyze inheritance patterns. Compares a child's VCF with their parents to identify de novo (new) mutations or inherited conditions. (Time: 5-10 mins)",
+    "cmd_vcf-qc": "Generate statistical reports for your VCF file to check the quality and distribution of your variant calls. (Time: 1-5 mins)",
+    "cmd_vep-run": "Ensembl Variant Effect Predictor. Predicts the functional impact of your variants (e.g., if a mutation likely breaks a gene or causes a specific disease). (Time: 15-60 mins)",
+    "cmd_vep-download": "Download the VEP cache (standard GRCh37/38) to your local machine for faster, offline annotation. (Time: 1-3 hours, Space: 20 GB)",
+    "cmd_vep-verify": "Check your existing VEP cache for missing files or corruption. (Time: 5-10 mins)",
+    "cmd_microarray": "Simulate a consumer microarray (like 23andMe or AncestryDNA) from your WGS data. (Time: 10-30 mins)",
+    "cmd_pet-analysis": "Align raw FASTQ reads against a cat or dog reference genome and call variants to produce a VCF file. (Time: 2-8 hours)",
+    "cmd_lineage-y": "Predict your paternal haplogroup using the Yleaf tool. Requires a BAM with Y-chromosome reads. (Time: 5-15 mins)",
+    "cmd_lineage-mt": "Predict your maternal haplogroup using Haplogrep. Requires a BAM with mitochondrial reads. (Time: 1-5 mins)",
+    "cmd_fastqc": "The industry-standard quality check for raw reads. Produces a visual report of base quality, GC content, and adapter contamination. (Time: 30-60 mins)",
+    "cmd_fastp": "An ultra-fast all-in-one pre-processor. Automatically trims adapters and filters low-quality reads while generating a QC report. (Time: 15-30 mins)",
+    "cmd_ref-identify": "Analyze your BAM header to determine exactly which reference genome was used for the original alignment. (Time: <1 min)",
+    "cmd_ref-index": "Prepare a FASTA file for use by indexing it. This is required before you can align reads or call variants against it. (Time: 30-60 mins, Space: FASTA Size x 2)",
+    "cmd_ref-download": "Download curated, standard-compliant reference genomes (hg19, hg38, T2T) optimized for use with this tool. (Time: 10-30 mins, Space: 3-5 GB)",
+    "cmd_ref-verify": "Ensure your reference genome file isn't corrupted and has all the necessary companion files (indexes, dicts). (Time: 1-5 mins)",
+    "cmd_ref-count-ns": "Calculate the percentage of 'N' (unknown) bases in a genome. Useful for understanding the 'mappability' of different reference builds. (Time: 5-10 mins)",
+    "cmd_ref-gene-map": "Download or delete lightweight gene-to-coordinate mapping files (hg19/hg38), enabling you to filter VCFs by gene name (e.g. BRCA1). (Time: <1 min)",
+    "cmd_ref-library": "Opens the interactive reference manager to help you organize and download genomic data.",
+    "micro_formats_help": """Comma-separated list of formats to generate (default: all).
+Available formats:
+  Everything:
+    all (Combined file of ALL SNPs for GEDMATCH)
+  23andMe:
+    23andme_v3, 23andme_v4, 23andme_v5, 23andme_v3+v5, 23andme_api
+  AncestryDNA:
+    ancestry_v1, ancestry_v2
+  Family Tree DNA:
+    ftdna_v2, ftdna_v3
+  Living DNA:
+    ldna_v1, ldna_v2
+  MyHeritage:
+    myheritage_v1, myheritage_v2
+  Other Vendors:
+    mthfr_uk (MTHFR Genetics UK), genera_br (Genera BR), meudna_br (meuDNA BR)
+  Reich Lab:
+    reich_aadr (AADR 1240K), reich_human_origins (Human Origins v1), reich_combined
+""",
+    "arg_region": "Chromosomal region (e.g. chrM, chrY:10000-20000)",
+    "arg_fraction": "Decimal percentage (e.g. 0.1 for 10%%)",
+    "arg_r1": "Read 1 FASTQ file",
+    "arg_r2": "Read 2 FASTQ file (optional)",
+    "arg_se": "Single-End FASTQ file",
+    "arg_long_read": "Use minimap2 for long-read alignment",
+    "cmd_bam_mgmt": "BAM/CRAM management commands.",
+}
+
+# GUI Labels and Titles
+GUI_LABELS = {
+    "app_title": "WGS Extract GUI",
+    "sidebar_title": "WGS Extract",
+    "tab_flow": "Workflow",
+    "tab_gen": "Info / BAM",
+    "tab_ext": "Extract",
+    "tab_micro": "Microarray",
+    "tab_anc": "Ancestry",
+    "tab_vcf": "VCF",
+    "tab_fastq": "FASTQ",
+    "tab_pet": "Pet Analysis",
+    "tab_lib": "Library",
+    "ref_genome_selection": "Library",
+    "genome_library": "Genome Library:",
+    "manual_ref_path": "Manual Ref Path:",
+    "out_dir": "Out Dir:",
+    "bam_cram": "BAM/CRAM:",
+    "vcf_input": "VCF Input:",
+    "fastq_r1": "FASTQ R1:",
+    "fastq_r2": "FASTQ R2 (optional):",
+    "fastq_qc": "FASTQ for QC:",
+    "region_label": "Region (e.g. chrM):",
+    "extra_label": "Extra (e.g. -f 0.1 for subset):",
+    "yleaf_path": "Yleaf Path:",
+    "pos_file": "Pos File:",
+    "haplogrep_path": "Haplogrep Path:",
+    "var_calling_ann": "Variant Calling & Annotation",
+    "region_generic": "Region:",
+    "gene_name": "Gene Name:",
+    "gap_aware_filtering": "Gap-Aware Filtering",
+    "filter_expr": "Filter Expr:",
+    "annotate_vcf": "Annotate VCF:",
+    "trio_analysis": "Trio Analysis",
+    "mother_vcf": "Mother VCF:",
+    "father_vcf": "Father VCF:",
+    "vep_analysis": "VEP Analysis",
+    "vep_cache": "VEP Cache:",
+    "extra_vep_args": "Extra VEP Args:",
+    "info_commands": "Info Commands",
+    "bam_cram_mgmt": "BAM / CRAM Management",
+    "vep_cache_mgmt": "VEP Cache Management",
+    "vep_cache_path": "VEP Cache Path:",
+    "ref_genomes_list": "Reference Genomes",
+    "refresh_list": "Refresh List",
+    "recommended_tag": "Recommended",
+    "needs_index_tag": "Needs Index",
+    "incomplete_tag": "Incomplete",
+    "select_target_formats": "Select Target Formats:",
+    "about_pet_seq": "About Pet Sequencing",
+    "pet_species": "Pet Species:",
+    "ref_library_path": "Reference Library:",
+    "output_format": "Output Format:",
+    "file_stats": "File Stats:",
+    "sorted": "Sorted",
+    "unsorted": "Unsorted",
+    "indexed": "Indexed",
+    "unindexed": "Unindexed",
+    "installed": "INSTALLED",
+    "missing": "MISSING",
+    "gbs": "GBs",
+    "unknown": "Unknown",
+    "sequencer": "Sequencer:",
+    "avg_read_len": "Avg Read Length:",
+    "avg_insert_size": "Avg Insert Size:",
+    "btn_browse": "Browse",
+    "btn_cancel": "Cancel",
+    "btn_restart": "Restart",
+    "btn_resume": "Resume",
+    "btn_delete": "Delete",
+    "btn_verify": "Verify",
+    "btn_unindex": "Unindex",
+    "btn_del_ns": "Del Ns",
+    "btn_count_ns": "Count Ns",
+    "btn_select_all": "Select All",
+    "btn_unselect_all": "Unselect All",
+    "btn_select_rec": "Select Recommended",
+    "btn_generate_ck": "Generate CombinedKit",
+    "btn_download_gm": "Download Gene Map",
+    "btn_delete_gm": "Delete Gene Map",
+    "btn_vep_dl": "Download VEP Cache",
+    "btn_vep_verify": "Verify VEP Cache",
+}
+# GUI Tooltips and Help Texts
+GUI_TOOLTIPS = {
+    "workflow_help": "Visualize the bioinformatics workflow from raw sequencing data to final analysis results. Click on any node to jump to the corresponding tab.",
+    "info_bam_help": "BAM (Binary Alignment Map) and CRAM are compressed files containing your DNA sequences aligned to a reference genome. Use this tab to identify your data's build, check sequence quality, or convert between alignment formats.",
+    "extract_help": "Extract specific subsets of your DNA data. This is useful for isolating Mitochondrial DNA (chrM) or Y-Chromosome data (chrY) for specialized analysis without processing the entire large BAM/CRAM file.",
+    "microarray_help": "Generate 'CombinedKit' files that simulate the raw data format used by consumer testing companies like 23andMe, AncestryDNA, and FTDNA. This allows you to upload your WGS data to third-party tools and services like Gedmatch, Geneanet, MyHeritage, Promethease, and Genvue.",
+    "ancestry_help": "Identify your haplogroups and deep ancestral lineages. Y-DNA analysis (Yleaf) tracks paternal descent, while Mitochondrial (Haplogrep) tracks maternal descent based on specific markers in your DNA.",
+    "vcf_help": "VCF (Variant Call Format) files list the specific positions where your DNA differs from the reference genome. Use this tab to 'call' variants (identify SNPs, InDels, SVs), filter them by quality, or predict their biological effects (VEP).",
+    "fastq_help": "FASTQ files contain the 'raw' reads directly from the sequencer before they are aligned. Use this tab to perform quality control (FastQC/FastP) or align these raw reads to a reference genome to create a BAM/CRAM file.",
+    "pet_help": "Analyze DNA data for your pets. Align raw FASTQ reads against a dog or cat reference genome and generate variant calls (VCF). This uses standard bioinformatics tools optimized for non-human species.",
+    "library_help": "Manage your reference data library. Download and verify standardized reference genomes (FASTA), gene maps for annotation, and VEP caches required for advanced variant effect prediction.",
+    "info_commands_help": "Rapidly analyze file metadata and calculate genomic coverage depth.",
+    "bam_mgmt_help": "Standard file maintenance tasks including sorting, indexing, and format conversion.",
+    "info": "Perform a rapid analysis of your BAM/CRAM file to identify the reference genome build, file integrity, and sequencing metrics.",
+    "calculate-coverage": "Calculate precise breadth of coverage across the entire genome or a specific region (slow).",
+    "coverage-sample": "Estimate breadth of coverage using random sampling (fast).",
+    "sort": "Sort alignments by genomic coordinates.",
+    "index": "Create a random-access index (.bai/.crai) for your file.",
+    "to-cram": "Convert BAM to the modern CRAM format.",
+    "unsort": "Mark the file as 'unsorted' in the header.",
+    "unindex": "Remove the index file associated with your BAM/CRAM.",
+    "to-bam": "Convert a CRAM file back to the traditional BAM format.",
+    "repair-ftdna-bam": "Fix Family Tree DNA (FTDNA) BAM formatting errors.",
+    "mito-fasta": "Extract the Mitochondrial DNA (chrM) consensus sequence.",
+    "mt-extract": "Isolate all mitochondrial-related reads into a new BAM file.",
+    "mito-vcf": "Call variants specifically for the mitochondrial DNA.",
+    "ydna-bam": "Extract all Y-chromosome reads into a separate BAM file.",
+    "ydna-vcf": "Call variants specifically for the Y-chromosome.",
+    "y-mt-extract": "Extract both Y-chromosome and Mitochondrial reads into a single BAM file.",
+    "subset": "Create a smaller version of your BAM file using a random fraction of reads.",
+    "unmapped": "Extract reads that did not align to the reference.",
+    "custom": "Extract reads from a specific chromosomal region or gene.",
+    "microarray": "Simulate a consumer microarray (like 23andMe) from your WGS data.",
+    "lineage-y": "Predict your paternal haplogroup using the Yleaf tool.",
+    "lineage-mt": "Predict your maternal haplogroup using Haplogrep.",
+    "snp": "Call Single Nucleotide Polymorphisms (SNPs) using bcftools.",
+    "indel": "Call Small Insertions and Deletions (InDels) using bcftools.",
+    "sv": "Call Structural Variants (SVs) using Delly.",
+    "cnv": "Call Copy Number Variants (CNVs) using Delly.",
+    "freebayes": "Bayesian genetic variant detector.",
+    "gatk": "Industry-standard GATK HaplotypeCaller.",
+    "deepvariant": "Deep Learning variant caller (Google).",
+    "annotate": "Add external metadata to your VCF file.",
+    "filter": "Filter variant calls by quality or genomic region.",
+    "trio": "Compare variant calls between child and parents.",
+    "vcf-qc": "Generate statistical reports for your VCF file.",
+    "vep-run": "Ensembl Variant Effect Predictor.",
+    "repair-ftdna-vcf": "Fix FTDNA VCF formatting errors.",
+    "align": "Map raw FASTQ reads to a reference genome.",
+    "unalign": "Extract raw reads from a BAM/CRAM back into FASTQ format.",
+    "fastqc": "Quality control check for raw sequencing reads.",
+    "fastp": "All-in-one FASTQ pre-processor (trimming/filtering).",
+    "pet-analysis": "Species-specific alignment and calling for dogs/cats.",
+    "ref-gene-map": "Download or delete gene-to-coordinate mapping files.",
+    "vep-download": "Download the VEP cache for offline annotation.",
+    "vep-verify": "Verify the integrity of your local VEP cache.",
+    "var_calling_ann_help": "Identify SNPs, InDels, and Structural Variants, then add metadata to the resulting VCF file.",
+    "trio_analysis_help": "Compare variant calls between a child (proband) and their parents to identify inheritance patterns and de novo mutations.",
+    "vep_analysis_help": "Predict the functional impact of your variants using the Ensembl Variant Effect Predictor.",
+    "genome_lib_tip": "Select a reference genome from your library. Highlights [INSTALLED] if ready.",
+    "out_dir_tip": "Directory where logs, caches, and results will be saved.",
+    "bam_input_tip": "Input BAM or CRAM file.",
+    "vcf_input_tip": "Input VCF file for processing (Annotate, Filter, QC).",
+    "region_tip": "Specify a chromosomal region (e.g., chr1:100-200) to extract.",
+    "extra_tip": "Additional parameters, like fraction (-f 0.1) for subsetting reads.",
+    "gap_aware_tip": "Exclude variants in or near genomic gaps (requires Count Ns output for the reference).",
+    "vep_cache_tip": "Location of Ensembl VEP cache data. Derived from the current Reference path.",
+    "vep_args_tip": "Additional raw command-line arguments to pass to VEP. Uses BAM/CRAM if provided, otherwise VCF Input.",
+    "pet_species_tip": "Select the species of your pet to use the correct reference genome.",
+    "ref_lib_tip": "Path to the directory containing your reference genomes. Ensure the animal genomes are downloaded in the Library tab.",
+    "pet_r1_tip": "First read file (R1) for alignment.",
+    "pet_r2_tip": "Second read file (R2) for paired-end alignment (optional).",
+    "output_fmt_tip": "Choose whether to output a standard BAM or a more compressed CRAM file.",
+    "vep_mgmt_tip": "VEP (Variant Effect Predictor) uses a large cache of genomic data to determine how variants (SNPs/InDels) might affect genes and proteins.",
+    "ref_genomes_tip": "Baseline DNA sequences used for comparison during analysis.",
+}
+
+# Auto-populate command tooltips from CLI_HELP
+for k, v in CLI_HELP.items():
+    if k.startswith("cmd_"):
+        GUI_TOOLTIPS[k[4:]] = v
+    elif k.startswith("arg_"):
+        GUI_TOOLTIPS[k[4:]] = v
+    else:
+        GUI_TOOLTIPS[k] = v
+
+
+# GUI Messages (Errors, Info, Questions)
+GUI_MESSAGES = {
+    "error_missing_input": "Missing Required Input",
+    "error_input_required": "{field} is required.",
+    "error_bam_vcf_required": "BAM/CRAM or VCF Input is required.",
+    "error_bam_fastq_required": "BAM/CRAM or FASTQ for QC is required.",
+    "error_filter_crit_required": "At least one filter criterion (Filter Expr, Gene Name, or Region) is required.",
+    "error_target_fmt_required": "At least one Target Format must be selected.",
+    "genome_missing_title": "Genome Missing",
+    "genome_missing_msg": "The selected genome '{label}' is not downloaded.\n\nWould you like to download it now before aligning?",
+    "info_not_available": "Info not available",
+    "info_error": "Info error: {error}",
+    "detailed_info_title": "Detailed Info: {filename}",
+}
+
+# Log Messages
+LOG_MESSAGES = {
+    "running_cmd": "Running: {command}",
+    "finished_exit": "Finished (Exit {code})",
+    "cancelling_proc": "Cancelling process group {pid}...",
+    "cancel_error": "Cancel error: {error}",
+    "force_killed": "Force killed process group {pid}.",
+    "cleared_cache": "Cleared cache: {path}",
+    "no_cache_found": "No cache found to clear at {path}.",
+    "starting_vep_dl": "Starting VEP cache download...",
+    "vep_dl_success": "VEP Download Succeeded",
+    "vep_dl_failed": "VEP Download Failed/Cancelled",
+    "starting_lib_dl": "Starting {mode}: {label}...",
+    "lib_dl_success": "Download Succeeded: {label}",
+    "lib_dl_failed": "Download Failed: {label}",
+    "deleting_genome": "Deleting {filename} from {path}...",
+    "delete_success": "Successfully deleted {filename}.",
+    "delete_failed": "Failed to delete {filename}.",
+    "unindexing": "Unindexing {filename} in {path}...",
+    "unindex_success": "Successfully removed index for {filename}.",
+    "unindex_failed": "Failed to remove index for {filename}.",
+    "deleting_ns": "Deleting N-count files for {filename} in {path}...",
+    "del_ns_success": "Successfully removed N-count files for {filename}.",
+    "del_ns_failed": "Failed to remove N-count files for {filename}.",
+    "cancelling_vep": "Cancelling VEP download...",
+    "cancelling_genemap": "Cancelling Gene Map download...",
+    "deleting_genemaps": "Deleting Gene Maps from {path}...",
+    "del_genemap_success": "Successfully deleted Gene Maps.",
+    "del_genemap_failed": "Failed to delete Gene Maps.",
+    "downloading_genemaps": "Downloading Gene Maps to {path}...",
+    "dl_genemap_success": "Successfully downloaded Gene Maps.",
+    "dl_genemap_failed": "Gene Map download cancelled or failed.",
+    "info_sampling": "Sampling reads from {filename} for metrics...",
+    "info_loading_n": "Loading refined N counts from {file}",
+    "info_rendering_name": "By Reference Sequence Name",
+    "info_header1": "Seq        Model    Model    # Segs      Map    Map",
+    "info_header2": "Name         Len  'N' Len       Map   Gbases    ARD",
+    "info_header_breadth": "    Breadth",
+    "info_header_coverage": "   Coverage",
+    "info_avg_read_depth": "Avg Read Depth",
+    "info_avg_read_depth_wes": "Avg Read Depth (WES)",
+    "info_gigabases": "Gigabases",
+    "info_read_segs": "Read Segs",
+    "info_reads": "Reads",
+    "info_ref_genome": "Reference Genome",
+    "info_refined_ns": "Refined N-counts",
+    "info_refined_ns_active": "Active (using sidecar _ncnt.csv)",
+    "info_avg_read_len": "Avg Read Length",
+    "info_avg_insert_size": "Avg Insert Size",
+    "info_file_content": "File Content",
+    "info_bio_gender": "Bio Gender",
+    "info_sequencer": "Sequencer",
+    "info_file_stats": "File Stats",
+    "info_could_not_compute": "Could not compute",
+    "info_metrics_cached": "(Metrics cached to {path} for future runs)",
+    "info_full_coverage": "Calculating full coverage (1-3 hours)... saving to {path}",
+    "info_sampling_coverage": "Estimating coverage using random sampling...",
+    "fast_info_failed": "Fast info command failed with exit code {code}",
+    "sampling_metrics": "Sampling reads from {filename} for metrics...",
+    "analyzing_ns": "Analyzing N segments in {path}",
+    "verifying_integrity": "Verifying integrity of {path}...",
+    "aligning_reads": "Aligning {input} to {output} using {tool}",
+    "indexing_output": "Indexing output BAM...",
+    "indexing_file": "Indexing {path}...",
+    "sorting_file": "Sorting {input} to {output}...",
+    "converting_file": "Converting {input} to {output}...",
+    "unaligning_reads": "Unaligning reads to FASTQ...",
+    "subsetting_file": "Subsetting {fraction} of reads to {output}...",
+    "extracting_mt": "Extracting mtDNA reads ({mt_chr}) to {output}...",
+    "extracting_y": "Extracting Y-chromosome reads ({chr_y}) to {output}...",
+    "extracting_y_mt": "Extracting Y and MT reads to {output}...",
+    "extracting_unmapped": "Extracting unmapped reads to {output}...",
+    "extracting_region": "Extracting region {region} to {output}...",
+    "generating_consensus": "Generating consensus FASTA to {output}...",
+    "calling_mito_variants": "Calling mitochondrial variants to {output}...",
+    "calling_y_variants": "Calling Y-chromosome variants to {output}...",
+    "calling_variants": "Calling {type} variants to {output}",
+    "micro_generating_vcf": "Generating microarray VCF at {output}",
+    "micro_liftover_warn": "Input build is hg38. Liftover to hg19 may be required for some formats.",
+    "micro_generating_fmt": "Generating {format} output...",
+    "pet_aligning": "Step 1/2: Aligning {species} reads...",
+    "pet_indexing": "Indexing {format}...",
+    "pet_calling": "Step 2/2: Calling variants...",
+    "pet_complete": "Pet Analysis complete!",
+    "pet_results": "Results: {bam}, {vcf}",
+    "ref_md5_signature": "MD5 Signature for {input}: {sig}",
+    "ref_downloading": "Downloading {url} to {path}",
+    "ref_indexing": "Indexing {path} with faidx",
+    "ref_creating_dict": "Creating dict {path}",
+    "ref_verifying": "Verifying integrity of {path}...",
+    "ref_md5_verifying": "Verifying MD5 checksum for {filename}...",
+    "ref_md5_ok": "MD5 checksum: OK",
+    "ref_md5_failed": "MD5 checksum FAILED!",
+    "ref_gzip_test": "Running gzip integrity test...",
+    "ref_gzip_ok": "Gzip integrity: OK",
+    "ref_faidx_check": "Running samtools faidx check...",
+    "ref_faidx_ok": "Samtools faidx: OK",
+    "ref_valid": "Reference {filename} appears to be valid.",
+    "repair_bam": "Repairing FTDNA BAM (SAM) from stdin to stdout...",
+    "repair_vcf": "Repairing FTDNA VCF from stdin to stdout...",
+    "vcf_calling_snps": "Calling SNPs to {output}",
+    "vcf_calling_indels": "Calling InDels to {output}",
+    "vcf_annotating": "Annotating {input} to {output}",
+    "vcf_filtering": "Filtering {input} to {output}",
+    "vcf_trio_analysis": "Performing Trio Analysis ({mode}) to {output}",
+    "vcf_trio_complete": "Trio analysis complete. Results: {output}",
+    "vcf_stats": "Running bcftools stats on {input} to {output}",
+    "vcf_calling_cnv": "Calling CNVs using delly to {output}",
+    "vcf_calling_sv": "Calling SVs using delly to {output}",
+    "vcf_calling_freebayes": "Calling variants using freebayes to {output}",
+    "vcf_generating_dict": "GATK .dict file not found. Generating...",
+    "vcf_calling_gatk": "Calling variants using GATK HaplotypeCaller to {output}",
+    "vcf_calling_deepvariant": "Calling variants using DeepVariant to {output}",
+    "vep_downloading": "Downloading VEP cache from {host}...",
+    "vep_verifying_checksums": "Verifying download against Ensembl CHECKSUMS...",
+    "vep_checksum_ok": "Checksum verification successful: {sum} {blocks}",
+    "vep_checksum_failed": "Checksum verification FAILED! Expected: {expected_sum} {expected_blocks}, Got: {actual_sum} {actual_blocks}",
+    "vep_extracting": "Download complete. Extracting {filename}...",
+    "vep_extraction_complete": "Extraction complete.",
+    "vep_ready": "VEP cache is ready at {path}",
+    "vep_verifying": "Verifying VEP cache for {species} {version} {assembly}...",
+    "vep_location": "Location: {path}",
+    "vep_cache_missing": "Cache directory not found: {path}",
+    "vep_info_found": "Found info.txt",
+    "vep_info_missing": "info.txt missing - cache might be incomplete.",
+    "vep_chrs_missing": "Missing chromosomal data for: {chrs}",
+    "vep_chrs_ok": "All primary chromosomal directories (1-22, X, Y, MT) present.",
+    "vep_verification_complete": "Verification complete.",
+    "vep_calling_pre": "Input is BAM/CRAM. Performing variant calling first...",
+    "vep_using_cache": "Using VEP cache at {path}",
+    "vep_no_cache_warn": "VEP cache not found at {path}. Attempting slow online mode.",
+    "vep_running": "Running VEP: {command}",
+    "vep_complete": "VEP analysis complete. Results saved to {path}",
+    "util_auto_resolved": "Auto-resolved {type}: {path}",
+    "util_required_file_not_found": "Required file for {arg} not found: {path}",
+    "util_required_file_is_dir": "Required file for {arg} is a directory: {path}",
+    "util_command_failed": "Command failed: {command}",
+    "util_auto_indexing_vcf": "Auto-indexing VCF: {path}",
+    "util_auto_indexing_failed": "Failed to auto-index {path}: {error}",
+    "util_skipping_auto_index": "Skipping auto-index for non-bgzipped file: {path}",
+    "util_header_retry": "Header fetch failed with reference, retrying without reference...",
+    "util_header_failed": "Failed to fetch BAM header for {path}: {error}",
+    "running_fastp": "Running fastp on {input}",
+    "running_fastqc": "Running FastQC on {input}",
+    "running_yleaf": "Running Yleaf lineage analysis on {input}",
+    "running_haplogrep": "Running Haplogrep lineage analysis on {input}",
+    "input_required": "--input is required.",
+    "ref_required": "--ref is required.",
+    "ref_required_for": "--ref is required for {task}.",
+}
+
+# Workflow Graph Text
+FLOW_NODES = {
+    "sequencer": {
+        "label": "Sequencer",
+        "tip": "The machine that reads your DNA and produces raw reads.",
+    },
+    "fastq": {
+        "label": "FASTQ",
+        "tip": "Raw sequence data and quality scores from the sequencer.",
+    },
+    "library": {
+        "label": "Library",
+        "tip": "Reference genomes (FASTA) and gene maps required for alignment and calling.",
+    },
+    "bam": {
+        "label": "BAM / CRAM",
+        "tip": "Aligned sequence data, mapped to a reference genome.",
+    },
+    "vcf": {
+        "label": "VCF / VEP",
+        "tip": "Variant calls (SNPs, InDels) and their predicted biological effects.",
+    },
+    "extract": {
+        "label": "Extract",
+        "tip": "Subsets of data (e.g., MT-only, Y-only) for targeted analysis.",
+    },
+    "ancestry": {
+        "label": "Ancestry",
+        "tip": "Haplogroup and lineage prediction (Y-DNA and Mitochondrial).",
+    },
+    "micro": {
+        "label": "Microarray",
+        "tip": "Simulated consumer DNA test data (e.g., 23andMe, AncestryDNA formats).",
+    },
+}
+
+FLOW_EDGES = {
+    "sequencer_fastq": {
+        "label": "Creates",
+        "tip": "The sequencer generates raw FASTQ files containing nucleotide sequences and quality scores.",
+    },
+    "fastq_bam": {
+        "label": "Align / Unalign",
+        "tip": "Convert raw FASTQ reads into an aligned BAM file using a reference genome, or revert a BAM back to FASTQ.",
+    },
+    "library_bam": {
+        "label": "Reference",
+        "tip": "Standardized genomic sequences (FASTA) used as a coordinate system for alignment.",
+    },
+    "library_vcf": {
+        "label": "Reference",
+        "tip": "Genomic annotations and reference sequences used for variant calling and effect prediction.",
+    },
+    "bam_vcf": {
+        "label": "Variant Calling",
+        "tip": "Identify genetic variations (SNPs, InDels) by comparing aligned reads to the reference genome.",
+    },
+    "bam_extract": {
+        "label": "Subsetting",
+        "tip": "Isolate specific chromosomes (like chrM or chrY) or regions for focused analysis.",
+    },
+    "bam_ancestry": {
+        "label": "Lineage Analysis",
+        "tip": "Determine maternal (mtDNA) and paternal (Y-DNA) haplogroups to trace deep ancestry.",
+    },
+    "bam_micro": {
+        "label": "Simulation",
+        "tip": "Convert high-density WGS data into the sparse format used by consumer DNA tests.",
+    },
+}
+
+# System and Warning Messages
+SYSTEM_MESSAGES = {
+    "infoFreeSpace": "Operation {app} needs {size} GB of Free Space in the Temporary Directory to proceed. You likely also need {final} GB of free space in the Output Directory for the final file to be created. This is in addition to any space already used. Make sure the needed space is available before continuing.",
+    "RealignBAMTimeWarnMesg": """There are several long tasks to (re)align a BAM file. Each major step and the rough time to complete it are:
+(1) Unalign the BAM to create the FASTQ files (1-3 hours)
+(2) Create new Reference Genome Index (2-3 hours)
+(3) Align FASTQ to Reference Genome (8-160 hours)
+(4) Remove Duplicates, Sort and Index to Create the Final BAM (1-2 hours)
+(5) Create the CRAM (1-2 hours)
+
+We estimate, on this machine, this will take {time} hours.""",
+    "ExpectedWait": "Expected Wait is {time}",
+    "YorubaWarning": "Your BAM file uses the Yoruba reference genome for mitochondrial DNA. This is incompatible with the rCRS genome that tools use. We cannot convert this for you at this time.",
+    "LowCoverageWarning": "This BAM file has a low mapped average read depth. This can lead to incorrect and fewer variant calls.",
+    "LongReadSequenceWarning": "The BAM file appears to be from a long-read sequencer (e.g. Nanopore). Tools have not been tuned to handle this special case.",
+    "warnBAMNoStatsNoIndex": "The specified BAM File is not sorted and / or indexed. Some commands cannot run or will take longer to run without these features. We encourage you to sort and / or index your BAM File first; which takes ~30 min each.",
+    "warnCRAMNoStats": "The stats for a CRAM file take over 30 minutes to complete with 30x WGS and so are not automatically run. You may need to run 'info --detailed' once to calculate and cache these stats.",
+    "insufficient_disk_title": "EXTRA LARGE WARNING: Insufficient Disk Space Detected!",
+    "insufficient_disk_msg": "Detected: {detected} GB available on {path}\nEstimated: {needed} GB needed\nThis operation will likely consume more space than you have available.",
+}
+
+# Long Texts and Descriptions
+LONG_TEXTS = {
+    "about_pet_sequencing": """
+ABOUT PET SEQUENCING
+
+Pet sequencing allows you to explore the genetic makeup of your dogs and cats. While the process is similar to human sequencing, there are key differences in genomic structure, population genetics, and how you obtain the data.
+
+1. CHROMOSOME STRUCTURE:
+   - DOGS (Canis lupus familiaris): The dog genome (UU_Cfam_GSD_1.0) consists of 38 pairs of autosomes (numbered 1-38) plus the X and Y sex chromosomes.
+   - CATS (Felis catus): The cat genome (Fca126_mat1.0) is organized differently, with 18 pairs of autosomes plus X and Y. Cat chromosomes are named by groups: A1-A3, B1-B4, C1-C2, D1-D4, E1-E3, and F1-F2.
+
+2. POPULATION GENETICS:
+   - DOGS: Have a very high degree of genetic "structure" due to centuries of selective breeding. This created many distinct, isolated populations (breeds) with unique genetic signatures and varying risks for inherited diseases.
+   - CATS: Generally exhibit much less genetic structure. Most cats belong to a single, large, globally distributed population (random-bred cats). Purebred cats exist but represent a smaller fraction of the overall population, meaning most cats share a more homogeneous genetic background compared to the diverse "islands" of dog breeds.
+
+3. OBTAINING DATA (FASTQ/FASTA):
+   - Pet-Specific Services: Companies like Basepaws (cats) and Embark or Wisdom Panel (dogs) provide consumer kits. You can often request your "Raw Data" (FASTQ files) from their support teams.
+   - Human WGS Services (The "Bio-Hack"): Because human sequencing is a much larger industry, Whole Genome Sequencing (WGS) for humans is often cheaper than pet-specific WGS. Some advanced users use human WGS services (like Nebula Genomics or Dante Labs) by submitting their pet's cheek swab as if it were a human sample.
+   - CAVEAT: Most human services do not officially support non-human samples. The laboratory's Quality Control (QC) systems might flag the sample as "contaminated" or "failed" if they detect non-human DNA, potentially leading to a rejected sample without a refund. Furthermore, human-centric bioinformatics pipelines provided by these services will fail to analyze the data; you will only be able to use the raw FASTQ files with external tools like this one.
+
+4. ANALYSIS GOALS:
+   - Breed/Ancestry Identification: Discovering the ancestral mix of your pet.
+   - Health Screening: Identifying known genetic variants associated with specific conditions (e.g., HCM in cats or DM in dogs).
+   - Trait Discovery: Understanding the genetics behind coat color, patterns, and physical characteristics.
+"""
+}

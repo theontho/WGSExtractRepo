@@ -14,6 +14,7 @@ from wgsextract_cli.core.gene_map import (
     delete_gene_maps,
     download_gene_maps,
 )
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_MESSAGES, LOG_MESSAGES
 
 
 class GUIController:
@@ -45,7 +46,7 @@ class GUIController:
             frame: The UI frame that triggered the command.
             on_finish: Optional callback to run when the command finishes.
         """
-        self.main_app.log(f"Running: {' '.join(command)}")
+        self.main_app.log(LOG_MESSAGES["running_cmd"].format(command=" ".join(command)))
 
         if cmd_key and frame:
             frame.after(0, lambda: frame.set_button_state(cmd_key, "running"))
@@ -88,7 +89,9 @@ class GUIController:
             if self.main_app.winfo_exists():
                 self.main_app.after(
                     0,
-                    lambda: self.main_app.log(f"Finished (Exit {process.returncode})"),
+                    lambda: self.main_app.log(
+                        LOG_MESSAGES["finished_exit"].format(code=process.returncode)
+                    ),
                 )
             if cmd_key and frame and frame.winfo_exists():
                 frame.after(0, lambda: frame.set_button_state(cmd_key, "normal"))
@@ -101,7 +104,7 @@ class GUIController:
         """Terminate a running process group."""
         if cmd_key in self.active_processes:
             proc = self.active_processes[cmd_key]
-            self.main_app.log(f"Cancelling process group {proc.pid}...")
+            self.main_app.log(LOG_MESSAGES["cancelling_proc"].format(pid=proc.pid))
 
             try:
                 if sys.platform == "win32":
@@ -113,7 +116,7 @@ class GUIController:
 
                     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
             except Exception as e:
-                self.main_app.log(f"Cancel error: {e}")
+                self.main_app.log(LOG_MESSAGES["cancel_error"].format(error=e))
 
             # On Unix, we might need kill if it doesn't respond to terminate
             self.main_app.after(1000, lambda: self._force_kill_if_alive(cmd_key, proc))
@@ -145,7 +148,7 @@ class GUIController:
 
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 if self.main_app.winfo_exists():
-                    self.main_app.log(f"Force killed process group {proc.pid}.")
+                    self.main_app.log(LOG_MESSAGES["force_killed"].format(pid=proc.pid))
             except Exception:
                 pass
 
@@ -157,7 +160,9 @@ class GUIController:
     ) -> None:
         """Run detailed info command and show results in a separate window."""
         if not input_path:
-            self.main_app.log("Error: --input required for info.")
+            self.main_app.log(
+                GUI_MESSAGES["error_input_required"].format(field="--input")
+            )
             return
 
         if frame:
@@ -179,7 +184,7 @@ class GUIController:
             if ref_path:
                 cmd.extend(["--ref", ref_path])
 
-            self.main_app.log(f"Running: {' '.join(cmd)}")
+            self.main_app.log(LOG_MESSAGES["running_cmd"].format(command=" ".join(cmd)))
             try:
                 # Use process groups so we can kill children safely
                 popen_kwargs: dict[str, Any] = {
@@ -212,14 +217,16 @@ class GUIController:
                     if not line.startswith("Analyzing")
                 ]
                 clean_info = "\n".join(lines).strip()
-                title = f"Detailed Info: {os.path.basename(input_path)}"
+                title = GUI_MESSAGES["detailed_info_title"].format(
+                    filename=os.path.basename(input_path)
+                )
                 if self.main_app.winfo_exists():
                     self.main_app.after(
                         0, lambda: self.main_app.show_info_window(title, clean_info)
                     )
             except Exception as e:
                 if self.main_app.winfo_exists():
-                    self.main_app.log(f"Error running info: {e}")
+                    self.main_app.log(GUI_MESSAGES["info_error"].format(error=e))
             finally:
                 if "info" in self.active_processes:
                     del self.active_processes["info"]
@@ -244,7 +251,7 @@ class GUIController:
         if os.path.exists(json_cache):
             try:
                 os.remove(json_cache)
-                self.main_app.log(f"Cleared cache: {json_cache}")
+                self.main_app.log(LOG_MESSAGES["cleared_cache"].format(path=json_cache))
                 # Re-trigger info fetch to show fresh data
                 ref_path = (
                     self.main_app.ref_path_var.get()
@@ -255,7 +262,7 @@ class GUIController:
             except Exception as e:
                 self.main_app.log(f"Error clearing cache: {e}")
         else:
-            self.main_app.log(f"No cache found to clear at {json_cache}.")
+            self.main_app.log(LOG_MESSAGES["no_cache_found"].format(path=json_cache))
 
     def get_info_fast(
         self, input_path: str, frame: Any, ref_path: str | None = None
@@ -321,7 +328,7 @@ class GUIController:
                     self.main_app.after(
                         0,
                         lambda r=res.returncode: self.main_app.log(
-                            f"Fast info command failed with exit code {r}"
+                            LOG_MESSAGES["fast_info_failed"].format(code=r)
                         ),
                     )
 
@@ -373,12 +380,22 @@ class GUIController:
         """
         errors = []
         if not lib_frame.vep_cache.get():
-            errors.append("VEP Cache Path is required.")
+            errors.append(
+                GUI_MESSAGES["error_input_required"].format(
+                    field=GUI_LABELS["vep_cache_path"]
+                )
+            )
         if not lib_frame.ref_entry.get():
-            errors.append("Reference Library is required.")
+            errors.append(
+                GUI_MESSAGES["error_input_required"].format(
+                    field=GUI_LABELS["ref_library_path"]
+                )
+            )
 
         if errors:
-            self.main_app.show_error("Missing Required Input", "\n".join(errors))
+            self.main_app.show_error(
+                GUI_MESSAGES["error_missing_input"], "\n".join(errors)
+            )
             return
 
         lib_frame.show_vep_progress()
@@ -419,14 +436,16 @@ class GUIController:
             a.ref = lib_frame.ref_entry.get()
             a.progress_callback = cb
             a.cancel_event = self.main_app.vep_cancel_event
-            self.main_app.log("Starting VEP cache download...")
+            self.main_app.log(LOG_MESSAGES["starting_vep_dl"])
             try:
                 success = cmd_vep_download(a)
                 if self.main_app.winfo_exists():
                     self.main_app.after(
                         0,
                         lambda: self.main_app.log(
-                            f"VEP Download {'Succeeded' if success else 'Failed/Cancelled'}"
+                            LOG_MESSAGES["vep_dl_success"]
+                            if success
+                            else LOG_MESSAGES["vep_dl_failed"]
                         ),
                     )
             except Exception as e:
@@ -455,7 +474,10 @@ class GUIController:
         dest = lib_frame.lib_dest.get()
         if not dest:
             self.main_app.show_error(
-                "Missing Required Input", "Reference Library is required."
+                GUI_MESSAGES["error_missing_input"],
+                GUI_MESSAGES["error_input_required"].format(
+                    field=GUI_LABELS["ref_library_path"]
+                ),
             )
             return
 
@@ -463,8 +485,9 @@ class GUIController:
         if fn in self.main_app.active_downloads:
             return
 
+        mode = "restart" if restart else "download"
         self.main_app.log(
-            f"Starting {'restart' if restart else 'download'}: {gd['label']}..."
+            LOG_MESSAGES["starting_lib_dl"].format(mode=mode, label=gd["label"])
         )
         ce = threading.Event()
         pv = ctk.DoubleVar(value=0)
@@ -485,7 +508,7 @@ class GUIController:
             )
             if lib_frame.winfo_exists():
                 lib_frame.after(0, lambda: pv.set(pct))
-                lib_frame.after(0, lambda: sv.set(f"{pct * 100:.1f}% - {st}"))
+                lib_frame.after(0, lambda: sv.set(f"{pct * 100:.1f}% - {st}") or None)
 
         def run() -> None:
             from wgsextract_cli.core.ref_library import download_and_process_genome
@@ -517,7 +540,11 @@ class GUIController:
                     self.main_app.after(
                         0,
                         lambda: self.main_app.log(
-                            f"Download {'Succeeded' if success else 'Failed'}: {gd['label']}"
+                            (
+                                LOG_MESSAGES["lib_dl_success"]
+                                if success
+                                else LOG_MESSAGES["lib_dl_failed"]
+                            ).format(label=gd["label"])
                         ),
                     )
             except Exception as e:
@@ -546,19 +573,24 @@ class GUIController:
         dest = lib_frame.lib_dest.get()
         if not dest:
             self.main_app.show_error(
-                "Missing Required Input", "Reference Library is required."
+                GUI_MESSAGES["error_missing_input"],
+                GUI_MESSAGES["error_input_required"].format(
+                    field=GUI_LABELS["ref_library_path"]
+                ),
             )
             return
 
         from wgsextract_cli.core.ref_library import delete_genome
 
         fn = group["final"]
-        self.main_app.log(f"Deleting {fn} from {dest}...")
+        self.main_app.log(
+            LOG_MESSAGES["deleting_genome"].format(filename=fn, path=dest)
+        )
         try:
             if delete_genome(fn, dest):
-                self.main_app.log(f"Successfully deleted {fn}.")
+                self.main_app.log(LOG_MESSAGES["delete_success"].format(filename=fn))
             else:
-                self.main_app.log(f"Failed to delete {fn}.")
+                self.main_app.log(LOG_MESSAGES["delete_failed"].format(filename=fn))
         except Exception as e:
             self.main_app.log(f"Error during deletion: {e}")
         finally:
@@ -1149,41 +1181,67 @@ class GUIController:
         ]
 
         # Use exact names from labels
-        bam_label = "BAM/CRAM Input" if frame.key == "micro" else "BAM/CRAM"
-        vcf_label = "VCF Input"
+        bam_label = GUI_LABELS["bam_cram"] if frame.key != "micro" else "BAM/CRAM Input"
+        vcf_label = GUI_LABELS["vcf_input"]
 
         if cmd in bam_cmds and not bam_val:
-            errors.append(f"{bam_label} is required.")
+            errors.append(GUI_MESSAGES["error_input_required"].format(field=bam_label))
 
         if cmd in vcf_cmds and not vcf_val:
-            errors.append(f"{vcf_label} is required.")
+            errors.append(GUI_MESSAGES["error_input_required"].format(field=vcf_label))
 
         if cmd in ref_cmds and not ref_val:
-            errors.append("Reference is required.")
+            errors.append(
+                GUI_MESSAGES["error_input_required"].format(field="Reference")
+            )
 
         # Specific command validation
         if cmd == "align":
             if not getattr(frame, "align_r1", None) or not frame.align_r1.get():
-                errors.append("FASTQ R1 is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["fastq_r1"]
+                    )
+                )
 
         if cmd == "trio":
             if not getattr(frame, "vcf_mother", None) or not frame.vcf_mother.get():
-                errors.append("Mother VCF is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["mother_vcf"]
+                    )
+                )
             if not getattr(frame, "vcf_father", None) or not frame.vcf_father.get():
-                errors.append("Father VCF is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["father_vcf"]
+                    )
+                )
 
         if cmd == "lineage-y":
             if not getattr(frame, "yleaf_path", None) or not frame.yleaf_path.get():
-                errors.append("Yleaf Path is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["yleaf_path"]
+                    )
+                )
             if not getattr(frame, "yleaf_pos", None) or not frame.yleaf_pos.get():
-                errors.append("Pos File is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["pos_file"]
+                    )
+                )
 
         if cmd == "lineage-mt":
             if (
                 not getattr(frame, "haplogrep_path", None)
                 or not frame.haplogrep_path.get()
             ):
-                errors.append("Haplogrep Path is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["haplogrep_path"]
+                    )
+                )
 
         if cmd in ["fastqc", "fastp"]:
             self.main_app.log(
@@ -1191,15 +1249,19 @@ class GUIController:
             )
             if not bam_val and not fastq_val:
                 self.main_app.log("DEBUG: appending error for fastqc")
-                errors.append("BAM/CRAM or FASTQ for QC is required.")
+                errors.append(GUI_MESSAGES["error_bam_fastq_required"])
 
         if cmd == "vep-run":
             if not bam_val and not vcf_val:
-                errors.append("BAM/CRAM or VCF Input is required.")
+                errors.append(GUI_MESSAGES["error_bam_vcf_required"])
 
         if cmd == "annotate":
             if not getattr(frame, "vcf_ann_vcf", None) or not frame.vcf_ann_vcf.get():
-                errors.append("Annotate VCF is required.")
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["annotate_vcf"]
+                    )
+                )
 
         if cmd == "filter":
             # Check if at least one filter criterion is provided
@@ -1211,18 +1273,18 @@ class GUIController:
             f_gene = frame.vcf_gene.get() if hasattr(frame, "vcf_gene") else None
             f_reg = frame.vcf_region.get() if hasattr(frame, "vcf_region") else None
             if not any([f_expr, f_gene, f_reg]):
-                errors.append(
-                    "At least one filter criterion (Filter Expr, Gene Name, or Region) is required."
-                )
+                errors.append(GUI_MESSAGES["error_filter_crit_required"])
 
         if cmd == "microarray":
             # Access BooleanVars directly from frame
             sel = [fid for fid, v in frame.micro_formats_vars.items() if v.get()]
             if not sel:
-                errors.append("At least one Target Format must be selected.")
+                errors.append(GUI_MESSAGES["error_target_fmt_required"])
 
         if errors:
-            self.main_app.show_error("Missing Required Input", "\n".join(errors))
+            self.main_app.show_error(
+                GUI_MESSAGES["error_missing_input"], "\n".join(errors)
+            )
             return False
 
         return True

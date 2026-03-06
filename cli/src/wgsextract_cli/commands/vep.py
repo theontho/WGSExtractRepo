@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import download_file
 from wgsextract_cli.core.utils import (
     ReferenceLibrary,
@@ -20,14 +20,14 @@ from wgsextract_cli.core.utils import (
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser(
-        "vep", parents=[base_parser], help=HELP_TEXTS["vep-run"]
+        "vep", parents=[base_parser], help=CLI_HELP["cmd_vep-run"]
     )
 
     vep_subs = parser.add_subparsers(dest="vep_cmd", required=False)
 
     # Download helper
     dl_parser = vep_subs.add_parser(
-        "download", parents=[base_parser], help=HELP_TEXTS["vep-download"]
+        "download", parents=[base_parser], help=CLI_HELP["cmd_vep-download"]
     )
     dl_parser.add_argument(
         "--species", default="homo_sapiens", help="Species name (default: homo_sapiens)"
@@ -51,7 +51,7 @@ def register(subparsers, base_parser):
 
     # Verify helper
     verify_parser = vep_subs.add_parser(
-        "verify", parents=[base_parser], help=HELP_TEXTS["vep-verify"]
+        "verify", parents=[base_parser], help=CLI_HELP["cmd_vep-verify"]
     )
     verify_parser.add_argument(
         "--species", default="homo_sapiens", help="Species name (default: homo_sapiens)"
@@ -135,7 +135,7 @@ def cmd_vep_download(args):
     progress_callback = getattr(args, "progress_callback", None)
     cancel_event = getattr(args, "cancel_event", None)
 
-    logging.info(f"Downloading VEP cache from {host}...")
+    logging.info(LOG_MESSAGES["vep_downloading"].format(host=host))
     success = download_file(url, target_path, progress_callback, cancel_event)
     if not success:
         if cancel_event and cancel_event.is_set():
@@ -147,7 +147,7 @@ def cmd_vep_download(args):
     try:
         checksum_url = f"https://{host}/pub/release-{vep_version}/variation/indexed_vep_cache/CHECKSUMS"
         checksum_path = target_path + ".CHECKSUMS"
-        logging.info("Verifying download against Ensembl CHECKSUMS...")
+        logging.info(LOG_MESSAGES["vep_verifying_checksums"])
 
         try:
             subprocess.run(
@@ -167,11 +167,18 @@ def cmd_vep_download(args):
                 local_sum, local_blocks = calculate_bsd_sum(target_path)
                 if local_sum == found_sum and local_blocks == found_blocks:
                     logging.info(
-                        f"Checksum verification successful: {local_sum} {local_blocks}"
+                        LOG_MESSAGES["vep_checksum_ok"].format(
+                            sum=local_sum, blocks=local_blocks
+                        )
                     )
                 else:
                     logging.warning(
-                        f"Checksum verification FAILED! Expected: {found_sum} {found_blocks}, Got: {local_sum} {local_blocks}"
+                        LOG_MESSAGES["vep_checksum_failed"].format(
+                            expected_sum=found_sum,
+                            expected_blocks=found_blocks,
+                            actual_sum=local_sum,
+                            actual_blocks=local_blocks,
+                        )
                     )
         except Exception as e:
             logging.debug(f"Checksum verification failed: {e}")
@@ -183,10 +190,10 @@ def cmd_vep_download(args):
             logging.info("Download cancelled before extraction.")
             return False
 
-        logging.info(f"Download complete. Extracting {filename}...")
+        logging.info(LOG_MESSAGES["vep_extracting"].format(filename=filename))
         subprocess.run(["tar", "-xzf", target_path, "-C", cache_root], check=True)
-        logging.info("Extraction complete.")
-        logging.info(f"VEP cache is ready at {cache_root}/{species}")
+        logging.info(LOG_MESSAGES["vep_extraction_complete"])
+        logging.info(LOG_MESSAGES["vep_ready"].format(path=f"{cache_root}/{species}"))
         os.remove(target_path)
         return True
     except Exception as e:
@@ -210,19 +217,23 @@ def cmd_vep_verify(args):
     species_dir = os.path.join(cache_root, species)
     version_dir = os.path.join(species_dir, f"{vep_version}_{assembly}")
 
-    logging.info(f"Verifying VEP cache for {species} {vep_version} {assembly}...")
-    logging.info(f"Location: {version_dir}")
+    logging.info(
+        LOG_MESSAGES["vep_verifying"].format(
+            species=species, version=vep_version, assembly=assembly
+        )
+    )
+    logging.info(LOG_MESSAGES["vep_location"].format(path=version_dir))
 
     if not os.path.exists(version_dir):
-        logging.error(f"Cache directory not found: {version_dir}")
+        logging.error(LOG_MESSAGES["vep_cache_missing"].format(path=version_dir))
         return False
 
     # Check for basic files
     info_file = os.path.join(version_dir, "info.txt")
     if os.path.exists(info_file):
-        logging.info("Found info.txt")
+        logging.info(LOG_MESSAGES["vep_info_found"])
     else:
-        logging.warning("info.txt missing - cache might be incomplete.")
+        logging.warning(LOG_MESSAGES["vep_info_missing"])
 
     # Check for chromosomal directories
     missing_chrs = []
@@ -232,11 +243,13 @@ def cmd_vep_verify(args):
             missing_chrs.append(str(c))
 
     if missing_chrs:
-        logging.warning(f"Missing chromosomal data for: {', '.join(missing_chrs)}")
+        logging.warning(
+            LOG_MESSAGES["vep_chrs_missing"].format(chrs=", ".join(missing_chrs))
+        )
     else:
-        logging.info("All primary chromosomal directories (1-22, X, Y, MT) present.")
+        logging.info(LOG_MESSAGES["vep_chrs_ok"])
 
-    logging.info("Verification complete.")
+    logging.info(LOG_MESSAGES["vep_verification_complete"])
     return True
 
 
@@ -274,7 +287,7 @@ def cmd_vep(args):
     input_vcf = args.input
     temp_vcf = None
     if is_bam:
-        logging.info("Input is BAM/CRAM. Performing variant calling first...")
+        logging.info(LOG_MESSAGES["vep_calling_pre"])
         temp_dir = tempfile.mkdtemp(dir=outdir)
         temp_vcf = os.path.join(temp_dir, "variants.vcf.gz")
         region_args = ["-r", args.region] if args.region else []
@@ -356,17 +369,15 @@ def cmd_vep(args):
         cache_dir = args.vep_cache or lib.vep_cache or os.path.expanduser("~/.vep")
         if os.path.exists(cache_dir):
             vep_cmd.extend(["--offline", "--dir_cache", cache_dir])
-            logging.info(f"Using VEP cache at {cache_dir}")
+            logging.info(LOG_MESSAGES["vep_using_cache"].format(path=cache_dir))
         else:
-            logging.warning(
-                f"VEP cache not found at {cache_dir}. Attempting slow online mode."
-            )
+            logging.warning(LOG_MESSAGES["vep_no_cache_warn"].format(path=cache_dir))
             vep_cmd.append("--database")
 
-    logging.info(f"Running VEP: {' '.join(vep_cmd)}")
+    logging.info(LOG_MESSAGES["vep_running"].format(command=" ".join(vep_cmd)))
     try:
         run_command(vep_cmd)
-        logging.info(f"VEP analysis complete. Results saved to {output_file}")
+        logging.info(LOG_MESSAGES["vep_complete"].format(path=output_file))
     except Exception as e:
         logging.error(f"VEP failed: {e}")
     finally:

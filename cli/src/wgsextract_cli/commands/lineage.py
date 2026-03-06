@@ -2,7 +2,7 @@ import logging
 import os
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import run_command, verify_paths_exist
 
 
@@ -11,14 +11,14 @@ def register(subparsers, base_parser):
     lin_subs = parser.add_subparsers(dest="lin_cmd", required=True)
 
     ydna_parser = lin_subs.add_parser(
-        "y-dna", parents=[base_parser], help=HELP_TEXTS["lineage-y"]
+        "y-dna", parents=[base_parser], help=CLI_HELP["cmd_lineage-y"]
     )
     ydna_parser.add_argument("--yleaf-path", required=True, help="Path to yleaf.py")
     ydna_parser.add_argument("--pos-file", required=True, help="Yleaf position file")
     ydna_parser.set_defaults(func=cmd_ydna)
 
     mtdna_parser = lin_subs.add_parser(
-        "mt-dna", parents=[base_parser], help=HELP_TEXTS["lineage-mt"]
+        "mt-dna", parents=[base_parser], help=CLI_HELP["cmd_lineage-mt"]
     )
     mtdna_parser.add_argument(
         "--haplogrep-path", required=True, help="Path to haplogrep.jar"
@@ -37,7 +37,7 @@ def cmd_ydna(args):
     ):
         return
 
-    logging.info(f"Running Yleaf lineage analysis on {args.input}")
+    logging.info(LOG_MESSAGES["running_yleaf"].format(input=args.input))
     try:
         run_command(
             [
@@ -66,7 +66,7 @@ def cmd_mtdna(args):
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     )
     out_file = os.path.join(outdir, "haplogrep_results.txt")
-    logging.info(f"Running Haplogrep lineage analysis on {args.input}")
+    logging.info(LOG_MESSAGES["running_haplogrep"].format(input=args.input))
     try:
         run_command(
             [

@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     ReferenceLibrary,
     calculate_bam_md5,
@@ -16,32 +16,13 @@ from wgsextract_cli.core.warnings import print_warning
 
 
 def register(subparsers, base_parser):
-    format_help = """Comma-separated list of formats to generate (default: all).
-Available formats:
-  Everything:
-    all (Combined file of ALL SNPs for GEDMATCH)
-  23andMe:
-    23andme_v3, 23andme_v4, 23andme_v5, 23andme_v3+v5, 23andme_api
-  AncestryDNA:
-    ancestry_v1, ancestry_v2
-  Family Tree DNA:
-    ftdna_v2, ftdna_v3
-  Living DNA:
-    ldna_v1, ldna_v2
-  MyHeritage:
-    myheritage_v1, myheritage_v2
-  Other Vendors:
-    mthfr_uk (MTHFR Genetics UK), genera_br (Genera BR), meudna_br (meuDNA BR)
-  Reich Lab:
-    reich_aadr (AADR 1240K), reich_human_origins (Human Origins v1), reich_combined
-"""
     parser = subparsers.add_parser(
         "microarray",
         parents=[base_parser],
-        help=HELP_TEXTS["microarray"],
+        help=CLI_HELP["cmd_microarray"],
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    parser.add_argument("--formats", default="all", help=format_help)
+    parser.add_argument("--formats", default="all", help=CLI_HELP["micro_formats_help"])
     parser.add_argument(
         "--parallel",
         action="store_true",
@@ -55,16 +36,14 @@ Available formats:
         "--ploidy-file",
         help="File defining ploidy per chromosome (auto-resolved from --ref if possible)",
     )
-    parser.add_argument(
-        "-r", "--region", help="Chromosomal region (e.g. chrM, chrY:10000-20000)"
-    )
+    parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
     parser.set_defaults(func=run)
 
 
 def run(args):
     verify_dependencies(["bcftools", "tabix", "samtools"])
     if not args.input:
-        logging.error("--input is required.")
+        logging.error(LOG_MESSAGES["input_required"])
         return
 
     if not verify_paths_exist({"--input": args.input}):
@@ -84,7 +63,7 @@ def run(args):
 
     if not ref_fasta or not os.path.isfile(ref_fasta):
         logging.error(
-            "--ref is required (and must be a file) for microarray generation."
+            LOG_MESSAGES["ref_required_for"].format(task="microarray generation")
         )
         return
 
@@ -103,7 +82,7 @@ def run(args):
         ["--ploidy-file", ploidy_file] if ploidy_file else ["--ploidy", "human"]
     )
 
-    logging.info(f"Generating microarray VCF at {out_vcf}")
+    logging.info(LOG_MESSAGES["micro_generating_vcf"].format(output=out_vcf))
     try:
         # mpileup restricted to target SNPs
         p1 = subprocess.Popen(
@@ -142,14 +121,12 @@ def run(args):
     # The All_SNPs tab file is usually build-specific.
     # If the input was hg38, we might need to liftover the results to hg19.
     if lib.build and "38" in lib.build:
-        logging.info(
-            "Input build is hg38. Liftover to hg19 may be required for some formats."
-        )
+        logging.info(LOG_MESSAGES["micro_liftover_warn"])
         # liftover_hg38_to_hg19(out_vcf, ...)
 
     # 3. Convert to vendor formats
     requested_formats = args.formats.split(",")
     for fmt in requested_formats:
         fmt = fmt.strip()
-        logging.info(f"Generating {fmt} output...")
+        logging.info(LOG_MESSAGES["micro_generating_fmt"].format(format=fmt))
         # convert_to_vendor_format(final_vcf, fmt, outdir)

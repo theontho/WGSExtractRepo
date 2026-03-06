@@ -5,16 +5,16 @@ import os
 import subprocess
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import get_resource_defaults, run_command
 
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser(
-        "pet-analysis", parents=[base_parser], help=HELP_TEXTS["pet-analysis"]
+        "pet-analysis", parents=[base_parser], help=CLI_HELP["cmd_pet-analysis"]
     )
-    parser.add_argument("--r1", required=True, help="Read 1 FASTQ file")
-    parser.add_argument("--r2", help="Read 2 FASTQ file (optional)")
+    parser.add_argument("--r1", required=True, help=CLI_HELP["arg_r1"])
+    parser.add_argument("--r2", help=CLI_HELP["arg_r2"])
     parser.add_argument(
         "--species", choices=["dog", "cat"], required=True, help="Species for analysis"
     )
@@ -29,7 +29,7 @@ def run(args):
     threads, _ = get_resource_defaults(args.threads, None)
 
     if not args.ref:
-        logging.error("--ref (reference library directory) is required.")
+        logging.error(LOG_MESSAGES["ref_required"])
         return
 
     # Map species to filename
@@ -53,7 +53,7 @@ def run(args):
     out_vcf = os.path.join(outdir, f"{base_name}_{args.species}.vcf.gz")
 
     # 1. Alignment
-    logging.info(f"Step 1/2: Aligning {args.species} reads...")
+    logging.info(LOG_MESSAGES["pet_aligning"].format(species=args.species))
     r2_args = [args.r2] if args.r2 else []
 
     try:
@@ -76,7 +76,7 @@ def run(args):
             logging.error("Alignment failed.")
             return
 
-        logging.info(f"Indexing {args.format}...")
+        logging.info(LOG_MESSAGES["pet_indexing"].format(format=args.format))
         run_command(["samtools", "index", out_bam])
 
     except Exception as e:
@@ -84,7 +84,7 @@ def run(args):
         return
 
     # 2. Variant Calling (Simple MPileup + BCFTools)
-    logging.info("Step 2/2: Calling variants...")
+    logging.info(LOG_MESSAGES["pet_calling"])
     try:
         # bcftools mpileup | bcftools call -mv -Oz -o out.vcf.gz
         p1 = subprocess.Popen(
@@ -123,8 +123,8 @@ def run(args):
         logging.info("Indexing VCF...")
         run_command(["bcftools", "index", out_vcf])
 
-        logging.info("Pet Analysis complete!")
-        logging.info(f"Results: {out_bam}, {out_vcf}")
+        logging.info(LOG_MESSAGES["pet_complete"])
+        logging.info(LOG_MESSAGES["pet_results"].format(bam=out_bam, vcf=out_vcf))
 
     except Exception as e:
         logging.error(f"Variant calling error: {e}")

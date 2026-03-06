@@ -5,6 +5,7 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_MESSAGES, GUI_TOOLTIPS
 from wgsextract_cli.core.ref_library import get_genome_status, get_grouped_genomes
 
 from .gen import GenericFrame
@@ -18,23 +19,23 @@ class FastqFrame(GenericFrame):
     def create_ref_selector(self, p: ctk.CTkFrame, meta: dict[str, Any]) -> None:
         """Override reference selector to use a dropdown for known genomes."""
         # Add a section for Reference Selection
-        self.create_section_title(self, "Reference Genome Selection")
+        self.create_section_title(self, GUI_LABELS["ref_genome_selection"])
 
         # 1. Genome Library Dropdown
         self.genome_var = ctk.StringVar(value="Select from Library...")
         self.genome_menu = self.create_option_menu(
             self,
-            "Genome Library:",
+            GUI_LABELS["genome_library"],
             options=self._get_genome_options(),
             variable=self.genome_var,
             on_change=self._on_genome_change,
-            info_text="Select a reference genome from your library. Highlights [INSTALLED] if ready.",
+            info_text=GUI_TOOLTIPS["genome_lib_tip"],
         )
 
         # 2. Manual Reference Path (as fallback/direct path)
         self.ref_entry = self.create_file_selector(
             self,
-            "Manual Ref Path:",
+            GUI_LABELS["manual_ref_path"],
             variable=self.main_app.ref_path_var,
             info_text="Optional: Manually specify a path to a reference genome FASTA file.",
         )
@@ -60,7 +61,11 @@ class FastqFrame(GenericFrame):
             groups = get_grouped_genomes()
             for g in groups:
                 status = get_genome_status(g["final"], lib_root)
-                status_str = "[INSTALLED]" if status == "installed" else "[MISSING]"
+                status_str = (
+                    f"[{GUI_LABELS['installed']}]"
+                    if status == "installed"
+                    else f"[{GUI_LABELS['missing']}]"
+                )
                 label = f"{g['label']} {status_str}"
                 options.append(label)
                 self.genome_map[label] = g
@@ -107,9 +112,8 @@ class FastqFrame(GenericFrame):
 
                 if status != "installed":
                     if self.main_app.show_question(
-                        "Genome Missing",
-                        f"The selected genome '{g['label']}' is not downloaded.\n\n"
-                        f"Would you like to download it now before aligning?",
+                        GUI_MESSAGES["genome_missing_title"],
+                        GUI_MESSAGES["genome_missing_msg"].format(label=g["label"]),
                     ):
                         # Switch to library tab and start download
                         self.main_app.show_frame("lib")

@@ -3,7 +3,7 @@ import os
 import subprocess
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_resource_defaults,
@@ -14,12 +14,12 @@ from wgsextract_cli.core.warnings import print_warning
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser(
-        "align", parents=[base_parser], help=HELP_TEXTS["align"]
+        "align", parents=[base_parser], help=CLI_HELP["cmd_align"]
     )
-    parser.add_argument("--r1", required=True, help="Read 1 FASTQ file")
-    parser.add_argument("--r2", help="Read 2 FASTQ file (optional)")
+    parser.add_argument("--r1", required=True, help=CLI_HELP["arg_r1"])
+    parser.add_argument("--r2", help=CLI_HELP["arg_r2"])
     parser.add_argument(
-        "--long-read", action="store_true", help="Use minimap2 for long-read alignment"
+        "--long-read", action="store_true", help=CLI_HELP["arg_long_read"]
     )
     parser.set_defaults(func=run)
 
@@ -46,7 +46,7 @@ def align_bwa(args):
     resolved_ref = resolve_reference(args.ref, md5_sig)
 
     if not resolved_ref or not os.path.isfile(resolved_ref):
-        logging.error("--ref is required (and must be a file) for BWA alignment.")
+        logging.error(LOG_MESSAGES["ref_required_for"].format(task="BWA alignment"))
         return
 
     print_warning("ButtonBWAAlign", threads=threads)
@@ -56,7 +56,9 @@ def align_bwa(args):
 
     r2_args = [args.r2] if args.r2 else []
 
-    logging.info(f"Aligning {args.r1} to {out_bam} using BWA")
+    logging.info(
+        LOG_MESSAGES["aligning_reads"].format(input=args.r1, output=out_bam, tool="BWA")
+    )
     try:
         p1 = subprocess.Popen(
             ["bwa", "mem", "-t", threads, resolved_ref, args.r1] + r2_args,
@@ -69,7 +71,7 @@ def align_bwa(args):
             p1.stdout.close()
         p2.communicate()
 
-        logging.info("Indexing output BAM...")
+        logging.info(LOG_MESSAGES["indexing_output"])
         subprocess.run(["samtools", "index", out_bam], check=True)
     except Exception as e:
         logging.error(f"BWA alignment failed: {e}")
@@ -88,7 +90,9 @@ def align_minimap2(args):
     resolved_ref = resolve_reference(args.ref, md5_sig)
 
     if not resolved_ref or not os.path.isfile(resolved_ref):
-        logging.error("--ref is required (and must be a file) for Minimap2 alignment.")
+        logging.error(
+            LOG_MESSAGES["ref_required_for"].format(task="Minimap2 alignment")
+        )
         return
 
     base_name = os.path.basename(args.r1).split(".")[0]
@@ -96,7 +100,11 @@ def align_minimap2(args):
 
     r2_args = [args.r2] if args.r2 else []
 
-    logging.info(f"Aligning {args.r1} to {out_bam} using Minimap2")
+    logging.info(
+        LOG_MESSAGES["aligning_reads"].format(
+            input=args.r1, output=out_bam, tool="Minimap2"
+        )
+    )
     try:
         p1 = subprocess.Popen(
             ["minimap2", "-ax", "sr", "-t", threads, resolved_ref, args.r1] + r2_args,
@@ -109,7 +117,7 @@ def align_minimap2(args):
             p1.stdout.close()
         p2.communicate()
 
-        logging.info("Indexing output BAM...")
+        logging.info(LOG_MESSAGES["indexing_output"])
         subprocess.run(["samtools", "index", out_bam], check=True)
     except Exception as e:
         logging.error(f"Minimap2 alignment failed: {e}")

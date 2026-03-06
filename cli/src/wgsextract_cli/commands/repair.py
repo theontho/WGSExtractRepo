@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
+
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser(
@@ -13,14 +15,14 @@ def register(subparsers, base_parser):
     bam_parser = repair_subs.add_parser(
         "ftdna-bam",
         parents=[base_parser],
-        help="Fix QNAME spaces in FTDNA BigY BAM files (reads/writes SAM on stdin/stdout).",
+        help=CLI_HELP["cmd_repair-ftdna-bam"],
     )
     bam_parser.set_defaults(func=repair_bam)
 
     vcf_parser = repair_subs.add_parser(
         "ftdna-vcf",
         parents=[base_parser],
-        help="Fix malformed genotype lines in FTDNA VCF files (reads/writes VCF on stdin/stdout).",
+        help=CLI_HELP["cmd_repair-ftdna-vcf"],
     )
     vcf_parser.set_defaults(func=repair_vcf)
 
@@ -34,7 +36,7 @@ def get_script_path(script_name):
 
 def repair_bam(args):
     script = get_script_path("fixFTDNAbam.py")
-    logging.info("Repairing FTDNA BAM (SAM) from stdin to stdout...")
+    logging.info(LOG_MESSAGES["repair_bam"])
     try:
         # Note: This is designed to be part of a pipe: samtools view -h in.bam | wgsextract-cli repair ftdna-bam | samtools view -b > out.bam
         subprocess.run([sys.executable, script], check=True)
@@ -44,7 +46,7 @@ def repair_bam(args):
 
 def repair_vcf(args):
     script = get_script_path("fixFTDNAvcf.py")
-    logging.info("Repairing FTDNA VCF from stdin to stdout...")
+    logging.info(LOG_MESSAGES["repair_vcf"])
     try:
         # Note: Designed to be part of a pipe: bcftools view in.vcf | wgsextract-cli repair ftdna-vcf > out.vcf
         subprocess.run([sys.executable, script], check=True)

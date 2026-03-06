@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from wgsextract_cli.core.help_texts import UI_TOOLTIPS
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
 
 BUTTON_FONT = ("Courier", 13, "bold")
 
@@ -62,14 +62,18 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
 
 UI_METADATA: dict[str, dict[str, Any]] = {
     "flow": {
-        "title": "Workflow",
-        "help": "Visualize the bioinformatics workflow from raw sequencing data to final analysis results. Click on any node to jump to the corresponding tab.",
+        "title": GUI_LABELS["tab_flow"],
+        "help": GUI_TOOLTIPS["workflow_help"],
     },
     "gen": {
-        "title": "Info / BAM",
-        "help": "BAM (Binary Alignment Map) and CRAM are compressed files containing your DNA sequences aligned to a reference genome. Use this tab to identify your data's build, check sequence quality, or convert between alignment formats.",
+        "title": GUI_LABELS["tab_gen"],
+        "help": GUI_TOOLTIPS["info_bam_help"],
         "info_commands": [
-            {"label": "Detailed Info", "cmd": "info", "help": UI_TOOLTIPS["info"]},
+            {
+                "label": "Detailed Info",
+                "cmd": "info",
+                "help": GUI_TOOLTIPS["info"],
+            },
             {
                 "label": "Clear Info Cache",
                 "cmd": "clear-cache",
@@ -78,158 +82,194 @@ UI_METADATA: dict[str, dict[str, Any]] = {
             {
                 "label": "Calc Coverage",
                 "cmd": "calculate-coverage",
-                "help": UI_TOOLTIPS["calculate-coverage"],
+                "help": GUI_TOOLTIPS["calculate-coverage"],
             },
             {
                 "label": "Sample Coverage",
                 "cmd": "coverage-sample",
-                "help": UI_TOOLTIPS["coverage-sample"],
+                "help": GUI_TOOLTIPS["coverage-sample"],
             },
         ],
         "bam_commands": [
-            {"label": "Sort", "cmd": "sort", "help": UI_TOOLTIPS["sort"]},
-            {"label": "Index", "cmd": "index", "help": UI_TOOLTIPS["index"]},
-            {"label": "To CRAM", "cmd": "to-cram", "help": UI_TOOLTIPS["to-cram"]},
-            {"label": "Unsort", "cmd": "unsort", "help": UI_TOOLTIPS["unsort"]},
-            {"label": "Unindex", "cmd": "unindex", "help": UI_TOOLTIPS["unindex"]},
-            {"label": "To BAM", "cmd": "to-bam", "help": UI_TOOLTIPS["to-bam"]},
+            {"label": "Sort", "cmd": "sort", "help": GUI_TOOLTIPS["sort"]},
+            {"label": "Index", "cmd": "index", "help": GUI_TOOLTIPS["index"]},
+            {
+                "label": "To CRAM",
+                "cmd": "to-cram",
+                "help": GUI_TOOLTIPS["to-cram"],
+            },
+            {
+                "label": "Unsort",
+                "cmd": "unsort",
+                "help": GUI_TOOLTIPS["unsort"],
+            },
+            {
+                "label": "Unindex",
+                "cmd": "unindex",
+                "help": GUI_TOOLTIPS["unindex"],
+            },
+            {"label": "To BAM", "cmd": "to-bam", "help": GUI_TOOLTIPS["to-bam"]},
             {
                 "label": "Repair FTDNA BAM",
                 "cmd": "repair-ftdna-bam",
-                "help": UI_TOOLTIPS["repair-ftdna-bam"],
+                "help": GUI_TOOLTIPS["repair-ftdna-bam"],
             },
         ],
     },
     "ext": {
-        "title": "Extract",
-        "help": "Extract specific subsets of your DNA data. This is useful for isolating Mitochondrial DNA (chrM) or Y-Chromosome data (chrY) for specialized analysis without processing the entire large BAM/CRAM file.",
+        "title": GUI_LABELS["tab_ext"],
+        "help": GUI_TOOLTIPS["extract_help"],
         "commands": [
             {
                 "label": "MT-only FASTA",
                 "cmd": "mito-fasta",
-                "help": UI_TOOLTIPS["mito-fasta"],
+                "help": GUI_TOOLTIPS["mito-fasta"],
             },
             {
                 "label": "MT-only BAM",
                 "cmd": "mt-extract",
-                "help": UI_TOOLTIPS["mt-extract"],
+                "help": GUI_TOOLTIPS["mt-extract"],
             },
             {
                 "label": "MT-only VCF",
                 "cmd": "mito-vcf",
-                "help": UI_TOOLTIPS["mito-vcf"],
+                "help": GUI_TOOLTIPS["mito-vcf"],
             },
-            {"label": "Y-only BAM", "cmd": "ydna-bam", "help": UI_TOOLTIPS["ydna-bam"]},
-            {"label": "Y-only VCF", "cmd": "ydna-vcf", "help": UI_TOOLTIPS["ydna-vcf"]},
+            {
+                "label": "Y-only BAM",
+                "cmd": "ydna-bam",
+                "help": GUI_TOOLTIPS["ydna-bam"],
+            },
+            {
+                "label": "Y-only VCF",
+                "cmd": "ydna-vcf",
+                "help": GUI_TOOLTIPS["ydna-vcf"],
+            },
             {
                 "label": "Y and MT BAM",
                 "cmd": "y-mt-extract",
-                "help": UI_TOOLTIPS["y-mt-extract"],
+                "help": GUI_TOOLTIPS["y-mt-extract"],
             },
-            {"label": "BAM Subset", "cmd": "subset", "help": UI_TOOLTIPS["subset"]},
-            {"label": "Unmapped", "cmd": "unmapped", "help": UI_TOOLTIPS["unmapped"]},
-            {"label": "Custom Extract", "cmd": "custom", "help": UI_TOOLTIPS["custom"]},
+            {"label": "BAM Subset", "cmd": "subset", "help": GUI_TOOLTIPS["subset"]},
+            {
+                "label": "Unmapped",
+                "cmd": "unmapped",
+                "help": GUI_TOOLTIPS["unmapped"],
+            },
+            {
+                "label": "Custom Extract",
+                "cmd": "custom",
+                "help": GUI_TOOLTIPS["custom"],
+            },
         ],
     },
     "micro": {
-        "title": "Microarray",
-        "help": "Generate 'CombinedKit' files that simulate the raw data format used by consumer testing companies like 23andMe, AncestryDNA, and FTDNA. This allows you to upload your WGS data to third-party tools and services like Gedmatch, Geneanet, MyHeritage, Promethease, and Genvue.",
+        "title": GUI_LABELS["tab_micro"],
+        "help": GUI_TOOLTIPS["microarray_help"],
         "commands": [
             {
-                "label": "Generate CombinedKit",
+                "label": GUI_LABELS["btn_generate_ck"],
                 "cmd": "microarray",
-                "help": UI_TOOLTIPS["microarray"],
+                "help": GUI_TOOLTIPS["microarray"],
             },
         ],
     },
     "anc": {
-        "title": "Ancestry",
-        "help": "Identify your haplogroups and deep ancestral lineages. Y-DNA analysis (Yleaf) tracks paternal descent, while Mitochondrial (Haplogrep) tracks maternal descent based on specific markers in your DNA.",
+        "title": GUI_LABELS["tab_anc"],
+        "help": GUI_TOOLTIPS["ancestry_help"],
         "commands": [
             {
                 "label": "Run Yleaf",
                 "cmd": "lineage-y",
-                "help": UI_TOOLTIPS["lineage-y"],
+                "help": GUI_TOOLTIPS["lineage-y"],
             },
             {
                 "label": "Run Haplogrep",
                 "cmd": "lineage-mt",
-                "help": UI_TOOLTIPS["lineage-mt"],
+                "help": GUI_TOOLTIPS["lineage-mt"],
             },
         ],
     },
     "vcf": {
-        "title": "VCF",
-        "help": "VCF (Variant Call Format) files list the specific positions where your DNA differs from the reference genome. Use this tab to 'call' variants (identify SNPs, InDels, SVs), filter them by quality, or predict their biological effects (VEP).",
+        "title": GUI_LABELS["tab_vcf"],
+        "help": GUI_TOOLTIPS["vcf_help"],
         "commands": [
-            {"label": "SNP Call", "cmd": "snp", "help": UI_TOOLTIPS["snp"]},
-            {"label": "InDel Call", "cmd": "indel", "help": UI_TOOLTIPS["indel"]},
-            {"label": "SV Call", "cmd": "sv", "help": UI_TOOLTIPS["sv"]},
-            {"label": "CNV Call", "cmd": "cnv", "help": UI_TOOLTIPS["cnv"]},
+            {"label": "SNP Call", "cmd": "snp", "help": GUI_TOOLTIPS["snp"]},
+            {"label": "InDel Call", "cmd": "indel", "help": GUI_TOOLTIPS["indel"]},
+            {"label": "SV Call", "cmd": "sv", "help": GUI_TOOLTIPS["sv"]},
+            {"label": "CNV Call", "cmd": "cnv", "help": GUI_TOOLTIPS["cnv"]},
             {
                 "label": "Freebayes",
                 "cmd": "freebayes",
-                "help": UI_TOOLTIPS["freebayes"],
+                "help": GUI_TOOLTIPS["freebayes"],
             },
-            {"label": "GATK HC", "cmd": "gatk", "help": UI_TOOLTIPS["gatk"]},
+            {"label": "GATK HC", "cmd": "gatk", "help": GUI_TOOLTIPS["gatk"]},
             {
                 "label": "DeepVariant",
                 "cmd": "deepvariant",
-                "help": UI_TOOLTIPS["deepvariant"],
+                "help": GUI_TOOLTIPS["deepvariant"],
             },
-            {"label": "Annotate", "cmd": "annotate", "help": UI_TOOLTIPS["annotate"]},
-            {"label": "Filter", "cmd": "filter", "help": UI_TOOLTIPS["filter"]},
-            {"label": "Trio Analysis", "cmd": "trio", "help": UI_TOOLTIPS["trio"]},
-            {"label": "VCF QC", "cmd": "vcf-qc", "help": UI_TOOLTIPS["vcf-qc"]},
-            {"label": "Run VEP", "cmd": "vep-run", "help": UI_TOOLTIPS["vep-run"]},
+            {
+                "label": "Annotate",
+                "cmd": "annotate",
+                "help": GUI_TOOLTIPS["annotate"],
+            },
+            {"label": "Filter", "cmd": "filter", "help": GUI_TOOLTIPS["filter"]},
+            {
+                "label": "Trio Analysis",
+                "cmd": "trio",
+                "help": GUI_TOOLTIPS["trio"],
+            },
+            {"label": "VCF QC", "cmd": "vcf-qc", "help": GUI_TOOLTIPS["vcf-qc"]},
+            {"label": "Run VEP", "cmd": "vep-run", "help": GUI_TOOLTIPS["vep-run"]},
             {
                 "label": "Repair FTDNA VCF",
                 "cmd": "repair-ftdna-vcf",
-                "help": UI_TOOLTIPS["repair-ftdna-vcf"],
+                "help": GUI_TOOLTIPS["repair-ftdna-vcf"],
             },
         ],
     },
     "fastq": {
-        "title": "FASTQ",
-        "help": "FASTQ files contain the 'raw' reads directly from the sequencer before they are aligned. Use this tab to perform quality control (FastQC/FastP) or align these raw reads to a reference genome to create a BAM/CRAM file.",
+        "title": GUI_LABELS["tab_fastq"],
+        "help": GUI_TOOLTIPS["fastq_help"],
         "commands": [
-            {"label": "Run Align", "cmd": "align", "help": UI_TOOLTIPS["align"]},
-            {"label": "Unalign", "cmd": "unalign", "help": UI_TOOLTIPS["unalign"]},
-            {"label": "FastQC", "cmd": "fastqc", "help": UI_TOOLTIPS["fastqc"]},
-            {"label": "FastP", "cmd": "fastp", "help": UI_TOOLTIPS["fastp"]},
+            {"label": "Run Align", "cmd": "align", "help": GUI_TOOLTIPS["align"]},
+            {"label": "Unalign", "cmd": "unalign", "help": GUI_TOOLTIPS["unalign"]},
+            {"label": "FastQC", "cmd": "fastqc", "help": GUI_TOOLTIPS["fastqc"]},
+            {"label": "FastP", "cmd": "fastp", "help": GUI_TOOLTIPS["fastp"]},
         ],
     },
     "pet": {
-        "title": "Pet Analysis",
-        "help": "Analyze DNA data for your pets. Align raw FASTQ reads against a dog or cat reference genome and generate variant calls (VCF). This uses standard bioinformatics tools optimized for non-human species.",
+        "title": GUI_LABELS["tab_pet"],
+        "help": GUI_TOOLTIPS["pet_help"],
         "commands": [
             {
                 "label": "Run Pet Analysis",
                 "cmd": "pet-analysis",
-                "help": UI_TOOLTIPS["pet-analysis"],
+                "help": GUI_TOOLTIPS["pet-analysis"],
             },
         ],
     },
     "lib": {
-        "title": "Library",
-        "help": "Manage your reference data library. Download and verify standardized reference genomes (FASTA), gene maps for annotation, and VEP caches required for advanced variant effect prediction.",
+        "title": GUI_LABELS["tab_lib"],
+        "help": GUI_TOOLTIPS["library_help"],
         "commands": [
             {
                 "label": "Gene Map",
                 "cmd": "ref-gene-map",
-                "help": UI_TOOLTIPS["ref-gene-map"],
+                "help": GUI_TOOLTIPS["ref-gene-map"],
             },
         ],
         "vep_commands": [
             {
-                "label": "Download VEP Cache",
+                "label": GUI_LABELS["btn_vep_dl"],
                 "cmd": "vep-download",
-                "help": UI_TOOLTIPS["vep-download"],
+                "help": GUI_TOOLTIPS["vep-download"],
             },
             {
-                "label": "Verify VEP Cache",
+                "label": GUI_LABELS["btn_vep_verify"],
                 "cmd": "vep-verify",
-                "help": UI_TOOLTIPS["vep-verify"],
+                "help": GUI_TOOLTIPS["vep-verify"],
             },
         ],
     },

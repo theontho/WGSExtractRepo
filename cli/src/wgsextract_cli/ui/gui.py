@@ -9,6 +9,7 @@ from typing import Any
 import customtkinter as ctk
 from PIL import Image
 
+from wgsextract_cli.core.messages import GUI_LABELS
 from wgsextract_cli.ui.constants import BUTTON_FONT, UI_METADATA
 from wgsextract_cli.ui.gui_parts.controller import GUIController
 from wgsextract_cli.ui.gui_parts.fastq import FastqFrame
@@ -52,7 +53,7 @@ class WGSExtractGUI(ctk.CTk):
     def __init__(self) -> None:
         """Initialize the GUI application, setting up the layout and components."""
         super().__init__()
-        self.title("WGS Extract GUI")
+        self.title(GUI_LABELS["app_title"])
         self.geometry("1100x850")
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
@@ -181,7 +182,7 @@ class WGSExtractGUI(ctk.CTk):
 
         ctk.CTkLabel(
             self.sidebar_frame,
-            text="WGS Extract",
+            text=GUI_LABELS["sidebar_title"],
             font=ctk.CTkFont(size=20, weight="bold"),
         ).grid(row=1, column=0, padx=20, pady=(10, 20))
 

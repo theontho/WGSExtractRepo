@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import (
     GENOME_DATA,
     download_and_process_genome,
@@ -25,41 +25,41 @@ def register(subparsers, base_parser):
     ref_subs = parser.add_subparsers(dest="ref_cmd", required=True)
 
     ident_parser = ref_subs.add_parser(
-        "identify", parents=[base_parser], help=HELP_TEXTS["ref-identify"]
+        "identify", parents=[base_parser], help=CLI_HELP["cmd_ref-identify"]
     )
     ident_parser.set_defaults(func=cmd_identify)
 
     dl_parser = ref_subs.add_parser(
-        "download", parents=[base_parser], help=HELP_TEXTS["ref-download"]
+        "download", parents=[base_parser], help=CLI_HELP["cmd_ref-download"]
     )
     dl_parser.add_argument("--url", required=True, help="URL to download from")
     dl_parser.add_argument("--out", required=True, help="Output FASTA file path")
     dl_parser.set_defaults(func=cmd_download)
 
     index_parser = ref_subs.add_parser(
-        "index", parents=[base_parser], help=HELP_TEXTS["ref-index"]
+        "index", parents=[base_parser], help=CLI_HELP["cmd_ref-index"]
     )
     index_parser.set_defaults(func=cmd_index)
 
     cntns_parser = ref_subs.add_parser(
-        "count-ns", parents=[base_parser], help=HELP_TEXTS["ref-count-ns"]
+        "count-ns", parents=[base_parser], help=CLI_HELP["cmd_ref-count-ns"]
     )
     cntns_parser.set_defaults(func=cmd_count_ns)
 
     verify_parser = ref_subs.add_parser(
-        "verify", parents=[base_parser], help=HELP_TEXTS["ref-verify"]
+        "verify", parents=[base_parser], help=CLI_HELP["cmd_ref-verify"]
     )
     verify_parser.set_defaults(func=cmd_ref_verify)
 
     lib_parser = ref_subs.add_parser(
         "library",
         parents=[base_parser],
-        help="Interactive reference library manager to download genomes.",
+        help=CLI_HELP["cmd_ref-library"],
     )
     lib_parser.set_defaults(func=cmd_library)
 
     genemap_parser = ref_subs.add_parser(
-        "gene-map", parents=[base_parser], help=HELP_TEXTS["ref-gene-map"]
+        "gene-map", parents=[base_parser], help=CLI_HELP["cmd_ref-gene-map"]
     )
     genemap_parser.add_argument(
         "--delete", action="store_true", help="Delete gene maps instead of downloading"
@@ -70,7 +70,7 @@ def register(subparsers, base_parser):
 def cmd_identify(args):
     verify_dependencies(["samtools"])
     if not args.input:
-        logging.error("--input is required.")
+        logging.error(LOG_MESSAGES["input_required"])
         return
 
     if not verify_paths_exist({"--input": args.input}):
@@ -80,12 +80,14 @@ def cmd_identify(args):
     resolved_ref = resolve_reference(args.ref, "")
 
     md5_sig = calculate_bam_md5(args.input, resolved_ref)
-    logging.info(f"MD5 Signature for {args.input}: {md5_sig}")
+    logging.info(
+        LOG_MESSAGES["ref_md5_signature"].format(input=args.input, sig=md5_sig)
+    )
 
 
 def cmd_download(args):
     verify_dependencies(["wget"])
-    logging.info(f"Downloading {args.url} to {args.out}")
+    logging.info(LOG_MESSAGES["ref_downloading"].format(url=args.url, path=args.out))
     try:
         subprocess.run(["wget", "-O", args.out, args.url], check=True)
     except subprocess.CalledProcessError as e:
@@ -101,11 +103,11 @@ def cmd_index(args):
     if not verify_paths_exist({"--ref": args.ref}):
         return
 
-    logging.info(f"Indexing {args.ref} with faidx")
+    logging.info(LOG_MESSAGES["ref_indexing"].format(path=args.ref))
     try:
         subprocess.run(["samtools", "faidx", args.ref], check=True)
         out_dict = os.path.splitext(args.ref)[0] + ".dict"
-        logging.info(f"Creating dict {out_dict}")
+        logging.info(LOG_MESSAGES["ref_creating_dict"].format(path=out_dict))
         subprocess.run(["samtools", "dict", args.ref, "-o", out_dict], check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"Indexing failed: {e}")
@@ -128,7 +130,7 @@ def cmd_count_ns(args):
         logging.error("countingNs.py script not found.")
         return
 
-    logging.info(f"Analyzing N segments in {args.ref}")
+    logging.info(LOG_MESSAGES["analyzing_ns"].format(path=args.ref))
     try:
         subprocess.run([sys.executable, script, args.ref], check=True)
     except subprocess.CalledProcessError as e:
@@ -147,7 +149,7 @@ def cmd_ref_verify(args):
         logging.error(f"Reference file not found: {resolved_ref}")
         return
 
-    logging.info(f"Verifying integrity of {resolved_ref}...")
+    logging.info(LOG_MESSAGES["ref_verifying"].format(path=resolved_ref))
 
     # 1. MD5 Checksum (if known)
     filename = os.path.basename(resolved_ref)
@@ -158,7 +160,7 @@ def cmd_ref_verify(args):
             break
 
     if expected_md5:
-        logging.info(f"Verifying MD5 checksum for {filename}...")
+        logging.info(LOG_MESSAGES["ref_md5_verifying"].format(filename=filename))
         hash_md5 = hashlib.md5()
         try:
             with open(resolved_ref, "rb") as f:
@@ -166,9 +168,9 @@ def cmd_ref_verify(args):
                     hash_md5.update(chunk)
             calculated = hash_md5.hexdigest()
             if calculated == expected_md5:
-                logging.info("MD5 checksum: OK")
+                logging.info(LOG_MESSAGES["ref_md5_ok"])
             else:
-                logging.error("MD5 checksum FAILED!")
+                logging.error(LOG_MESSAGES["ref_md5_failed"])
                 logging.error(f"Expected: {expected_md5}")
                 logging.error(f"Calculated: {calculated}")
                 # We continue to show other potential errors (like gzip eof)
@@ -177,12 +179,12 @@ def cmd_ref_verify(args):
 
     # 2. Check gzip integrity
     if resolved_ref.endswith(".gz"):
-        logging.info("Running gzip integrity test...")
+        logging.info(LOG_MESSAGES["ref_gzip_test"])
         try:
             subprocess.run(
                 ["gzip", "-t", resolved_ref], check=True, stderr=subprocess.PIPE
             )
-            logging.info("Gzip integrity: OK")
+            logging.info(LOG_MESSAGES["ref_gzip_ok"])
         except subprocess.CalledProcessError as e:
             msg = e.stderr.decode() if e.stderr else "Unexpected end of file"
             logging.error(f"Gzip integrity FAILED: {msg}")
@@ -192,14 +194,14 @@ def cmd_ref_verify(args):
             return
 
     # 2. Check samtools faidx
-    logging.info("Running samtools faidx check...")
+    logging.info(LOG_MESSAGES["ref_faidx_check"])
     try:
         # Check if index exists, if not try to create/verify
         res = subprocess.run(
             ["samtools", "faidx", resolved_ref], capture_output=True, text=True
         )
         if res.returncode == 0:
-            logging.info("Samtools faidx: OK")
+            logging.info(LOG_MESSAGES["ref_faidx_ok"])
         else:
             logging.error(f"Samtools faidx FAILED: {res.stderr}")
             return
@@ -207,7 +209,9 @@ def cmd_ref_verify(args):
         logging.error(f"Samtools faidx check failed: {e}")
         return
 
-    logging.info(f"Reference {os.path.basename(resolved_ref)} appears to be valid.")
+    logging.info(
+        LOG_MESSAGES["ref_valid"].format(filename=os.path.basename(resolved_ref))
+    )
 
 
 def cmd_library(args):
@@ -290,11 +294,11 @@ def cmd_gene_map(args):
 
     if getattr(args, "delete", False):
         if delete_gene_maps(reflib):
-            print(f"Gene maps deleted from {reflib}/ref")
+            print(LOG_MESSAGES["del_genemap_success"])
         else:
-            print("Failed to delete gene maps.")
+            print(LOG_MESSAGES["del_genemap_failed"])
     else:
         if download_gene_maps(reflib):
-            print(f"Gene maps installed to {reflib}/ref")
+            print(LOG_MESSAGES["dl_genemap_success"])
         else:
-            print("Failed to download gene maps.")
+            print(LOG_MESSAGES["dl_genemap_failed"])

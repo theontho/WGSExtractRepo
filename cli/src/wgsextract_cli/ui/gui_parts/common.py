@@ -7,6 +7,7 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.messages import GUI_LABELS
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
 
@@ -71,7 +72,7 @@ class UIUtilsMixin:
         char = chars[step % len(chars)]
         btn = self.cmd_buttons.get(cmd_key)
         if btn and btn.winfo_exists():
-            btn.configure(text=f"Cancel {char}")
+            btn.configure(text=f"{GUI_LABELS['btn_cancel'].replace('|', '')} {char}")
             self.after(200, lambda: self._animate_spinner(cmd_key, step + 1))
 
     def setup_ui(self: Any) -> None:
@@ -95,7 +96,7 @@ class UIUtilsMixin:
         if state == "running":
             self.running_spinners[cmd_key] = True
             btn.configure(
-                text="Cancel |",
+                text=GUI_LABELS["btn_cancel"],
                 fg_color=("#cfd8dc", "#455a64"),
                 hover_color=("#b0bec5", "#37474f"),
                 text_color=("#000000", "#ffffff"),
@@ -211,26 +212,34 @@ class UIUtilsMixin:
 
         # Render dictionary data nicely
         fstats = data.get("file_stats", {})
-        stats_str = f"{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
+        stats_str = f"{GUI_LABELS['sorted'] if fstats.get('sorted') else GUI_LABELS['unsorted']}, {GUI_LABELS['indexed'] if fstats.get('indexed') else GUI_LABELS['unindexed']}, {fstats.get('size_gb', 0):.1f} {GUI_LABELS['gbs']}"
 
         items = [
-            ("Reference Genome:", data.get("ref_model_str", "Unknown")),
-            ("File Stats:", stats_str),
             (
-                "Avg Read Length:",
+                GUI_LABELS["ref_genome_selection"],
+                data.get("ref_model_str", GUI_LABELS["unknown"]),
+            ),
+            (GUI_LABELS["file_stats"], stats_str),
+            (
+                GUI_LABELS["avg_read_len"],
                 f"{data.get('avg_read_len', 0):.0f} bp (SD={data.get('std_read_len', 0):.0f} bp), {'Paired-end' if data.get('is_paired') else 'Single-end'}",
             ),
             (
-                "Avg Insert Size:",
+                GUI_LABELS["avg_insert_size"],
                 f"{data.get('avg_insert_size', 0):.0f} bp (SD={data.get('std_insert_size', 0):.0f} bp)",
             ),
         ]
 
         if data.get("sequencer"):
             if data["sequencer"] != "Unknown":
-                items.append(("Sequencer:", data["sequencer"]))
+                items.append((GUI_LABELS["sequencer"], data["sequencer"]))
             elif data.get("first_qname"):
-                items.append(("Sequencer:", f"Unknown: {data['first_qname']}"))
+                items.append(
+                    (
+                        GUI_LABELS["sequencer"],
+                        f"{GUI_LABELS['unknown']}: {data['first_qname']}",
+                    )
+                )
 
         for i, (label, val) in enumerate(items):
             # Calculate row and column block (each block has label + value)
@@ -302,7 +311,7 @@ class UIUtilsMixin:
 
         ctk.CTkButton(
             btn_f,
-            text="Browse",
+            text=GUI_LABELS["btn_browse"],
             width=80,
             command=lambda: self.browse_file(entry, variable, on_change),
             font=BUTTON_FONT,
@@ -351,7 +360,7 @@ class UIUtilsMixin:
         entry.pack(side="left", fill="x", expand=True, padx=10)
         ctk.CTkButton(
             frame,
-            text="Browse",
+            text=GUI_LABELS["btn_browse"],
             width=80,
             command=lambda: self.browse_dir(entry, variable),
             font=BUTTON_FONT,

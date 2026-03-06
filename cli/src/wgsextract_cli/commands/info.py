@@ -16,7 +16,7 @@ from wgsextract_cli.core.constants import (
     SEQUENCERS,
 )
 from wgsextract_cli.core.dependencies import verify_dependencies
-from wgsextract_cli.core.help_texts import HELP_TEXTS
+from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_bam_header,
@@ -41,32 +41,32 @@ def determine_sequencer(qname):
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser(
-        "info", parents=[base_parser], help=HELP_TEXTS["info"]
+        "info", parents=[base_parser], help=CLI_HELP["cmd_info"]
     )
     parser.add_argument(
         "--detailed",
         action="store_true",
-        help="Perform full index and body sample analysis (detailed mode)",
+        help=CLI_HELP["arg_detailed"],
     )
     parser.add_argument(
         "--csv",
         action="store_true",
-        help="Output the table as CSV instead of formatted text",
+        help=CLI_HELP["arg_csv"],
     )
 
     info_subs = parser.add_subparsers(dest="info_cmd", required=False)
     calc_cov = info_subs.add_parser(
         "calculate-coverage",
         parents=[base_parser],
-        help=HELP_TEXTS["calculate-coverage"],
+        help=CLI_HELP["cmd_calculate-coverage"],
     )
-    calc_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
+    calc_cov.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
     calc_cov.set_defaults(func=run)
 
     samp_cov = info_subs.add_parser(
-        "coverage-sample", parents=[base_parser], help=HELP_TEXTS["coverage-sample"]
+        "coverage-sample", parents=[base_parser], help=CLI_HELP["cmd_coverage-sample"]
     )
-    samp_cov.add_argument("-r", "--region", help="Chromosomal region (e.g. chrM)")
+    samp_cov.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
     samp_cov.set_defaults(func=run)
 
     parser.set_defaults(func=run)
@@ -95,7 +95,9 @@ def get_file_stats(filepath):
 
 def run_body_sample(filepath, cram_opt):
     """Sample first 20k reads to calculate length, insert size, and read type."""
-    logging.info(f"Sampling reads from {os.path.basename(filepath)} for metrics...")
+    logging.info(
+        LOG_MESSAGES["sampling_metrics"].format(filename=os.path.basename(filepath))
+    )
     cmd = ["samtools", "view"] + (cram_opt if cram_opt else []) + [filepath]
 
     total_len = count = paired_count = 0
@@ -173,7 +175,7 @@ def load_n_counts(ref_path):
     if not os.path.exists(ncnt_file):
         return {}
 
-    logging.debug(f"Loading refined N counts from {ncnt_file}")
+    logging.debug(LOG_MESSAGES["info_loading_n"].format(file=ncnt_file))
     n_counts = {}
     try:
         with open(ncnt_file, newline="") as f:
@@ -366,14 +368,14 @@ def render_info(data, detailed=False):
             r.get("Breadth Coverage") for r in reader if r.get("Breadth Coverage")
         )
 
-        header_line1 = "Seq        Model    Model    # Segs      Map    Map"
-        header_line2 = "Name         Len  'N' Len       Map   Gbases    ARD"
+        header_line1 = LOG_MESSAGES["info_header1"]
+        header_line2 = LOG_MESSAGES["info_header2"]
         if has_coverage:
-            header_line1 += "    Breadth"
-            header_line2 += "   Coverage"
+            header_line1 += LOG_MESSAGES["info_header_breadth"]
+            header_line2 += LOG_MESSAGES["info_header_coverage"]
 
         output_lines.append(
-            f"By Reference Sequence Name\n{header_line1}\n{header_line2}"
+            f"{LOG_MESSAGES['info_rendering_name']}\n{header_line1}\n{header_line2}"
         )
 
         def fmt_num(val):
@@ -397,53 +399,63 @@ def render_info(data, detailed=False):
             f"{data.get('filename', 'Unknown')}\n{'':<28}{'MAPPED':<15}{'RAW'}"
         )
         output_lines.append(
-            f"{'Avg Read Depth':<28}{m.get('ard_mapped', 0):.0f} x{'':<11}{m.get('ard_raw', 0):.0f} x"
+            f"{LOG_MESSAGES['info_avg_read_depth']:<28}{m.get('ard_mapped', 0):.0f} x{'':<11}{m.get('ard_raw', 0):.0f} x"
         )
         output_lines.append(
-            f"{'Avg Read Depth (WES)':<28}{m.get('ard_wes_mapped', '')}{'':<11}{m.get('ard_wes_raw', '')}"
+            f"{LOG_MESSAGES['info_avg_read_depth_wes']:<28}{m.get('ard_wes_mapped', '')}{'':<11}{m.get('ard_wes_raw', '')}"
         )
         output_lines.append(
-            f"{'Gigabases':<28}{m.get('gbases_mapped', 0):.2f}{'':<11}{m.get('gbases_raw', 0):.2f}"
+            f"{LOG_MESSAGES['info_gigabases']:<28}{m.get('gbases_mapped', 0):.2f}{'':<11}{m.get('gbases_raw', 0):.2f}"
         )
         output_lines.append(
-            f"{'Read Segs':<28}{m.get('reads_mapped_m', 0):.0f} M{'':<11}{m.get('reads_raw_m', 0):.0f} M"
+            f"{LOG_MESSAGES['info_read_segs']:<28}{m.get('reads_mapped_m', 0):.0f} M{'':<11}{m.get('reads_raw_m', 0):.0f} M"
         )
         output_lines.append(
-            f"{'Reads':<28}{m.get('reads_mapped_pct', 0):.0f} %{'':<12}{m.get('reads_raw_pct', 100):.0f} %\n"
+            f"{LOG_MESSAGES['info_reads']:<28}{m.get('reads_mapped_pct', 0):.0f} %{'':<12}{m.get('reads_raw_pct', 100):.0f} %\n"
         )
 
     output_lines.append(
-        f"{'Reference Genome':<28}{data.get('ref_model_str', 'Unknown')}"
+        f"{LOG_MESSAGES['info_ref_genome']:<28}{data.get('ref_model_str', 'Unknown')}"
     )
     if data.get("refined_ns"):
-        output_lines.append(f"{'Refined N-counts':<28}Active (using sidecar _ncnt.csv)")
+        output_lines.append(
+            f"{LOG_MESSAGES['info_refined_ns']:<28}{LOG_MESSAGES['info_refined_ns_active']}"
+        )
 
     if data.get("avg_read_len", 0) > 0:
         output_lines.append(
-            f"{'Avg Read Length':<28}{data['avg_read_len']:.0f} bp (SD={data.get('std_read_len', 0):.0f} bp), {'Paired-end' if data.get('is_paired') else 'Single-end'}"
+            f"{LOG_MESSAGES['info_avg_read_len']:<28}{data['avg_read_len']:.0f} bp (SD={data.get('std_read_len', 0):.0f} bp), {'Paired-end' if data.get('is_paired') else 'Single-end'}"
         )
         output_lines.append(
-            f"{'Avg Insert Size':<28}{data.get('avg_insert_size', 0):.0f} bp (SD={data.get('std_insert_size', 0):.0f} bp)"
+            f"{LOG_MESSAGES['info_avg_insert_size']:<28}{data.get('avg_insert_size', 0):.0f} bp (SD={data.get('std_insert_size', 0):.0f} bp)"
         )
     else:
-        output_lines.append(f"{'Avg Read Length':<28}Could not compute")
+        output_lines.append(
+            f"{LOG_MESSAGES['info_avg_read_len']:<28}{LOG_MESSAGES['info_could_not_compute']}"
+        )
 
     if detailed:
         output_lines.append(
-            f"{'File Content':<28}{data.get('file_content', 'Unknown')}"
+            f"{LOG_MESSAGES['info_file_content']:<28}{data.get('file_content', 'Unknown')}"
         )
 
     if data.get("gender") and data.get("gender") != "Unknown":
-        output_lines.append(f"{'Bio Gender':<28}{data.get('gender')}")
+        output_lines.append(
+            f"{LOG_MESSAGES['info_bio_gender']:<28}{data.get('gender')}"
+        )
     if data.get("sequencer"):
         if data["sequencer"] != "Unknown":
-            output_lines.append(f"{'Sequencer':<28}{data.get('sequencer')}")
+            output_lines.append(
+                f"{LOG_MESSAGES['info_sequencer']:<28}{data.get('sequencer')}"
+            )
         elif detailed and data.get("first_qname"):
-            output_lines.append(f"{'Sequencer':<28}Unknown: {data['first_qname']}")
+            output_lines.append(
+                f"{LOG_MESSAGES['info_sequencer']:<28}Unknown: {data['first_qname']}"
+            )
 
     fstats = data.get("file_stats", {})
     output_lines.append(
-        f"{'File Stats':<28}{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
+        f"{LOG_MESSAGES['info_file_stats']:<28}{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
     )
 
     if detailed:
@@ -492,7 +504,7 @@ def run_full_coverage(input_p, ref_p, out_p, region=None):
     """Long-running full breadth coverage pipeline."""
     if os.path.exists(out_p) and os.path.getsize(out_p) > 120:
         return
-    print(f"Calculating full coverage (1-3 hours)... saving to {out_p}")
+    print(LOG_MESSAGES["info_full_coverage"].format(path=out_p))
     awk = '{ names[$1]=$1 ; if($3==0){zero[$1]++} else {nz[$1]++ ; sumnz[$1]+=$3 ; if($3>7){nI[$1]++ ; sumnI[$1]+=$3} else {if($3>3){n7[$1]++ ; sumn7[$1]+=$3} else {n3[$1]++ ; sumn3[$1]+=$3} } } } END { printf("%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n","chr","zero","nonzero","sum nz","fract nz","avg nz","avg all","TotalBC","Bet1-3","sum Bet1-3","Bet4-7","sum Bet4-7","Gtr7","sum Gtr7"); for (x in names) { totalbc = zero[x]+nz[x]+1 ; printf("%s\\t%d\\t%d\\t%d\\t%f\\t%f\\t%f\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\t%d\\n",x,zero[x],nz[x],sumnz[x],nz[x]/totalbc,sumnz[x]/(nz[x]+1),sumnz[x]/totalbc,totalbc-1,n3[x],sumn3[x],n7[x],sumn7[x],nI[x],sumnI[x]) } }'
 
     opts = []
@@ -517,7 +529,7 @@ def run_sampled_coverage(input_p, ref_p, idx_stats, out_p, region=None):
     """Fast sampling-based coverage estimation."""
     import random
 
-    print("Estimating coverage using random sampling...")
+    print(LOG_MESSAGES["info_sampling_coverage"])
     sample_results: dict[str, Any] = {}
     total_b, covered_b = 0, 0
 
@@ -617,10 +629,14 @@ def run(args):
     if args.input.lower().endswith(".cram") and args.ref:
         from wgsextract_cli.core.utils import resolve_reference
 
-        initial_ref = resolve_reference(args.ref, None)
-        logging.debug(
-            f"CRAM detected, using resolved reference for header: {initial_ref}"
-        )
+        resolved = resolve_reference(args.ref, None)
+        if resolved and os.path.isfile(resolved):
+            initial_ref = resolved
+            logging.debug(
+                f"CRAM detected, using resolved reference for header: {initial_ref}"
+            )
+        else:
+            logging.debug("CRAM detected, but reference is not installed or invalid.")
 
     header = get_bam_header(args.input, cram_opt=initial_ref)
     if not header:
@@ -687,7 +703,9 @@ def run(args):
     # 1. FAST METRICS (Compute if missing from cache)
     if not data.get("avg_read_len"):
         logging.debug("Generating fast metrics...")
-        cram_opt = ["-T", resolved_ref] if resolved_ref else []
+        cram_opt = []
+        if resolved_ref and os.path.isfile(resolved_ref):
+            cram_opt = ["-T", resolved_ref]
 
         t0 = time.time()
         sorted_status = is_sorted(args.input, cram_opt, header=header)
@@ -707,7 +725,9 @@ def run(args):
         # Guess from SN count if MD5 is unknown
         if ref_model_name == "Unknown" and num_sns in REFGEN_BY_SNCOUNT:
             # Entry format: [is_primary, filename, mito_tag]
-            _, ref_fname, ref_mito = REFGEN_BY_SNCOUNT[num_sns]
+            _, ref_fname_raw, ref_mito_raw = REFGEN_BY_SNCOUNT[num_sns]
+            ref_fname = str(ref_fname_raw)
+            ref_mito = str(ref_mito_raw)
             # Deduce name from filename
             if "hg19" in ref_fname.lower() or "grch37" in ref_fname.lower():
                 ref_model_name = "hg19"
@@ -952,6 +972,6 @@ def run(args):
         try:
             with open(json_cache, "w") as f:
                 json.dump(data, f, indent=2)
-            print(f"(Metrics cached to {json_cache} for future runs)")
+            print(LOG_MESSAGES["info_metrics_cached"].format(path=json_cache))
         except Exception:
             pass
