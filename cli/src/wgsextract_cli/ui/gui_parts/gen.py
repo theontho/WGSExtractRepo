@@ -378,9 +378,12 @@ class GenericFrame(BaseFrame):
                 btn.grid_remove()
 
     def update_info_display(self, data: Any) -> None:
-        """Override to also handle greying out Y buttons."""
+        """Override to handle dynamic button layout and greying."""
         super().update_info_display(data)
-        if self.key == "ext" and isinstance(data, dict):
+        if not isinstance(data, dict):
+            return
+
+        if self.key == "ext":
             gender = data.get("gender", "").lower()
             is_female = "female" in gender
             for cmd, btn in self.cmd_buttons.items():
@@ -391,6 +394,58 @@ class GenericFrame(BaseFrame):
                         # Restore original color
                         orig_color = ("#3a7ebf", "#1f538d")
                         btn.configure(state="normal", fg_color=orig_color)
+
+        elif self.key == "gen":
+            fstats = data.get("file_stats", {})
+            is_sorted = fstats.get("sorted", False)
+            is_indexed = fstats.get("indexed", False)
+            input_path = self.bam_entry.get() if hasattr(self, "bam_entry") else ""
+            is_cram = input_path.lower().endswith(".cram")
+
+            # 1. Update visibility
+            visibility_map = {
+                "sort": not is_sorted,
+                "unsort": is_sorted,
+                "index": is_sorted and not is_indexed,
+                "unindex": is_indexed,
+                "to-cram": not is_cram,
+                "to-bam": is_cram,
+                "clear-cache": True,
+                "calculate-coverage": True,
+                "coverage-sample": True,
+                "info": True,
+                "repair-ftdna-bam": True,
+            }
+
+            for cmd, visible in visibility_map.items():
+                if cmd in self.cmd_buttons:
+                    if visible:
+                        self.cmd_buttons[cmd].grid()
+                    else:
+                        self.cmd_buttons[cmd].grid_remove()
+
+            # 2. Re-layout sections to fill rows (fix gaps)
+            self._relayout_grid("Info Commands", self.meta["info_commands"], cols=4)
+            self._relayout_grid(
+                "BAM / CRAM Management", self.meta["bam_commands"], cols=4
+            )
+
+    def _relayout_grid(
+        self, section_title: str, commands: list[dict[str, Any]], cols: int
+    ) -> None:
+        """Dynamically re-grid visible buttons to fill rows from left-to-right."""
+        visible_btns = []
+        for cmd_m in commands:
+            cmd = cmd_m["cmd"]
+            if (
+                cmd in self.cmd_buttons
+                and self.cmd_buttons[cmd].winfo_manager() == "grid"
+            ):
+                visible_btns.append(self.cmd_buttons[cmd])
+
+        for i, btn in enumerate(visible_btns):
+            r, c = divmod(i, cols)
+            btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
 
     def on_input_change(self, value: str) -> None:
         """Called when the input file path changes."""

@@ -254,16 +254,25 @@ class BaseFrame(ctk.CTkScrollableFrame):
                 items.append(("Sequencer:", f"Unknown: {data['first_qname']}"))
 
         for i, (label, val) in enumerate(items):
+            # Calculate row and column block (each block has label + value)
+            row, col_block = divmod(i, 2)
+            col_start = col_block * 2
+
             ctk.CTkLabel(
                 self.info_frame,
                 text=label,
                 font=ctk.CTkFont(size=13, weight="bold"),
                 width=140,
                 anchor="w",
-            ).grid(row=i, column=0, sticky="w", padx=(0, 10))
+            ).grid(
+                row=row,
+                column=col_start,
+                sticky="w",
+                padx=(20 if col_block > 0 else 0, 10),
+            )
             ctk.CTkLabel(
                 self.info_frame, text=val, font=ctk.CTkFont(size=13), anchor="w"
-            ).grid(row=i, column=1, sticky="w")
+            ).grid(row=row, column=col_start + 1, sticky="w")
 
     def create_file_selector(
         self,
