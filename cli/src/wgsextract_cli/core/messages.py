@@ -143,6 +143,7 @@ GUI_LABELS = {
     "about_pet_seq": "About Pet Sequencing",
     "pet_species": "Pet Species:",
     "ref_library_path": "Reference Library:",
+    "ref_fasta_path": "Ref FASTA:",
     "output_format": "Output Format:",
     "file_stats": "File Stats:",
     "sorted": "Sorted",

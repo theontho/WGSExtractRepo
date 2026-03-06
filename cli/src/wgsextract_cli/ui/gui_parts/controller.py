@@ -768,15 +768,15 @@ class GUIController:
 
     def run_pet_analysis(self, frame: Any, extra_args: dict[str, str]) -> None:
         """Execute the pet-analysis command."""
-        ref_lib = self.main_app.ref_path_var.get()
+        ref_fasta = self.main_app.pet_ref_fasta_var.get()
         out_dir = self.main_app.out_dir_var.get()
 
         if not extra_args.get("r1"):
             self.main_app.show_error("Missing Required Input", "FASTQ R1 is required.")
             return
-        if not ref_lib:
+        if not ref_fasta:
             self.main_app.show_error(
-                "Missing Required Input", "Reference Library is required."
+                "Missing Required Input", "Reference Genome FASTA is required."
             )
             return
 
@@ -792,7 +792,7 @@ class GUIController:
             "--format",
             extra_args["format"],
             "--ref",
-            ref_lib,
+            ref_fasta,
         ]
         if extra_args.get("r2"):
             cmd.extend(["--r2", extra_args["r2"]])

@@ -720,7 +720,9 @@ def run(args):
         # Get SN count from header for fast mode
         num_sns = len([line for line in header.splitlines() if line.startswith("@SQ")])
 
-        ref_model_name, ref_mito, _ = REFERENCE_MODELS.get(md5_sig, ("Unknown", "", ""))
+        ref_model_name, ref_mito, ref_fname = REFERENCE_MODELS.get(
+            md5_sig, ("Unknown", "", "")
+        )
 
         # Guess from SN count if MD5 is unknown
         if ref_model_name == "Unknown" and num_sns in REFGEN_BY_SNCOUNT:
@@ -775,6 +777,7 @@ def run(args):
                     "size_gb": size_gb,
                 },
                 "ref_model_str": ref_model_str,
+                "suggested_ref_file": ref_fname,
                 "avg_read_len": avg_len,
                 "std_read_len": std_len,
                 "is_paired": is_paired,

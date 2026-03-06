@@ -86,6 +86,8 @@ class WGSExtractGUI(ctk.CTk):
         self.vcf_path_var = ctk.StringVar()
         self.fastq_path_var = ctk.StringVar()
         self.ref_path_var = ctk.StringVar(value=os.environ.get("WGSE_REF", ""))
+        self.fastq_ref_fasta_var = ctk.StringVar()
+        self.pet_ref_fasta_var = ctk.StringVar()
         self.out_dir_var = ctk.StringVar(value=os.environ.get("WGSE_OUTDIR", ""))
         self.vep_cache_var = ctk.StringVar()
         self.vcf_exclude_gaps_var = ctk.BooleanVar(value=False)

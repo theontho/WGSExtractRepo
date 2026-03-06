@@ -36,7 +36,7 @@ class FastqFrame(GenericFrame):
         self.ref_entry = self.create_file_selector(
             self,
             GUI_LABELS["manual_ref_path"],
-            variable=self.main_app.ref_path_var,
+            variable=self.main_app.fastq_ref_fasta_var,
             info_text="Optional: Manually specify a path to a reference genome FASTA file.",
         )
 
@@ -92,7 +92,7 @@ class FastqFrame(GenericFrame):
 
             final_path = os.path.join(lib_root, "genomes", g["final"])
             # Update the manual ref path variable so the command uses it
-            self.main_app.ref_path_var.set(final_path)
+            self.main_app.fastq_ref_fasta_var.set(final_path)
 
     def handle_button_click(self, cmd_key: str) -> None:
         """Intercept 'align' to check if genome needs download."""

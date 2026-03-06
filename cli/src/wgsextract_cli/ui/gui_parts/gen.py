@@ -327,9 +327,9 @@ class GenericFrame(ScrollableBaseFrame):
         """Create the reference directory selector."""
         self.ref_entry = self.create_dir_selector(
             p,
-            GUI_LABELS["ref_genome_selection"],
+            GUI_LABELS["ref_library_path"],
             variable=self.main_app.ref_path_var,
-            info_text="Path to the directory containing your reference genomes (FASTA files).",
+            info_text="Path to the directory containing your reference genomes.",
         )
 
     def _create_section(
