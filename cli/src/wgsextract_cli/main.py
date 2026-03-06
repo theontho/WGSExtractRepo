@@ -38,6 +38,12 @@ def main():
     # This allows arguments like --input to be placed AFTER the subcommand
     base_parser = argparse.ArgumentParser(add_help=False)
     base_parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=os.environ.get("WGSE_DEBUG") == "1",
+        help="Enable verbose debug logging. (Env: WGSE_DEBUG=1)",
+    )
+    base_parser.add_argument(
         "--input",
         "-i",
         default=os.environ.get("WGSE_INPUT"),
@@ -101,6 +107,9 @@ def main():
         cmd_module.register(subparsers, base_parser)
 
     args = parser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if args.outdir:
         os.makedirs(args.outdir, exist_ok=True)

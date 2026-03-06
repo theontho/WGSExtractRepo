@@ -24,7 +24,11 @@ class GUIController:
         self.active_processes: dict[str, subprocess.Popen] = {}
 
     def run_cmd(
-        self, command: list[str], cmd_key: str | None = None, frame: Any = None
+        self,
+        command: list[str],
+        cmd_key: str | None = None,
+        frame: Any = None,
+        on_finish: Any | None = None,
     ) -> None:
         """
         Execute a shell command in a background thread and log output.
@@ -33,6 +37,7 @@ class GUIController:
             command: The command and its arguments as a list of strings.
             cmd_key: Unique identifier for this command (to support cancellation).
             frame: The UI frame that triggered the command.
+            on_finish: Optional callback to run when the command finishes.
         """
         self.main_app.log(f"Running: {' '.join(command)}")
 
@@ -40,13 +45,20 @@ class GUIController:
             frame.after(0, lambda: frame.set_button_state(cmd_key, "running"))
 
         def run() -> None:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            )
+            # Use process groups so we can kill children (like bcftools)
+            popen_kwargs: dict[str, Any] = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.STDOUT,
+                "text": True,
+                "bufsize": 1,
+            }
+
+            if sys.platform == "win32":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                popen_kwargs["preexec_fn"] = os.setpgrp
+
+            process = subprocess.Popen(command, **popen_kwargs)
 
             if cmd_key:
                 self.active_processes[cmd_key] = process
@@ -74,23 +86,46 @@ class GUIController:
                 )
             if cmd_key and frame and frame.winfo_exists():
                 frame.after(0, lambda: frame.set_button_state(cmd_key, "normal"))
+            if on_finish and frame and frame.winfo_exists():
+                frame.after(0, on_finish)
 
         threading.Thread(target=run, daemon=True).start()
 
     def cancel_cmd(self, cmd_key: str) -> None:
-        """Terminate a running process."""
+        """Terminate a running process group."""
         if cmd_key in self.active_processes:
             proc = self.active_processes[cmd_key]
-            self.main_app.log(f"Cancelling process {proc.pid}...")
-            proc.terminate()
+            self.main_app.log(f"Cancelling process group {proc.pid}...")
+
+            try:
+                if sys.platform == "win32":
+                    import signal
+
+                    proc.send_signal(signal.CTRL_BREAK_EVENT)
+                else:
+                    import signal
+
+                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except Exception as e:
+                self.main_app.log(f"Cancel error: {e}")
+
             # On Unix, we might need kill if it doesn't respond to terminate
             self.main_app.after(1000, lambda: self._force_kill_if_alive(cmd_key, proc))
 
     def _force_kill_if_alive(self, cmd_key: str, proc: subprocess.Popen) -> None:
         if proc.poll() is None:
-            proc.kill()
-            if self.main_app.winfo_exists():
-                self.main_app.log(f"Force killed process {proc.pid}.")
+            try:
+                if sys.platform == "win32":
+                    proc.kill()
+                else:
+                    import signal
+
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                if self.main_app.winfo_exists():
+                    self.main_app.log(f"Force killed process group {proc.pid}.")
+            except Exception:
+                pass
+
         if cmd_key in self.active_processes:
             del self.active_processes[cmd_key]
 
@@ -162,9 +197,12 @@ class GUIController:
         if not input_path:
             return
 
-        outdir = os.path.dirname(os.path.abspath(input_path))
+        out_dir = self.main_app.out_dir_var.get()
+        effective_outdir = (
+            out_dir if out_dir else os.path.dirname(os.path.abspath(input_path))
+        )
         json_cache = os.path.join(
-            outdir, f"{os.path.basename(input_path)}.wgse_info.json"
+            effective_outdir, f"{os.path.basename(input_path)}.wgse_info.json"
         )
 
         if os.path.exists(json_cache):
@@ -172,19 +210,27 @@ class GUIController:
                 os.remove(json_cache)
                 self.main_app.log(f"Cleared cache: {json_cache}")
                 # Re-trigger info fetch to show fresh data
-                self.get_info_fast(input_path, frame)
+                ref_path = (
+                    self.main_app.ref_path_var.get()
+                    if hasattr(self.main_app, "ref_path_var")
+                    else None
+                )
+                self.get_info_fast(input_path, frame, ref_path=ref_path)
             except Exception as e:
                 self.main_app.log(f"Error clearing cache: {e}")
         else:
-            self.main_app.log("No cache found to clear.")
+            self.main_app.log(f"No cache found to clear at {json_cache}.")
 
-    def get_info_fast(self, input_path: str, frame: Any) -> None:
+    def get_info_fast(
+        self, input_path: str, frame: Any, ref_path: str | None = None
+    ) -> None:
         """
         Run the 'info' command in fast mode and update the frame's info display.
 
         Args:
             input_path: Path to the BAM/CRAM file.
             frame: The frame containing the info display.
+            ref_path: Optional path to reference genome (required for some CRAMs).
         """
         if not os.path.exists(input_path):
             return
@@ -197,20 +243,58 @@ class GUIController:
                 sys.executable,
                 "-m",
                 "wgsextract_cli.main",
+                "--debug",
                 "info",
                 "--input",
                 input_path,
             ]
+            if ref_path:
+                cmd.extend(["--ref", ref_path])
+
+            # Respect outdir if set in GUI
+            out_dir = self.main_app.out_dir_var.get()
+            if out_dir:
+                cmd.extend(["--outdir", out_dir])
+
+            self.main_app.log(f"DEBUG: Triggering fast info: {' '.join(cmd)}")
             try:
                 # Run command to ensure cache is populated
-                subprocess.run(
+                res = subprocess.run(
                     cmd, capture_output=True, text=True, check=False, env=env
                 )
 
-                # Load from json cache
-                outdir = os.path.dirname(os.path.abspath(input_path))
+                # Log any output from the command to help debugging
+                if res.stdout:
+                    for line in res.stdout.strip().splitlines():
+                        self.main_app.after(
+                            0,
+                            lambda msg_line=line: self.main_app.log(
+                                f"INFO: {msg_line}"
+                            ),
+                        )
+                if res.stderr:
+                    for line in res.stderr.strip().splitlines():
+                        self.main_app.after(
+                            0,
+                            lambda msg_line=line: self.main_app.log(
+                                f"DEBUG: {msg_line}"
+                            ),
+                        )
+
+                if res.returncode != 0:
+                    self.main_app.after(
+                        0,
+                        lambda r=res.returncode: self.main_app.log(
+                            f"Fast info command failed with exit code {r}"
+                        ),
+                    )
+
+                # Load from json cache - use the same logic as the info command
+                effective_outdir = (
+                    out_dir if out_dir else os.path.dirname(os.path.abspath(input_path))
+                )
                 json_cache = os.path.join(
-                    outdir, f"{os.path.basename(input_path)}.wgse_info.json"
+                    effective_outdir, f"{os.path.basename(input_path)}.wgse_info.json"
                 )
 
                 if os.path.exists(json_cache):
@@ -219,10 +303,23 @@ class GUIController:
                     if frame.winfo_exists():
                         frame.after(0, lambda: frame.update_info_display(data))
                 else:
-                    if frame.winfo_exists():
-                        frame.after(
-                            0, lambda: frame.update_info_display("Info not available")
+                    msg = "Info not available"
+                    self.main_app.after(
+                        0,
+                        lambda: self.main_app.log(
+                            f"DEBUG: Cache file not found at {json_cache} after running info command."
+                        ),
+                    )
+                    if res.returncode != 0:
+                        # Extract the last line of stderr as it often contains the error message
+                        last_line = (
+                            res.stderr.strip().splitlines()[-1]
+                            if res.stderr
+                            else "unknown error"
                         )
+                        msg = f"Info error: {last_line}"
+                    if frame.winfo_exists():
+                        frame.after(0, lambda: frame.update_info_display(msg))
             except Exception as e:
                 if frame.winfo_exists():
                     frame.after(
@@ -238,6 +335,16 @@ class GUIController:
         Args:
             lib_frame: The library frame instance containing VEP UI.
         """
+        errors = []
+        if not lib_frame.vep_cache.get():
+            errors.append("VEP Cache Path is required.")
+        if not lib_frame.ref_entry.get():
+            errors.append("Reference Library is required.")
+
+        if errors:
+            self.main_app.show_error("Missing Required Input", "\n".join(errors))
+            return
+
         lib_frame.show_vep_progress()
         self.main_app.vep_cancel_event = threading.Event()
 
@@ -310,6 +417,12 @@ class GUIController:
             restart: Whether to restart a failed/incomplete download.
         """
         dest = lib_frame.lib_dest.get()
+        if not dest:
+            self.main_app.show_error(
+                "Missing Required Input", "Reference Library is required."
+            )
+            return
+
         fn = gd["final"]
         if fn in self.main_app.active_downloads:
             return
@@ -378,9 +491,15 @@ class GUIController:
             group: Genome data dictionary.
             lib_frame: The library frame instance.
         """
+        dest = lib_frame.lib_dest.get()
+        if not dest:
+            self.main_app.show_error(
+                "Missing Required Input", "Reference Library is required."
+            )
+            return
+
         from wgsextract_cli.core.ref_library import delete_genome
 
-        dest = lib_frame.lib_dest.get()
         fn = group["final"]
         self.main_app.log(f"Deleting {fn} from {dest}...")
         try:
@@ -405,6 +524,96 @@ class GUIController:
             self.main_app.log(f"Cancelling download: {fn}...")
             self.main_app.active_downloads[fn]["cancel_event"].set()
 
+    def run_ref_index(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Run index command for a specific reference genome."""
+        dest = lib_frame.lib_dest.get()
+        if not dest:
+            return
+
+        final_path = os.path.join(dest, "genomes", group["final"])
+        bc = [sys.executable, "-m", "wgsextract_cli.main"]
+        cmd = bc + ["ref", "index", "--ref", final_path]
+        self.run_cmd(
+            cmd,
+            cmd_key=f"index-{group['final']}",
+            frame=lib_frame,
+            on_finish=lib_frame.setup_ui,
+        )
+
+    def run_ref_unindex(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delete index files for a specific reference genome."""
+        dest = lib_frame.lib_dest.get()
+        if not dest:
+            return
+
+        from wgsextract_cli.core.ref_library import delete_ref_index
+
+        fn = group["final"]
+        self.main_app.log(f"Unindexing {fn} in {dest}...")
+        try:
+            if delete_ref_index(fn, dest):
+                self.main_app.log(f"Successfully removed index for {fn}.")
+            else:
+                self.main_app.log(f"Failed to remove index for {fn}.")
+        except Exception as e:
+            self.main_app.log(f"Error during unindexing: {e}")
+        finally:
+            if lib_frame.winfo_exists():
+                lib_frame.after(0, lib_frame.setup_ui)
+
+    def run_ref_verify(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Run verify command for a specific reference genome."""
+        dest = lib_frame.lib_dest.get()
+        if not dest:
+            return
+
+        final_path = os.path.join(dest, "genomes", group["final"])
+        bc = [sys.executable, "-m", "wgsextract_cli.main"]
+        cmd = bc + ["ref", "verify", "--ref", final_path]
+        self.run_cmd(
+            cmd,
+            cmd_key=f"verify-{group['final']}",
+            frame=lib_frame,
+            on_finish=lib_frame.setup_ui,
+        )
+
+    def run_ref_count_ns(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Run count-ns command for a specific reference genome."""
+        dest = lib_frame.lib_dest.get()
+        if not dest:
+            return
+
+        final_path = os.path.join(dest, "genomes", group["final"])
+        bc = [sys.executable, "-m", "wgsextract_cli.main"]
+        cmd = bc + ["ref", "count-ns", "--ref", final_path]
+        self.run_cmd(
+            cmd,
+            cmd_key=f"count-ns-{group['final']}",
+            frame=lib_frame,
+            on_finish=lib_frame.setup_ui,
+        )
+
+    def run_ref_del_ns(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delete N-count files for a specific reference genome."""
+        dest = lib_frame.lib_dest.get()
+        if not dest:
+            return
+
+        from wgsextract_cli.core.ref_library import delete_ref_ns
+
+        fn = group["final"]
+        self.main_app.log(f"Deleting N-count files for {fn} in {dest}...")
+        try:
+            if delete_ref_ns(fn, dest):
+                self.main_app.log(f"Successfully removed N-count files for {fn}.")
+            else:
+                self.main_app.log(f"Failed to remove N-count files for {fn}.")
+        except Exception as e:
+            self.main_app.log(f"Error during N-count deletion: {e}")
+        finally:
+            if lib_frame.winfo_exists():
+                lib_frame.after(0, lib_frame.setup_ui)
+
     def cancel_vep_download(self) -> None:
         """Cancel the active VEP cache download."""
         if self.main_app.vep_cancel_event:
@@ -421,10 +630,6 @@ class GUIController:
         """
         bc = [sys.executable, "-m", "wgsextract_cli.main"]
 
-        if cmd == "vep-download":
-            self.run_vep_download(frame)
-            return
-
         # Extract typed fields
         bam_path = getattr(frame, "bam_entry", None)
         bam_val = bam_path.get() if bam_path else ""
@@ -437,6 +642,25 @@ class GUIController:
 
         ref_path = getattr(frame, "ref_entry", None)
         ref_val = ref_path.get() if ref_path else ""
+
+        self.main_app.log(
+            f"DEBUG: run_dispatch cmd={cmd} bam={bam_val} fastq={fastq_val}"
+        )
+
+        # Validate inputs before proceeding
+        if not self._validate_inputs(
+            cmd,
+            frame,
+            bam_val=bam_val,
+            vcf_val=vcf_val,
+            fastq_val=fastq_val,
+            ref_val=ref_val,
+        ):
+            return
+
+        if cmd == "vep-download":
+            self.run_vep_download(frame)
+            return
 
         if cmd == "info":
             self.run_info_detailed(bam_val, ref_val, frame=frame)
@@ -537,9 +761,6 @@ class GUIController:
 
         elif cmd == "microarray":
             sel = [fid for fid, v in frame.micro_formats_vars.items() if v.get()]
-            if not sel:
-                self.main_app.log("Error: No formats selected.")
-                return
             self.run_cmd(
                 bc
                 + [
@@ -669,6 +890,8 @@ class GUIController:
                 c.extend(["--gene", frame.vcf_gene.get()])
             if frame.vcf_region.get():
                 c.extend(["--region", frame.vcf_region.get()])
+            if self.main_app.vcf_exclude_gaps_var.get():
+                c.append("--exclude-near-gaps")
         if (
             sub in ["snp", "indel", "freebayes", "gatk", "deepvariant", "run"]
             and hasattr(frame, "vcf_region")
@@ -690,3 +913,141 @@ class GUIController:
             if sub == "run" and frame.vcf_vep_args.get():
                 c += ["--vep-args", frame.vcf_vep_args.get()]
         self.run_cmd(c, cmd_key=cmd, frame=frame)
+
+    def _validate_inputs(self, cmd: str, frame: Any, **vals: str) -> bool:
+        """
+        Check if required input variables for a command are set.
+        Shows an alert and returns False if any are missing.
+        """
+        bam_val = vals.get("bam_val", "")
+        vcf_val = vals.get("vcf_val", "")
+        fastq_val = vals.get("fastq_val", "")
+        ref_val = vals.get("ref_val", "")
+
+        self.main_app.log(
+            f"DEBUG: _validate_inputs cmd={repr(cmd)} bam={repr(bam_val)} fastq={repr(fastq_val)}"
+        )
+
+        errors = []
+
+        # Category-based validation
+        bam_cmds = [
+            "info",
+            "clear-cache",
+            "calculate-coverage",
+            "coverage-sample",
+            "sort",
+            "index",
+            "unindex",
+            "unsort",
+            "to-cram",
+            "to-bam",
+            "unalign",
+            "subset",
+            "mt-extract",
+            "repair-ftdna-bam",
+            "mito",
+            "ydna",
+            "unmapped",
+            "custom",
+            "snp",
+            "indel",
+            "sv",
+            "cnv",
+            "freebayes",
+            "gatk",
+            "deepvariant",
+            "microarray",
+            "lineage-y",
+            "lineage-mt",
+        ]
+
+        vcf_cmds = ["repair-ftdna-vcf", "annotate", "filter", "trio", "vcf-qc"]
+
+        ref_cmds = [
+            "align",
+            "microarray",
+            "ref-index",
+            "ref-verify",
+            "ref-count-ns",
+            "vep-verify",
+        ]
+
+        # Use exact names from labels
+        bam_label = "BAM/CRAM Input" if frame.key == "micro" else "BAM/CRAM"
+        vcf_label = "VCF Input"
+
+        if cmd in bam_cmds and not bam_val:
+            errors.append(f"{bam_label} is required.")
+
+        if cmd in vcf_cmds and not vcf_val:
+            errors.append(f"{vcf_label} is required.")
+
+        if cmd in ref_cmds and not ref_val:
+            errors.append("Reference is required.")
+
+        # Specific command validation
+        if cmd == "align":
+            if not getattr(frame, "align_r1", None) or not frame.align_r1.get():
+                errors.append("FASTQ R1 is required.")
+
+        if cmd == "trio":
+            if not getattr(frame, "vcf_mother", None) or not frame.vcf_mother.get():
+                errors.append("Mother VCF is required.")
+            if not getattr(frame, "vcf_father", None) or not frame.vcf_father.get():
+                errors.append("Father VCF is required.")
+
+        if cmd == "lineage-y":
+            if not getattr(frame, "yleaf_path", None) or not frame.yleaf_path.get():
+                errors.append("Yleaf Path is required.")
+            if not getattr(frame, "yleaf_pos", None) or not frame.yleaf_pos.get():
+                errors.append("Pos File is required.")
+
+        if cmd == "lineage-mt":
+            if (
+                not getattr(frame, "haplogrep_path", None)
+                or not frame.haplogrep_path.get()
+            ):
+                errors.append("Haplogrep Path is required.")
+
+        if cmd in ["fastqc", "fastp"]:
+            self.main_app.log(
+                f"DEBUG: inside fastqc block, bam={repr(bam_val)}, fastq={repr(fastq_val)}"
+            )
+            if not bam_val and not fastq_val:
+                self.main_app.log("DEBUG: appending error for fastqc")
+                errors.append("BAM/CRAM or FASTQ for QC is required.")
+
+        if cmd == "vep-run":
+            if not bam_val and not vcf_val:
+                errors.append("BAM/CRAM or VCF Input is required.")
+
+        if cmd == "annotate":
+            if not getattr(frame, "vcf_ann_vcf", None) or not frame.vcf_ann_vcf.get():
+                errors.append("Annotate VCF is required.")
+
+        if cmd == "filter":
+            # Check if at least one filter criterion is provided
+            f_expr = (
+                frame.vcf_filter_expr.get()
+                if hasattr(frame, "vcf_filter_expr")
+                else None
+            )
+            f_gene = frame.vcf_gene.get() if hasattr(frame, "vcf_gene") else None
+            f_reg = frame.vcf_region.get() if hasattr(frame, "vcf_region") else None
+            if not any([f_expr, f_gene, f_reg]):
+                errors.append(
+                    "At least one filter criterion (Filter Expr, Gene Name, or Region) is required."
+                )
+
+        if cmd == "microarray":
+            # Access BooleanVars directly from frame
+            sel = [fid for fid, v in frame.micro_formats_vars.items() if v.get()]
+            if not sel:
+                errors.append("At least one Target Format must be selected.")
+
+        if errors:
+            self.main_app.show_error("Missing Required Input", "\n".join(errors))
+            return False
+
+        return True

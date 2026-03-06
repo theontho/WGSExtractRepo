@@ -20,7 +20,6 @@ from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_bam_header,
     is_sorted,
-    resolve_reference,
     verify_paths_exist,
 )
 
@@ -78,11 +77,16 @@ def get_file_stats(filepath):
     size_gb = size_bytes / (1024**3)
 
     indexed = False
+    # Check for direct appended index (e.g. file.bam.bai, file.cram.crai)
     if os.path.exists(filepath + ".bai") or os.path.exists(filepath + ".crai"):
         indexed = True
-    elif filepath.endswith(".bam") and os.path.exists(filepath[:-4] + ".bai"):
+    # Check for replaced extension index (e.g. file.bai, file.crai)
+    elif filepath.lower().endswith(".bam") and os.path.exists(filepath[:-4] + ".bai"):
         indexed = True
-    elif filepath.endswith(".cram") and os.path.exists(filepath[:-5] + ".crai"):
+    elif filepath.lower().endswith(".cram") and os.path.exists(filepath[:-5] + ".crai"):
+        indexed = True
+    # Check for .csi index (sometimes used for large files)
+    elif os.path.exists(filepath + ".csi"):
         indexed = True
 
     return size_gb, indexed
@@ -158,6 +162,36 @@ def run_body_sample(filepath, cram_opt):
     return count, avg_len, std_len, avg_tlen, std_tlen, is_paired, first_qname
 
 
+def load_n_counts(ref_path):
+    """Try to load chromosome N counts from a sidecar _ncnt.csv file."""
+    if not ref_path or not os.path.isfile(ref_path):
+        return {}
+
+    prefix = re.sub(r"\.(fasta|fna|fa)(\.gz)?$", "", ref_path)
+    ncnt_file = prefix + "_ncnt.csv"
+    if not os.path.exists(ncnt_file):
+        return {}
+
+    logging.debug(f"Loading refined N counts from {ncnt_file}")
+    n_counts = {}
+    try:
+        with open(ncnt_file, newline="") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 2:
+                    chrom, count = row[0], row[1]
+                    # Normalize chrom name like generate_chrom_table does
+                    cnum = chrom.upper().replace("CHR", "").replace("MT", "M")
+                    try:
+                        n_counts[cnum] = int(count)
+                    except ValueError:
+                        pass  # Header or junk
+    except Exception as e:
+        logging.debug(f"Failed to read {ncnt_file}: {e}")
+
+    return n_counts
+
+
 def parse_idxstats(filepath):
     """Parse samtools idxstats for mapped/unmapped counts."""
     idx = subprocess.run(
@@ -185,7 +219,9 @@ def parse_idxstats(filepath):
     return stats, genome_len, total_mapped, total_unmapped
 
 
-def generate_chrom_table(idx_stats, avg_len, gender, ref_model_name, coverage_map=None):
+def generate_chrom_table(
+    idx_stats, avg_len, gender, ref_model_name, coverage_map=None, n_counts=None
+):
     """Build the detailed per-chromosome metrics table."""
     valid_autos, valid_somal = [str(i) for i in range(1, 23)], ["X", "Y"]
     stats_autos: list[list[Any]] = []
@@ -203,7 +239,8 @@ def generate_chrom_table(idx_stats, avg_len, gender, ref_model_name, coverage_ma
         if "19" in ref_model_name
         else "99"
     )
-    n_adjust_map = N_ADJUST.get(build, {})
+    # Use loaded N counts if available, otherwise fallback to hardcoded defaults
+    n_adjust_map = n_counts if n_counts else N_ADJUST.get(build, {})
 
     stats_total: list[Any] = ["T", "Total", 0, 0, 0, 0.0, 0.0, ""]
     stats_altcont: list[Any] = ["O", "Other", 0, 0, 0, 0.0, 0.0, ""]
@@ -316,6 +353,8 @@ def render_info(data, detailed=False):
     output_lines.append(
         f"{'Reference Genome':<28}{data.get('ref_model_str', 'Unknown')}"
     )
+    if data.get("refined_ns"):
+        output_lines.append(f"{'Refined N-counts':<28}Active (using sidecar _ncnt.csv)")
 
     if data.get("avg_read_len", 0) > 0:
         output_lines.append(
@@ -464,21 +503,36 @@ def run(args):
     if not verify_paths_exist({"--input": args.input}):
         return
 
-    print(f"Analyzing {args.input}...")
+    logging.debug(f"Starting analysis for: {args.input}")
 
     # Fetch header once to avoid redundant subprocess calls
     t0 = time.time()
-    header = get_bam_header(args.input)
+    # If it's a CRAM and we have a ref, try to resolve it early to help samtools read the header
+    initial_ref = None
+    if args.input.lower().endswith(".cram") and args.ref:
+        from wgsextract_cli.core.utils import resolve_reference
+
+        initial_ref = resolve_reference(args.ref, None)
+        logging.debug(
+            f"CRAM detected, using resolved reference for header: {initial_ref}"
+        )
+
+    header = get_bam_header(args.input, cram_opt=initial_ref)
+    if not header:
+        logging.error(
+            f"Could not read header from {args.input}. Samtools might be missing, file is corrupt, or it requires a reference (-T)."
+        )
+        return
     logging.debug(f"Header fetch took {time.time() - t0:.3f}s")
 
     # Calculate MD5 from header to identify reference genome
     t0 = time.time()
     md5_sig = calculate_bam_md5(args.input, header=header)
-    logging.debug(f"MD5 calculation took {time.time() - t0:.3f}s")
+    logging.debug(f"MD5 signature: {md5_sig} (took {time.time() - t0:.3f}s)")
 
     t0 = time.time()
     resolved_ref = resolve_reference(args.ref, md5_sig)
-    logging.debug(f"Reference resolution took {time.time() - t0:.3f}s")
+    logging.debug(f"Resolved reference: {resolved_ref} (took {time.time() - t0:.3f}s)")
 
     if getattr(args, "info_cmd", None) in ["calculate-coverage", "coverage-sample"]:
         args.detailed = True
@@ -494,12 +548,13 @@ def run(args):
 
     data = {}
     if os.path.exists(json_cache):
+        logging.debug(f"Cache file found: {json_cache}")
         try:
             with open(json_cache) as f:
                 data = json.load(f)
             # If we only wanted fast mode and we have it, we can return early
             if not args.detailed and data.get("avg_read_len"):
-                print(f"Loading cached metrics from {json_cache}...")
+                logging.debug("Cache hit for fast metrics.")
                 print(render_info(data, detailed=False))
                 return
             # If we wanted detailed mode and we have the chrom table, we can return early
@@ -509,26 +564,35 @@ def run(args):
                 and getattr(args, "info_cmd", None)
                 not in ["calculate-coverage", "coverage-sample"]
             ):
-                print(f"Loading cached metrics from {json_cache}...")
+                logging.debug("Cache hit for detailed metrics.")
                 if getattr(args, "csv", False):
                     print(data.get("chrom_table_csv", ""), end="")
                 else:
                     print(render_info(data, detailed=True))
                 return
-        except Exception:
+            logging.debug(
+                f"Cache miss or partial: detailed={args.detailed}, has_read_len={bool(data.get('avg_read_len'))}, has_chrom_table={bool(data.get('chrom_table_csv'))}"
+            )
+        except Exception as e:
+            logging.debug(f"Cache read error: {e}")
             pass
+    else:
+        logging.debug(f"No cache file at {json_cache}")
 
     # 1. FAST METRICS (Compute if missing from cache)
     if not data.get("avg_read_len"):
+        logging.debug("Generating fast metrics...")
         cram_opt = ["-T", resolved_ref] if resolved_ref else []
 
         t0 = time.time()
         sorted_status = is_sorted(args.input, cram_opt, header=header)
-        logging.debug(f"Sort check took {time.time() - t0:.3f}s")
+        logging.debug(f"Sort check: {sorted_status} (took {time.time() - t0:.3f}s)")
 
         t0 = time.time()
         size_gb, indexed = get_file_stats(args.input)
-        logging.debug(f"File stats took {time.time() - t0:.3f}s")
+        logging.debug(
+            f"File stats: {size_gb:.2f}GB, indexed={indexed} (took {time.time() - t0:.3f}s)"
+        )
 
         # Get SN count from header for fast mode
         num_sns = len([line for line in header.splitlines() if line.startswith("@SQ")])
@@ -656,8 +720,13 @@ def run(args):
             if x_reads > 0
             else "Unknown"
         )
+
+        n_counts = load_n_counts(resolved_ref)
+        if n_counts:
+            data["refined_ns"] = True
+
         chrom_table = generate_chrom_table(
-            idx_stats, avg_len, gender, ref_model_name, coverage_map
+            idx_stats, avg_len, gender, ref_model_name, coverage_map, n_counts=n_counts
         )
         total_row = next(r for r in chrom_table if r[1] == "Total")
         mapped_segs = total_row[4] + next(

@@ -67,6 +67,11 @@ def register(subparsers, base_parser):
         "--expr", help="bcftools filter expression (e.g. 'QUAL>30')"
     )
     filter_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
+    filter_parser.add_argument(
+        "--exclude-near-gaps",
+        action="store_true",
+        help="Exclude variants in or near genomic gaps (requires Count Ns output)",
+    )
     filter_parser.add_argument("-r", "--region", help="Chromosomal region")
     filter_parser.set_defaults(func=cmd_filter)
 
@@ -365,13 +370,13 @@ def cmd_filter(args):
     )
     out_vcf = os.path.join(outdir, "filtered.vcf.gz")
 
+    # Resolve reference if needed for gap filtering or gene resolution
+    md5_sig = calculate_bam_md5(args.input, None)
+    lib = ReferenceLibrary(args.ref, md5_sig)
+
     # Gene-based region resolution
     region = args.region
     if args.gene:
-        # Deduce build from input
-        md5_sig = calculate_bam_md5(args.input, None)
-        lib = ReferenceLibrary(args.ref, md5_sig)
-
         from wgsextract_cli.core.gene_map import GeneMap
 
         gm = GeneMap(
@@ -389,6 +394,24 @@ def cmd_filter(args):
     region_args = ["-r", region] if region else []
     expr_args = ["-i", args.expr] if args.expr else []
 
+    # Gap-aware filtering
+    gaps_bed = None
+    exclude_args = []
+    if getattr(args, "exclude_near_gaps", False):
+        if lib.fasta:
+            gaps_bed = get_gaps_bed(lib.fasta)
+            if gaps_bed:
+                logging.info(f"Using gaps BED for exclusion: {gaps_bed}")
+                exclude_args = ["-T", f"^{gaps_bed}"]
+            else:
+                logging.warning(
+                    "Gap exclusion requested but Count Ns output (_nbin.csv) not found."
+                )
+        else:
+            logging.warning(
+                "Gap exclusion requested but reference genome not resolved."
+            )
+
     ensure_vcf_indexed(args.input)
     logging.info(f"Filtering {args.input} to {out_vcf}")
     try:
@@ -396,12 +419,49 @@ def cmd_filter(args):
             ["bcftools", "view"]
             + region_args
             + expr_args
+            + exclude_args
             + ["-Oz", "-o", out_vcf, args.input],
             check=True,
         )
         ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"Filtering failed: {e}")
+    finally:
+        if gaps_bed and os.path.exists(gaps_bed):
+            os.remove(gaps_bed)
+
+
+def get_gaps_bed(ref_path):
+    """Try to locate and convert _nbin.csv to a temporary BED file."""
+    import re
+
+    prefix = re.sub(r"\.(fasta|fna|fa)(\.gz)?$", "", ref_path)
+    nbin_file = prefix + "_nbin.csv"
+    if not os.path.exists(nbin_file):
+        return None
+
+    import tempfile
+
+    # Use a secure way to create a temp file
+    fd, bed_path = tempfile.mkstemp(suffix=".bed")
+    try:
+        with os.fdopen(fd, "w") as f_out:
+            with open(nbin_file) as f_in:
+                # Assume format: chrom, start, end (maybe with header)
+                for line in f_in:
+                    parts = line.strip().split(",")
+                    if len(parts) >= 3:
+                        try:
+                            chrom, start, end = parts[0], int(parts[1]), int(parts[2])
+                            f_out.write(f"{chrom}\t{start}\t{end}\n")
+                        except ValueError:
+                            continue  # Header or invalid row
+        return bed_path
+    except Exception as e:
+        logging.debug(f"Failed to create gaps BED: {e}")
+        if os.path.exists(bed_path):
+            os.remove(bed_path)
+        return None
 
 
 def cmd_trio(args):

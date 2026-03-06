@@ -19,21 +19,24 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
         "vendor": "23andMe",
         "recommended": True,
     },
-    {"id": "23andme_v3+v5", "label": "23andMe v3+v5", "vendor": "23andMe"},
+    {
+        "id": "23andme_v3+v5",
+        "label": "23andMe v3+v5",
+        "vendor": "23andMe",
+        "recommended": True,
+    },
     {"id": "23andme_api", "label": "23andMe API", "vendor": "23andMe"},
     {"id": "ancestry_v1", "label": "AncestryDNA v1", "vendor": "AncestryDNA"},
     {
         "id": "ancestry_v2",
         "label": "AncestryDNA v2",
         "vendor": "AncestryDNA",
-        "recommended": True,
     },
-    {"id": "ftdna_v2", "label": "Family Tree DNA v2", "vendor": "Family Tree DNA"},
+    {"id": "ftdna_v2", "label": "FamilyTreeDNA v2", "vendor": "FamilyTreeDNA"},
     {
         "id": "ftdna_v3",
-        "label": "Family Tree DNA v3",
-        "vendor": "Family Tree DNA",
-        "recommended": True,
+        "label": "FamilyTreeDNA v3",
+        "vendor": "FamilyTreeDNA",
     },
     {"id": "ldna_v1", "label": "Living DNA v1", "vendor": "Living DNA"},
     {"id": "ldna_v2", "label": "Living DNA v2", "vendor": "Living DNA"},
@@ -42,7 +45,6 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
         "id": "myheritage_v2",
         "label": "MyHeritage v2",
         "vendor": "MyHeritage",
-        "recommended": True,
     },
     {"id": "mthfr_uk", "label": "MTHFR Genetics UK", "vendor": "Other Vendors"},
     {"id": "genera_br", "label": "Genera BR", "vendor": "Other Vendors"},
@@ -53,7 +55,6 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
         "id": "reich_combined",
         "label": "Reich Combined",
         "vendor": "Reich Lab",
-        "recommended": True,
     },
 ]
 
@@ -177,31 +178,6 @@ UI_METADATA = {
         "title": "Library",
         "help": "Reference data and VEP management",
         "commands": [
-            {
-                "label": "Identify Ref",
-                "cmd": "ref-identify",
-                "help": UI_TOOLTIPS["ref-identify"],
-            },
-            {
-                "label": "Index Ref",
-                "cmd": "ref-index",
-                "help": UI_TOOLTIPS["ref-index"],
-            },
-            {
-                "label": "Download Ref",
-                "cmd": "ref-download",
-                "help": UI_TOOLTIPS["ref-download"],
-            },
-            {
-                "label": "Verify Ref",
-                "cmd": "ref-verify",
-                "help": UI_TOOLTIPS["ref-verify"],
-            },
-            {
-                "label": "Count Ns",
-                "cmd": "ref-count-ns",
-                "help": UI_TOOLTIPS["ref-count-ns"],
-            },
             {
                 "label": "Download Genes",
                 "cmd": "ref-download-genes",

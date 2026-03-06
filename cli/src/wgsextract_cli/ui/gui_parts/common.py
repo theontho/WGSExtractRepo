@@ -76,6 +76,8 @@ class BaseFrame(ctk.CTkScrollableFrame):
         self.main_app = main_app
         self.key = key
         self.meta = meta
+        self.cmd_buttons: dict[str, ctk.CTkButton] = {}
+        self.info_frame: ctk.CTkFrame | None = None
         self.setup_ui()
 
     def setup_ui(self) -> None:
@@ -86,6 +88,155 @@ class BaseFrame(ctk.CTkScrollableFrame):
         ctk.CTkLabel(
             self, text=self.meta["help"], font=ctk.CTkFont(size=12, slant="italic")
         ).pack(pady=(0, 10))
+
+    def set_button_state(self, cmd_key: str, state: str) -> None:
+        """Update button text and color based on execution state."""
+        if not self.winfo_exists() or cmd_key not in self.cmd_buttons:
+            return
+
+        btn = self.cmd_buttons[cmd_key]
+        if state == "running":
+            btn.configure(
+                text="Cancel",
+                fg_color=("#cfd8dc", "#455a64"),
+                hover_color=("#b0bec5", "#37474f"),
+                text_color=("#000000", "#ffffff"),
+            )
+        else:
+            # Restore original label and color from meta
+            # Handle split commands for 'gen' key
+            all_cmds = []
+            if self.key == "gen":
+                all_cmds = self.meta["info_commands"] + self.meta["bam_commands"]
+            else:
+                all_cmds = self.meta.get("commands", [])
+
+            # Special case for microarray if not in 'commands' list (it's in meta for micro tab)
+            try:
+                label = next(c["label"] for c in all_cmds if c["cmd"] == cmd_key)
+            except StopIteration:
+                # Fallback to current button text if not found in meta
+                # or if it's a special button
+                return
+
+            is_destructive = cmd_key in ["clear-cache", "unsort", "unindex"]
+            orig_color = (
+                ("#d32f2f", "#b71c1c") if is_destructive else ("#3a7ebf", "#1f538d")
+            )
+            orig_hover = "#9a0007" if is_destructive else ("#325882", "#14375e")
+            orig_text = "#ffffff"
+
+            btn.configure(
+                text=label,
+                fg_color=orig_color,
+                hover_color=orig_hover,
+                text_color=orig_text,
+            )
+
+    def handle_button_click(self, cmd_key: str) -> None:
+        """Handle button click, either running a new command or cancelling an active one."""
+        if cmd_key in self.main_app.controller.active_processes:
+            self.main_app.controller.cancel_cmd(cmd_key)
+        else:
+            self.main_app.run_dispatch(cmd_key, self)
+
+    def update_info_display(self, data: Any) -> None:
+        """Update the info frame with fast info output (dict or error string)."""
+        import os
+
+        if not self.winfo_exists():
+            return
+
+        input_path = self.bam_entry.get() if hasattr(self, "bam_entry") else ""
+
+        # Toggle clear-cache button visibility
+        if "clear-cache" in self.cmd_buttons:
+            out_dir = self.main_app.out_dir_var.get()
+            effective_outdir = (
+                out_dir if out_dir else os.path.dirname(os.path.abspath(input_path))
+            )
+            json_cache = ""
+            if input_path:
+                json_cache = os.path.join(
+                    effective_outdir,
+                    f"{os.path.basename(input_path)}.wgse_info.json",
+                )
+
+            if json_cache and os.path.exists(json_cache):
+                self.cmd_buttons["clear-cache"].grid()
+            else:
+                self.cmd_buttons["clear-cache"].grid_remove()
+
+        if not self.info_frame:
+            return
+        fstats = data.get("file_stats", {}) if isinstance(data, dict) else {}
+        is_sorted = fstats.get("sorted", False)
+        is_indexed = fstats.get("indexed", False)
+        is_cram = input_path.lower().endswith(".cram")
+        is_bam = input_path.lower().endswith(".bam")
+
+        def toggle_btn(cmd: str, show: bool) -> None:
+            if cmd in self.cmd_buttons:
+                if show:
+                    self.cmd_buttons[cmd].grid()
+                else:
+                    self.cmd_buttons[cmd].grid_remove()
+
+        if self.key == "gen" and input_path:
+            toggle_btn("sort", not is_sorted)
+            toggle_btn("unsort", is_sorted)
+            toggle_btn("index", not is_indexed)
+            toggle_btn("unindex", is_indexed)
+            toggle_btn("to-bam", is_cram)
+            toggle_btn("to-cram", is_bam)
+        elif self.key == "gen":
+            for c in ["sort", "unsort", "index", "unindex", "to-bam", "to-cram"]:
+                toggle_btn(c, False)
+
+        # Clear existing widgets
+        for widget in self.info_frame.winfo_children():
+            widget.destroy()
+
+        if not data:
+            return
+
+        if isinstance(data, str):
+            ctk.CTkLabel(
+                self.info_frame, text=data, font=ctk.CTkFont(size=12, slant="italic")
+            ).pack(side="left")
+            return
+
+        # Render dictionary data nicely
+        fstats = data.get("file_stats", {})
+        stats_str = f"{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
+
+        items = [
+            ("Reference Genome:", data.get("ref_model_str", "Unknown")),
+            ("File Stats:", stats_str),
+            (
+                "Avg Read Length:",
+                f"{data.get('avg_read_len', 0):.0f} bp, {data.get('std_read_len', 0):.0f} σ, {'Paired-end' if data.get('is_paired') else 'Single-end'}",
+            ),
+            (
+                "Avg Insert Size:",
+                f"{data.get('avg_insert_size', 0):.0f} bp, {data.get('std_insert_size', 0):.0f} σ",
+            ),
+        ]
+
+        if data.get("sequencer") and data.get("sequencer") != "Unknown":
+            items.append(("Sequencer:", data.get("sequencer")))
+
+        for i, (label, val) in enumerate(items):
+            ctk.CTkLabel(
+                self.info_frame,
+                text=label,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                width=140,
+                anchor="w",
+            ).grid(row=i, column=0, sticky="w", padx=(0, 10))
+            ctk.CTkLabel(
+                self.info_frame, text=val, font=ctk.CTkFont(size=13), anchor="w"
+            ).grid(row=i, column=1, sticky="w")
 
     def create_file_selector(
         self,

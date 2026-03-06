@@ -1,6 +1,5 @@
 """Generic tab frame for various CLI commands."""
 
-import os
 from typing import Any
 
 import customtkinter as ctk
@@ -29,8 +28,16 @@ class GenericFrame(BaseFrame):
                 info_text="Path to the reference genome FASTA file (.fa or .fasta).",
             )
 
+        # Shared Output Directory Field
+        if key in ["gen", "vcf", "fastq"]:
+            self.out_dir = self.create_dir_selector(
+                self,
+                "Out Dir:",
+                variable=self.main_app.out_dir_var,
+                info_text="Directory where logs, caches, and results will be saved.",
+            )
+
         # Typed Input Fields
-        self.cmd_buttons: dict[str, ctk.CTkButton] = {}
         cmds_to_hide: set[str] = set()
 
         if key in ["gen", "ext", "anc", "vcf", "fastq"]:
@@ -196,6 +203,20 @@ class GenericFrame(BaseFrame):
                 info_text="Target gene name (e.g., BRCA1). Used by: Filter (VCF).",
             )
 
+            # Gap-aware filtering checkbox
+            gap_f = ctk.CTkFrame(self, fg_color="transparent")
+            gap_f.pack(fill="x", padx=30, pady=2)
+            ctk.CTkCheckBox(
+                gap_f,
+                text="Gap-Aware Filtering",
+                variable=self.main_app.vcf_exclude_gaps_var,
+                font=ctk.CTkFont(size=12),
+            ).pack(side="left", padx=10)
+            ToolTip(
+                gap_f,
+                "Exclude variants in or near genomic gaps (requires Count Ns output for the reference).",
+            )
+
             self.vcf_filter_expr = self.create_entry(
                 self,
                 "Filter Expr:",
@@ -293,6 +314,18 @@ class GenericFrame(BaseFrame):
         if key == "gen" and hasattr(self, "bam_entry") and self.bam_entry.get():
             # Use after to defer until mainloop is ready
             self.after(100, lambda: self.on_input_change(self.bam_entry.get()))
+        elif key == "gen":
+            # Ensure buttons are in correct initial state
+            self.after(0, lambda: self.update_info_display(None))
+
+        # Refresh info if reference or output dir changes
+        if key == "gen":
+            self.main_app.ref_path_var.trace_add(
+                "write", lambda *args: self.on_input_change(self.bam_entry.get())
+            )
+            self.main_app.out_dir_var.trace_add(
+                "write", lambda *args: self.on_input_change(self.bam_entry.get())
+            )
 
     def _create_section(
         self, title: str | None, commands: list[dict[str, Any]]
@@ -328,123 +361,27 @@ class GenericFrame(BaseFrame):
             ToolTip(btn, cmd_m["help"])
             self.cmd_buttons[cmd_m["cmd"]] = btn
 
-            # Hide clear-cache by default
-            if cmd_m["cmd"] == "clear-cache":
+            # Hide specific buttons by default in info tab
+            if self.key == "gen" and cmd_m["cmd"] in [
+                "clear-cache",
+                "sort",
+                "unsort",
+                "index",
+                "unindex",
+                "to-bam",
+                "to-cram",
+            ]:
                 btn.grid_remove()
 
     def on_input_change(self, value: str) -> None:
         """Called when the input file path changes."""
         if value.lower().endswith((".bam", ".cram")):
-            self.main_app.controller.get_info_fast(value, self)
+            ref_path = (
+                self.main_app.ref_path_var.get()
+                if hasattr(self, "main_app") and hasattr(self.main_app, "ref_path_var")
+                else None
+            )
+            self.main_app.controller.get_info_fast(value, self, ref_path=ref_path)
         else:
             # Always ensure GUI updates run on the main thread
             self.after(0, lambda: self.update_info_display(None))
-
-    def update_info_display(self, data: Any) -> None:
-        """Update the info frame with fast info output (dict or error string)."""
-        if not self.winfo_exists():
-            return
-
-        # Toggle clear-cache button visibility
-        if "clear-cache" in self.cmd_buttons:
-            input_path = self.bam_entry.get()
-            json_cache = ""
-            if input_path:
-                outdir = os.path.dirname(os.path.abspath(input_path))
-                json_cache = os.path.join(
-                    outdir, f"{os.path.basename(input_path)}.wgse_info.json"
-                )
-
-            if json_cache and os.path.exists(json_cache):
-                self.cmd_buttons["clear-cache"].grid()
-            else:
-                self.cmd_buttons["clear-cache"].grid_remove()
-
-        # Clear existing widgets
-        for widget in self.info_frame.winfo_children():
-            widget.destroy()
-
-        if not data:
-            return
-
-        if isinstance(data, str):
-            ctk.CTkLabel(
-                self.info_frame, text=data, font=ctk.CTkFont(size=12, slant="italic")
-            ).pack(side="left")
-            return
-
-        # Render dictionary data nicely
-        fstats = data.get("file_stats", {})
-        stats_str = f"{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
-
-        items = [
-            ("Reference Genome:", data.get("ref_model_str", "Unknown")),
-            ("File Stats:", stats_str),
-            (
-                "Avg Read Length:",
-                f"{data.get('avg_read_len', 0):.0f} bp, {data.get('std_read_len', 0):.0f} σ, {'Paired-end' if data.get('is_paired') else 'Single-end'}",
-            ),
-            (
-                "Avg Insert Size:",
-                f"{data.get('avg_insert_size', 0):.0f} bp, {data.get('std_read_len', 0):.0f} σ",
-            ),
-        ]
-
-        if data.get("sequencer") and data.get("sequencer") != "Unknown":
-            items.append(("Sequencer:", data.get("sequencer")))
-
-        for i, (label, val) in enumerate(items):
-            ctk.CTkLabel(
-                self.info_frame,
-                text=label,
-                font=ctk.CTkFont(size=13, weight="bold"),
-                width=140,
-                anchor="w",
-            ).grid(row=i, column=0, sticky="w", padx=(0, 10))
-            ctk.CTkLabel(
-                self.info_frame, text=val, font=ctk.CTkFont(size=13), anchor="w"
-            ).grid(row=i, column=1, sticky="w")
-
-    def handle_button_click(self, cmd_key: str) -> None:
-        """Handle button click, either running a new command or cancelling an active one."""
-        if cmd_key in self.main_app.controller.active_processes:
-            self.main_app.controller.cancel_cmd(cmd_key)
-        else:
-            self.main_app.run_dispatch(cmd_key, self)
-
-    def set_button_state(self, cmd_key: str, state: str) -> None:
-        """Update button text and color based on execution state."""
-        if not self.winfo_exists() or cmd_key not in self.cmd_buttons:
-            return
-
-        btn = self.cmd_buttons[cmd_key]
-        if state == "running":
-            btn.configure(
-                text="Cancel",
-                fg_color=("#cfd8dc", "#455a64"),
-                hover_color=("#b0bec5", "#37474f"),
-                text_color=("#000000", "#ffffff"),
-            )
-        else:
-            # Restore original label and color from meta
-            # Handle split commands for 'gen' key
-            all_cmds = []
-            if self.key == "gen":
-                all_cmds = self.meta["info_commands"] + self.meta["bam_commands"]
-            else:
-                all_cmds = self.meta["commands"]
-
-            label = next(c["label"] for c in all_cmds if c["cmd"] == cmd_key)
-            is_destructive = cmd_key in ["clear-cache", "unsort", "unindex"]
-            orig_color = (
-                ("#d32f2f", "#b71c1c") if is_destructive else ("#3a7ebf", "#1f538d")
-            )
-            orig_hover = "#9a0007" if is_destructive else ("#325882", "#14375e")
-            orig_text = "#ffffff"
-
-            btn.configure(
-                text=label,
-                fg_color=orig_color,
-                hover_color=orig_hover,
-                text_color=orig_text,
-            )

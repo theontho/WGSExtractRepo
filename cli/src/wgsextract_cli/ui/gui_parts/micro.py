@@ -6,7 +6,7 @@ import customtkinter as ctk
 
 from wgsextract_cli.ui.constants import MICROARRAY_FORMATS
 
-from .common import BaseFrame
+from .common import BaseFrame, ToolTip
 
 
 class MicroFrame(BaseFrame):
@@ -21,10 +21,22 @@ class MicroFrame(BaseFrame):
 
         # File Selectors
         self.bam_entry = self.create_file_selector(
-            self, "BAM/CRAM Input:", variable=self.main_app.bam_path_var
+            self,
+            "BAM/CRAM Input:",
+            variable=self.main_app.bam_path_var,
+            info_text="Select your aligned DNA data (BAM or CRAM file).",
         )
         self.ref_entry = self.create_file_selector(
-            self, "Reference:", variable=self.main_app.ref_path_var
+            self,
+            "Reference:",
+            variable=self.main_app.ref_path_var,
+            info_text="Select the reference genome (FASTA) that matches your BAM/CRAM build.",
+        )
+        self.out_dir = self.create_dir_selector(
+            self,
+            "Out Dir:",
+            variable=self.main_app.out_dir_var,
+            info_text="Directory where generated CombinedKit files will be saved.",
         )
 
         ctk.CTkLabel(
@@ -32,6 +44,42 @@ class MicroFrame(BaseFrame):
             text="Select Target Formats:",
             font=ctk.CTkFont(size=14, weight="bold"),
         ).pack(pady=(10, 5))
+
+        # Buttons Row (Selection Utility + Action)
+        bf = ctk.CTkFrame(self, fg_color="transparent")
+        bf.pack(fill="x", padx=20, pady=5)
+
+        btn_all = ctk.CTkButton(
+            bf, text="Select All", width=100, command=self.micro_select_all
+        )
+        btn_all.pack(side="left", padx=5)
+        ToolTip(btn_all, "Select all available microarray vendor formats.")
+
+        btn_none = ctk.CTkButton(
+            bf, text="Unselect All", width=100, command=self.micro_unselect_all
+        )
+        btn_none.pack(side="left", padx=5)
+        ToolTip(btn_none, "Deselect all microarray vendor formats.")
+
+        btn_rec = ctk.CTkButton(
+            bf,
+            text="Select Recommended",
+            width=150,
+            command=self.micro_select_recommended,
+        )
+        btn_rec.pack(side="left", padx=5)
+        ToolTip(btn_rec, "Select only the most common and compatible vendor formats.")
+
+        btn_gen = ctk.CTkButton(
+            bf,
+            text="Generate CombinedKit",
+            command=lambda: self.handle_button_click("microarray"),
+        )
+        btn_gen.pack(side="right", padx=5)
+        self.cmd_buttons["microarray"] = btn_gen
+        from wgsextract_cli.ui.constants import UI_TOOLTIPS
+
+        ToolTip(btn_gen, UI_TOOLTIPS["microarray"])
 
         # Format Selection Grid
         ff = ctk.CTkFrame(self)
@@ -57,30 +105,6 @@ class MicroFrame(BaseFrame):
                     row=ri + r, column=c, sticky="w", padx=20, pady=2
                 )
             ri += (len(fmts) + 2) // 3
-
-        # Selection Utility Buttons
-        sf = ctk.CTkFrame(self, fg_color="transparent")
-        sf.pack(fill="x", padx=20, pady=10)
-        ctk.CTkButton(
-            sf, text="Select All", width=100, command=self.micro_select_all
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            sf, text="Unselect All", width=100, command=self.micro_unselect_all
-        ).pack(side="left", padx=5)
-        ctk.CTkButton(
-            sf,
-            text="Select Recommended",
-            width=150,
-            command=self.micro_select_recommended,
-        ).pack(side="left", padx=5)
-
-        # Action Button
-        btn = ctk.CTkButton(
-            self,
-            text="Generate CombinedKit",
-            command=lambda: self.main_app.run_dispatch("microarray", self),
-        )
-        btn.pack(pady=20)
 
     def micro_select_all(self) -> None:
         """Select all available microarray formats."""

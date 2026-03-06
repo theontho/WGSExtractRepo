@@ -3,6 +3,7 @@
 import os
 import threading
 import tkinter as tk
+from tkinter import messagebox
 from typing import Any
 
 import customtkinter as ctk
@@ -82,6 +83,7 @@ class WGSExtractGUI(ctk.CTk):
         self.ref_path_var = ctk.StringVar(value=os.environ.get("WGSE_REF", ""))
         self.out_dir_var = ctk.StringVar(value=os.environ.get("WGSE_OUTDIR", ""))
         self.vep_cache_var = ctk.StringVar()
+        self.vcf_exclude_gaps_var = ctk.BooleanVar(value=False)
 
         # Handle initial VCF value if WGSE_INPUT looks like VCF
         init_input = os.environ.get("WGSE_INPUT", "")
@@ -246,13 +248,22 @@ class WGSExtractGUI(ctk.CTk):
 
     def log(self, message: str) -> None:
         """
-        Append a message to the output text area.
+        Append a message to the output text area and print to stdout.
 
         Args:
             message: The string to log.
         """
+        print(message)  # Also print to terminal for easier debugging
         self.output_text.insert("end", message + "\n")
         self.output_text.see("end")
+
+    def show_error(self, title: str, message: str) -> None:
+        """Show an error message box."""
+        messagebox.showerror(title, message)
+
+    def show_info(self, title: str, message: str) -> None:
+        """Show an information message box."""
+        messagebox.showinfo(title, message)
 
     # Delegate logic methods to controller
     def run_dispatch(self, cmd: str, frame: Any) -> None:
@@ -268,6 +279,26 @@ class WGSExtractGUI(ctk.CTk):
     def run_lib_delete(self, group: dict[str, Any], lib_frame: Any) -> None:
         """Delegate library deletion to the controller."""
         self.controller.run_lib_delete(group, lib_frame)
+
+    def run_ref_index(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delegate reference indexing to the controller."""
+        self.controller.run_ref_index(group, lib_frame)
+
+    def run_ref_unindex(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delegate reference unindexing to the controller."""
+        self.controller.run_ref_unindex(group, lib_frame)
+
+    def run_ref_verify(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delegate reference verification to the controller."""
+        self.controller.run_ref_verify(group, lib_frame)
+
+    def run_ref_count_ns(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delegate reference N-counting to the controller."""
+        self.controller.run_ref_count_ns(group, lib_frame)
+
+    def run_ref_del_ns(self, group: dict[str, Any], lib_frame: Any) -> None:
+        """Delegate reference N-count deletion to the controller."""
+        self.controller.run_ref_del_ns(group, lib_frame)
 
     def cancel_lib_download(self, fn: str) -> None:
         """Delegate library download cancellation to the controller."""

@@ -180,7 +180,7 @@ def get_grouped_genomes():
 
 
 def get_genome_status(final_name: str, reflib_dir: str) -> str:
-    """Returns 'installed', 'incomplete', or 'missing'."""
+    """Returns 'installed', 'unindexed', 'incomplete', or 'missing'."""
     if not reflib_dir:
         return "missing"
     target_dir = os.path.join(reflib_dir, "genomes")
@@ -192,8 +192,7 @@ def get_genome_status(final_name: str, reflib_dir: str) -> str:
         if os.path.exists(fai_path):
             return "installed"
         else:
-            # File exists but index is missing; treat as incomplete to allow resume/verify
-            return "incomplete"
+            return "unindexed"
     if os.path.exists(partial_path):
         return "incomplete"
     return "missing"
@@ -230,6 +229,40 @@ def delete_genome(final_name: str, reflib_dir: str):
             os.remove(p)
     prefix = re.sub(r"\.(fasta|fna|fa)\.gz$", "", base_path)
     for ext in ["_ncnt.csv", "_nbin.csv", ".wgse"]:
+        p = prefix + ext
+        if os.path.exists(p):
+            os.remove(p)
+    return True
+
+
+def delete_ref_index(final_name: str, reflib_dir: str):
+    """Deletes only the index and companion files for a reference genome."""
+    base_path = os.path.join(reflib_dir, "genomes", final_name)
+    # Delete index files but NOT the main genome file ("")
+    for ext in [".fai", ".gzi", ".dict"]:
+        p = base_path + ext
+        if os.path.exists(p):
+            os.remove(p)
+    return True
+
+
+def has_ref_ns(final_name: str, reflib_dir: str) -> bool:
+    """Checks if N-count files exist for a reference genome."""
+    if not reflib_dir:
+        return False
+    base_path = os.path.join(reflib_dir, "genomes", final_name)
+    prefix = re.sub(r"\.(fasta|fna|fa)\.gz$", "", base_path)
+    for ext in ["_ncnt.csv", "_nbin.csv"]:
+        if os.path.exists(prefix + ext):
+            return True
+    return False
+
+
+def delete_ref_ns(final_name: str, reflib_dir: str):
+    """Deletes only the N-count CSV files for a reference genome."""
+    base_path = os.path.join(reflib_dir, "genomes", final_name)
+    prefix = re.sub(r"\.(fasta|fna|fa)\.gz$", "", base_path)
+    for ext in ["_ncnt.csv", "_nbin.csv"]:
         p = prefix + ext
         if os.path.exists(p):
             os.remove(p)

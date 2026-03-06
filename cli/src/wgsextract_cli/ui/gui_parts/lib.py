@@ -219,6 +219,8 @@ class LibFrame(BaseFrame):
             self._add_download_status(row, fn)
         elif s == "installed":
             self._add_installed_controls(row, group)
+        elif s == "unindexed":
+            self._add_unindexed_controls(row, group)
         elif s == "incomplete":
             self._add_incomplete_controls(row, group)
         else:
@@ -244,16 +246,128 @@ class LibFrame(BaseFrame):
         ).pack(side="left", padx=5)
 
     def _add_installed_controls(self, row: ctk.CTkFrame, group: dict[str, Any]) -> None:
-        btn = ctk.CTkButton(
+        from wgsextract_cli.core.ref_library import has_ref_ns
+
+        dest = self.main_app.ref_path_var.get()
+        fn = group["final"]
+
+        # Delete button
+        del_btn = ctk.CTkButton(
             row,
             text="Delete",
-            width=80,
+            width=60,
             fg_color="#992222",
             hover_color="#bb3333",
             command=lambda g=group: self.main_app.run_lib_delete(g, self),
         )
-        btn.pack(side="right", padx=10)
-        ToolTip(btn, f"Remove {group['final']} and index files.")
+        del_btn.pack(side="right", padx=5)
+        ToolTip(del_btn, f"Remove {group['final']} and index files.")
+
+        # Verify button
+        ver_btn = ctk.CTkButton(
+            row,
+            text="Verify",
+            width=60,
+            command=lambda g=group: self.main_app.run_ref_verify(g, self),
+        )
+        ver_btn.pack(side="right", padx=5)
+        ToolTip(ver_btn, f"Verify integrity of {group['final']}.")
+        self.cmd_buttons[f"verify-{group['final']}"] = ver_btn
+
+        # Unindex button
+        unidx_btn = ctk.CTkButton(
+            row,
+            text="Unindex",
+            width=65,
+            fg_color="#992222",
+            hover_color="#bb3333",
+            command=lambda g=group: self.main_app.run_ref_unindex(g, self),
+        )
+        unidx_btn.pack(side="right", padx=5)
+        ToolTip(unidx_btn, f"Remove index files for {group['final']}.")
+
+        # Count Ns / Del Ns button
+        if has_ref_ns(fn, dest):
+            ns_btn = ctk.CTkButton(
+                row,
+                text="Del Ns",
+                width=70,
+                fg_color="#992222",
+                hover_color="#bb3333",
+                command=lambda g=group: self.main_app.run_ref_del_ns(g, self),
+            )
+            ToolTip(ns_btn, f"Remove N-count CSV files for {group['final']}.")
+            self.cmd_buttons[f"del-ns-{group['final']}"] = ns_btn
+        else:
+            ns_btn = ctk.CTkButton(
+                row,
+                text="Count Ns",
+                width=70,
+                command=lambda g=group: self.main_app.run_ref_count_ns(g, self),
+            )
+            ToolTip(ns_btn, f"Analyze N segments in {group['final']}.")
+            self.cmd_buttons[f"count-ns-{group['final']}"] = ns_btn
+        ns_btn.pack(side="right", padx=5)
+
+    def _add_unindexed_controls(self, row: ctk.CTkFrame, group: dict[str, Any]) -> None:
+        from wgsextract_cli.core.ref_library import has_ref_ns
+
+        dest = self.main_app.ref_path_var.get()
+        fn = group["final"]
+
+        # Delete button
+        del_btn = ctk.CTkButton(
+            row,
+            text="Delete",
+            width=60,
+            fg_color="#992222",
+            hover_color="#bb3333",
+            command=lambda g=group: self.main_app.run_lib_delete(g, self),
+        )
+        del_btn.pack(side="right", padx=5)
+
+        # Index button (required)
+        idx_btn = ctk.CTkButton(
+            row,
+            text="Index",
+            width=60,
+            fg_color="#aa6622",
+            hover_color="#cc8844",
+            command=lambda g=group: self.main_app.run_ref_index(g, self),
+        )
+        idx_btn.pack(side="right", padx=5)
+        ToolTip(idx_btn, f"Generate required index for {group['final']}.")
+        self.cmd_buttons[f"index-{group['final']}"] = idx_btn
+
+        # Count Ns / Del Ns button
+        if has_ref_ns(fn, dest):
+            ns_btn = ctk.CTkButton(
+                row,
+                text="Del Ns",
+                width=70,
+                fg_color="#992222",
+                hover_color="#bb3333",
+                command=lambda g=group: self.main_app.run_ref_del_ns(g, self),
+            )
+            ToolTip(ns_btn, f"Remove N-count CSV files for {group['final']}.")
+            self.cmd_buttons[f"del-ns-{group['final']}"] = ns_btn
+        else:
+            ns_btn = ctk.CTkButton(
+                row,
+                text="Count Ns",
+                width=70,
+                command=lambda g=group: self.main_app.run_ref_count_ns(g, self),
+            )
+            ToolTip(ns_btn, f"Analyze N segments in {group['final']}.")
+            self.cmd_buttons[f"count-ns-{group['final']}"] = ns_btn
+        ns_btn.pack(side="right", padx=5)
+
+        ctk.CTkLabel(
+            row,
+            text="Needs Index",
+            text_color="#ffaa00",
+            font=ctk.CTkFont(size=11, weight="bold"),
+        ).pack(side="right", padx=10)
 
     def _add_incomplete_controls(
         self, row: ctk.CTkFrame, group: dict[str, Any]
@@ -335,19 +449,82 @@ class LibFrame(BaseFrame):
                 fg_color=("#cfd8dc", "#455a64"),
                 hover_color=("#b0bec5", "#37474f"),
                 text_color=("#000000", "#ffffff"),
+                command=lambda: self.main_app.controller.cancel_cmd(cmd_key),
             )
         else:
             # Restore original label and color
-            all_cmds = self.meta["commands"] + self.meta["vep_commands"]
-            label = next(c["label"] for c in all_cmds if c["cmd"] == cmd_key)
+            label = ""
+            if cmd_key.startswith("verify-"):
+                label = "Verify"
+            elif cmd_key.startswith("index-"):
+                label = "Index"
+            elif cmd_key.startswith("count-ns-"):
+                label = "Count Ns"
+            elif cmd_key.startswith("del-ns-"):
+                label = "Del Ns"
+            else:
+                all_cmds = self.meta["commands"] + self.meta["vep_commands"]
+                label = next(c["label"] for c in all_cmds if c["cmd"] == cmd_key)
 
             orig_color = ("#3a7ebf", "#1f538d")
             orig_hover = ("#325882", "#14375e")
             orig_text = "#ffffff"
+
+            if cmd_key.startswith("index-"):
+                orig_color = ("#aa6622", "#aa6622")
+                orig_hover = ("#cc8844", "#cc8844")
+            elif (
+                cmd_key.startswith("del-ns-")
+                or cmd_key == "lib-delete"
+                or "delete" in cmd_key
+                or cmd_key.startswith("unindex-")
+                or "unindex" in cmd_key
+            ):
+                orig_color = ("#992222", "#992222")
+                orig_hover = ("#bb3333", "#bb3333")
+
+            # Restore original command
+            if cmd_key.startswith("verify-"):
+                fname = cmd_key.replace("verify-", "")
+
+                def cmd_func_v():
+                    return self.main_app.run_ref_verify({"final": fname}, self)
+
+                cmd_func = cmd_func_v
+            elif cmd_key.startswith("index-"):
+                fname = cmd_key.replace("index-", "")
+
+                def cmd_func_i():
+                    return self.main_app.run_ref_index({"final": fname}, self)
+
+                cmd_func = cmd_func_i
+            elif cmd_key.startswith("count-ns-"):
+                fname = cmd_key.replace("count-ns-", "")
+
+                def cmd_func_ns():
+                    return self.main_app.run_ref_count_ns({"final": fname}, self)
+
+                cmd_func = cmd_func_ns
+            elif cmd_key.startswith("del-ns-"):
+                fname = cmd_key.replace("del-ns-", "")
+
+                def cmd_func_dns():
+                    return self.main_app.run_ref_del_ns({"final": fname}, self)
+
+                cmd_func = cmd_func_dns
+            else:
+
+                def cmd_func_d(cc=cmd_key):
+                    if cc == "vep-verify":
+                        return self.main_app.run_dispatch("vep-verify", self)
+                    return self.main_app.run_dispatch(cc, self)
+
+                cmd_func = cmd_func_d
 
             btn.configure(
                 text=label,
                 fg_color=orig_color,
                 hover_color=orig_hover,
                 text_color=orig_text,
+                command=cmd_func,
             )
