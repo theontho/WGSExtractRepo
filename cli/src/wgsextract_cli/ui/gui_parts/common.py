@@ -59,31 +59,10 @@ class ToolTip:
             self.tip_window = None
 
 
-class BaseFrame(ctk.CTkScrollableFrame):
-    """Base class for all GUI tab frames, providing common UI utilities."""
+class UIUtilsMixin:
+    """Mixin containing shared UI utility methods for tab frames."""
 
-    def __init__(
-        self, master: Any, main_app: Any, key: str, meta: dict[str, Any]
-    ) -> None:
-        """
-        Initialize the base frame.
-
-        Args:
-            master: The parent widget.
-            main_app: The main application instance (WGSExtractGUI).
-            key: The unique key for this frame.
-            meta: Metadata for this frame from UI_METADATA.
-        """
-        super().__init__(master)
-        self.main_app = main_app
-        self.key = key
-        self.meta = meta
-        self.cmd_buttons: dict[str, ctk.CTkButton] = {}
-        self.running_spinners: dict[str, bool] = {}
-        self.info_frame: ctk.CTkFrame | None = None
-        self.setup_ui()
-
-    def _animate_spinner(self, cmd_key: str, step: int = 0) -> None:
+    def _animate_spinner(self: Any, cmd_key: str, step: int = 0) -> None:
         """Animate a text-based spinner on a button."""
         if cmd_key not in self.running_spinners or not self.winfo_exists():
             return
@@ -95,7 +74,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
             btn.configure(text=f"Cancel {char}")
             self.after(200, lambda: self._animate_spinner(cmd_key, step + 1))
 
-    def setup_ui(self) -> None:
+    def setup_ui(self: Any) -> None:
         """Set up the basic UI elements for the frame."""
         ctk.CTkLabel(
             self, text=self.meta["title"], font=ctk.CTkFont(size=18, weight="bold")
@@ -107,7 +86,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
             wraplength=800,
         ).pack(pady=(0, 10))
 
-    def set_button_state(self, cmd_key: str, state: str) -> None:
+    def set_button_state(self: Any, cmd_key: str, state: str) -> None:
         """Update button text and color based on execution state."""
         if not self.winfo_exists() or cmd_key not in self.cmd_buttons:
             return
@@ -155,7 +134,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
                 text_color=orig_text,
             )
 
-    def handle_button_click(self, cmd_key: str) -> None:
+    def handle_button_click(self: Any, cmd_key: str) -> None:
         """Handle button click, either running a new command or cancelling an active one."""
         if cmd_key in self.main_app.controller.active_processes:
             self.main_app.controller.cancel_cmd(cmd_key)
@@ -164,7 +143,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         else:
             self.main_app.run_dispatch(cmd_key, self)
 
-    def update_info_display(self, data: Any) -> None:
+    def update_info_display(self: Any, data: Any) -> None:
         """Update the info frame with fast info output (dict or error string)."""
         import os
 
@@ -275,7 +254,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
             ).grid(row=row, column=col_start + 1, sticky="w")
 
     def create_file_selector(
-        self,
+        self: Any,
         p: ctk.CTkFrame,
         label_text: str,
         iv: str = "",
@@ -285,23 +264,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         command: Callable[[], None] | None = None,
         info_text: str | None = None,
     ) -> ctk.CTkEntry:
-        """
-        Create a file selection row with a label, entry, and browse button.
-        Optional action button can be added to the right of Browse.
-
-        Args:
-            p: The parent frame.
-            label_text: The label text.
-            iv: Initial value for the entry (ignored if variable is provided).
-            variable: Optional StringVar to bind to the entry.
-            on_change: Optional callback when value changes.
-            button_text: Optional text for an action button.
-            command: Optional command for the action button.
-            info_text: Optional tooltip text for an info icon.
-
-        Returns:
-            The created CTkEntry widget.
-        """
+        """Create a file selection row with a label, entry, and browse button."""
         frame = ctk.CTkFrame(p)
 
         label_f = ctk.CTkFrame(frame, fg_color="transparent")
@@ -356,26 +319,14 @@ class BaseFrame(ctk.CTkScrollableFrame):
         return entry
 
     def create_dir_selector(
-        self,
+        self: Any,
         p: ctk.CTkFrame,
         label_text: str,
         iv: str = "",
         variable: ctk.StringVar | None = None,
         info_text: str | None = None,
     ) -> ctk.CTkEntry:
-        """
-        Create a directory selection row with a label, entry, and browse button.
-
-        Args:
-            p: The parent frame.
-            label_text: The label text.
-            iv: Initial value for the entry (ignored if variable is provided).
-            variable: Optional StringVar to bind to the entry.
-            info_text: Optional tooltip text for an info icon.
-
-        Returns:
-            The created CTkEntry widget.
-        """
+        """Create a directory selection row with a label, entry, and browse button."""
         frame = ctk.CTkFrame(p)
 
         label_f = ctk.CTkFrame(frame, fg_color="transparent")
@@ -409,26 +360,14 @@ class BaseFrame(ctk.CTkScrollableFrame):
         return entry
 
     def create_entry(
-        self,
+        self: Any,
         p: ctk.CTkFrame,
         label_text: str,
         button_text: str | None = None,
         command: Callable[[], None] | None = None,
         info_text: str | None = None,
     ) -> ctk.CTkEntry:
-        """
-        Create a simple entry row with a label and entry, and an optional action button.
-
-        Args:
-            p: The parent frame.
-            label_text: The label text.
-            button_text: Optional text for an action button.
-            command: Optional command for the action button.
-            info_text: Optional tooltip text for an info icon.
-
-        Returns:
-            The created CTkEntry widget.
-        """
+        """Create a simple entry row with a label and entry, and an optional action button."""
         f = ctk.CTkFrame(p)
         f.pack(fill="x", padx=20, pady=5)
 
@@ -455,55 +394,32 @@ class BaseFrame(ctk.CTkScrollableFrame):
                 f, text=button_text, width=120, command=command, font=BUTTON_FONT
             )
             btn.pack(side="right", padx=10)
-            # Store button on entry so it can be accessed if needed (e.g. for tooltips)
             e.action_button = btn
         else:
             e.pack(side="right", fill="x", expand=True, padx=10)
         return e
 
     def create_entry_with_info(
-        self, p: ctk.CTkFrame, label_text: str, info_text: str
+        self: Any, p: ctk.CTkFrame, label_text: str, info_text: str
     ) -> ctk.CTkEntry:
-        """
-        Create a simple entry row with a label, an info icon with tooltip, and entry.
-
-        Args:
-            p: The parent frame.
-            label_text: The label text.
-            info_text: The tooltip text for the info icon.
-
-        Returns:
-            The created CTkEntry widget.
-        """
+        """Create a simple entry row with a label, an info icon with tooltip, and entry."""
         return self.create_entry(p, label_text, info_text=info_text)
 
     def create_read_only_entry(
-        self,
+        self: Any,
         p: ctk.CTkFrame,
         label_text: str,
         variable: ctk.StringVar,
         button_text: str | None = None,
         command: Callable[[], None] | None = None,
     ) -> ctk.CTkEntry:
-        """
-        Create a read-only entry row with a label and entry, and an optional action button.
-
-        Args:
-            p: The parent frame.
-            label_text: The label text.
-            variable: The StringVar to bind to the entry.
-            button_text: Optional text for an action button.
-            command: Optional command for the action button.
-
-        Returns:
-            The created CTkEntry widget.
-        """
+        """Create a read-only entry row with a label and entry, and an optional action button."""
         return self.create_read_only_entry_with_info(
             p, label_text, variable, "", button_text, command
         )
 
     def create_read_only_entry_with_info(
-        self,
+        self: Any,
         p: ctk.CTkFrame,
         label_text: str,
         variable: ctk.StringVar,
@@ -511,20 +427,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         button_text: str | None = None,
         command: Callable[[], None] | None = None,
     ) -> ctk.CTkEntry:
-        """
-        Create a read-only entry row with a label, info icon with tooltip, and entry.
-
-        Args:
-            p: The parent frame.
-            label_text: The label text.
-            variable: The StringVar to bind to the entry.
-            info_text: The tooltip text for the info icon.
-            button_text: Optional text for an action button.
-            command: Optional command for the action button.
-
-        Returns:
-            The created CTkEntry widget.
-        """
+        """Create a read-only entry row with a label, info icon with tooltip, and entry."""
         f = ctk.CTkFrame(p)
         f.pack(fill="x", padx=20, pady=5)
 
@@ -557,24 +460,13 @@ class BaseFrame(ctk.CTkScrollableFrame):
         return e
 
     def create_checkbox_with_info(
-        self,
+        self: Any,
         p: ctk.CTkFrame,
         text: str,
         variable: ctk.Variable,
         info_text: str,
     ) -> ctk.CTkCheckBox:
-        """
-        Create a checkbox with an info icon and tooltip.
-
-        Args:
-            p: The parent frame.
-            text: The checkbox label text.
-            variable: The variable to bind to the checkbox.
-            info_text: The tooltip text for the info icon.
-
-        Returns:
-            The created CTkCheckBox widget.
-        """
+        """Create a checkbox with an info icon and tooltip."""
         f = ctk.CTkFrame(p, fg_color="transparent")
         f.pack(fill="x", padx=20, pady=2)
 
@@ -599,7 +491,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
         return cb
 
     def create_section_title(
-        self, p: ctk.CTkFrame, text: str, info_text: str | None = None
+        self: Any, p: ctk.CTkFrame, text: str, info_text: str | None = None
     ) -> None:
         """Create a section title with an optional info icon and tooltip."""
         f = ctk.CTkFrame(p, fg_color="transparent")
@@ -620,7 +512,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
             ToolTip(i_lbl, info_text)
 
     def browse_file(
-        self,
+        self: Any,
         e: ctk.CTkEntry,
         variable: ctk.StringVar | None = None,
         on_change: Callable[[str], None] | None = None,
@@ -637,7 +529,7 @@ class BaseFrame(ctk.CTkScrollableFrame):
                     on_change(f)
 
     def browse_dir(
-        self, e: ctk.CTkEntry, variable: ctk.StringVar | None = None
+        self: Any, e: ctk.CTkEntry, variable: ctk.StringVar | None = None
     ) -> None:
         """Open a directory dialog and update the entry."""
         d = filedialog.askdirectory()
@@ -647,3 +539,37 @@ class BaseFrame(ctk.CTkScrollableFrame):
             else:
                 e.delete(0, "end")
                 e.insert(0, d)
+
+
+class BaseFrame(ctk.CTkFrame, UIUtilsMixin):
+    """Base class for all GUI tab frames, providing common UI utilities."""
+
+    def __init__(
+        self, master: Any, main_app: Any, key: str, meta: dict[str, Any]
+    ) -> None:
+        """Initialize the base frame."""
+        super().__init__(master, fg_color="transparent")
+        self.main_app = main_app
+        self.key = key
+        self.meta = meta
+        self.cmd_buttons: dict[str, ctk.CTkButton] = {}
+        self.running_spinners: dict[str, bool] = {}
+        self.info_frame: ctk.CTkFrame | None = None
+        self.setup_ui()
+
+
+class ScrollableBaseFrame(ctk.CTkScrollableFrame, UIUtilsMixin):
+    """A scrollable version of the base frame for tabs with many fields."""
+
+    def __init__(
+        self, master: Any, main_app: Any, key: str, meta: dict[str, Any]
+    ) -> None:
+        """Initialize the scrollable base frame."""
+        super().__init__(master, fg_color="transparent")
+        self.main_app = main_app
+        self.key = key
+        self.meta = meta
+        self.cmd_buttons: dict[str, ctk.CTkButton] = {}
+        self.running_spinners: dict[str, bool] = {}
+        self.info_frame: ctk.CTkFrame | None = None
+        self.setup_ui()

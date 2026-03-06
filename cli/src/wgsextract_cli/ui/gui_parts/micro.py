@@ -6,10 +6,10 @@ import customtkinter as ctk
 
 from wgsextract_cli.ui.constants import BUTTON_FONT, MICROARRAY_FORMATS
 
-from .common import BaseFrame, ToolTip
+from .common import ScrollableBaseFrame, ToolTip
 
 
-class MicroFrame(BaseFrame):
+class MicroFrame(ScrollableBaseFrame):
     """
     A frame for configuring and launching microarray simulations for various vendors
     (23andMe, AncestryDNA, FTDNA, MyHeritage, etc.).
@@ -92,7 +92,7 @@ class MicroFrame(BaseFrame):
         ToolTip(btn_gen, UI_TOOLTIPS["microarray"])
 
         # Format Selection Grid
-        ff = ctk.CTkFrame(self)
+        ff = ctk.CTkFrame(self, fg_color="transparent")
         ff.pack(fill="x", padx=20, pady=5)
 
         # Group formats by vendor

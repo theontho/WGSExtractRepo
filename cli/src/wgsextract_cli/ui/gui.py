@@ -11,6 +11,7 @@ from PIL import Image
 
 from wgsextract_cli.ui.constants import BUTTON_FONT, UI_METADATA
 from wgsextract_cli.ui.gui_parts.controller import GUIController
+from wgsextract_cli.ui.gui_parts.flow import FlowFrame
 from wgsextract_cli.ui.gui_parts.gen import GenericFrame
 from wgsextract_cli.ui.gui_parts.lib import LibFrame
 from wgsextract_cli.ui.gui_parts.micro import MicroFrame
@@ -145,7 +146,7 @@ class WGSExtractGUI(ctk.CTk):
         self._setup_frames()
 
         # Default view
-        self.show_frame("gen")
+        self.show_frame("flow")
 
         # Event bindings
         self.bind_all("<MouseWheel>", self._on_mousewheel)
@@ -202,6 +203,8 @@ class WGSExtractGUI(ctk.CTk):
                 frame = LibFrame(self.main_content, self, key, meta)
             elif key == "micro":
                 frame = MicroFrame(self.main_content, self, key, meta)
+            elif key == "flow":
+                frame = FlowFrame(self.main_content, self, key, meta)
             else:
                 frame = GenericFrame(self.main_content, self, key, meta)
             self.frames[key] = frame
@@ -213,6 +216,15 @@ class WGSExtractGUI(ctk.CTk):
         curr = w
         while curr:
             if isinstance(curr, tk.Canvas | tk.Text | ctk.CTkTextbox):
+                # Skip scrolling for the workflow graph canvas
+                if (
+                    isinstance(curr, tk.Canvas)
+                    and "flow" in self.frames
+                    and hasattr(self.frames["flow"], "canvas")
+                    and curr == self.frames["flow"].canvas
+                ):
+                    break
+
                 if isinstance(curr, tk.Canvas):
                     curr.yview_scroll(
                         int(-1 * (delta / 120))

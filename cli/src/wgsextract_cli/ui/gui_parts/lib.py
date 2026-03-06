@@ -7,10 +7,10 @@ import customtkinter as ctk
 
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
-from .common import BaseFrame, ToolTip
+from .common import ScrollableBaseFrame, ToolTip
 
 
-class LibFrame(BaseFrame):
+class LibFrame(ScrollableBaseFrame):
     """
     A frame for managing reference genomes (downloading, deleting, indexing)
     and VEP (Variant Effect Predictor) caches.

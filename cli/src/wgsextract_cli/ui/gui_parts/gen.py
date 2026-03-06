@@ -6,10 +6,10 @@ import customtkinter as ctk
 
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
-from .common import BaseFrame, ToolTip
+from .common import ScrollableBaseFrame, ToolTip
 
 
-class GenericFrame(BaseFrame):
+class GenericFrame(ScrollableBaseFrame):
     """
     A generic frame that can handle multiple command types based on metadata.
     Used for General, BAM, Extract, Ancestry, QC, and VCF tabs.

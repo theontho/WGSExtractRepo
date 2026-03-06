@@ -60,7 +60,11 @@ MICROARRAY_FORMATS: list[dict[str, Any]] = [
     },
 ]
 
-UI_METADATA = {
+UI_METADATA: dict[str, dict[str, Any]] = {
+    "flow": {
+        "title": "Workflow",
+        "help": "Visualize the bioinformatics workflow from raw sequencing data to final analysis results. Click on any node to jump to the corresponding tab.",
+    },
     "gen": {
         "title": "Info / BAM",
         "help": "BAM (Binary Alignment Map) and CRAM are compressed files containing your DNA sequences aligned to a reference genome. Use this tab to identify your data's build, check sequence quality, or convert between alignment formats.",
