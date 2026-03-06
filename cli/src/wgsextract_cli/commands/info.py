@@ -244,24 +244,58 @@ def generate_chrom_table(
     idx_stats, avg_len, gender, ref_model_name, coverage_map=None, n_counts=None
 ):
     """Build the detailed per-chromosome metrics table."""
-    valid_autos, valid_somal = [str(i) for i in range(1, 23)], ["X", "Y"]
+    valid_autos, valid_somal, valid_mito = (
+        [str(i) for i in range(1, 23)],
+        ["X", "Y"],
+        ["M"],
+    )
+    if "DOG" in ref_model_name.upper():
+        valid_autos = [str(i) for i in range(1, 39)]
+        valid_somal = ["X"]
+        valid_mito = ["M"]
+        build = "Dog"
+    elif "CAT" in ref_model_name.upper():
+        valid_autos = [
+            "A1",
+            "A2",
+            "A3",
+            "B1",
+            "B2",
+            "B3",
+            "B4",
+            "C1",
+            "C2",
+            "D1",
+            "D2",
+            "D3",
+            "D4",
+            "E1",
+            "E2",
+            "E3",
+            "F1",
+            "F2",
+        ]
+        valid_somal = ["X", "Y"]
+        valid_mito = ["M"]
+        build = "Cat"
+    else:
+        build = (
+            "38"
+            if any(x in ref_model_name.upper() for x in ["38", "HG38", "GRCH38"])
+            else "37"
+            if any(x in ref_model_name.upper() for x in ["37", "HG19", "GRCH37"])
+            else "19"
+            if "19" in ref_model_name
+            else "99"
+        )
+
     stats_autos: list[list[Any]] = []
     stats_somal: list[list[Any]] = []
     stats_mito: list[list[Any]] = []
     if coverage_map is None:
         coverage_map = {}
 
-    build = (
-        "38"
-        if any(x in ref_model_name.upper() for x in ["38", "HG38", "GRCH38"])
-        else "37"
-        if any(x in ref_model_name.upper() for x in ["37", "HG19", "GRCH37"])
-        else "19"
-        if "19" in ref_model_name
-        else "99"
-    )
     # Use loaded N counts if available, otherwise fallback to hardcoded defaults
-    # Merge them so that if sidecar is incomplete, we still have baseline defaults
     n_adjust_map = N_ADJUST.get(build, {}).copy()
     if n_counts:
         n_adjust_map.update(n_counts)
@@ -283,18 +317,22 @@ def generate_chrom_table(
             stats_autos.append(row)
         elif chromnum in valid_somal:
             stats_somal.append(row)
-        elif chromnum == "M":
+        elif chromnum in valid_mito:
             stats_mito.append(row)
         elif chromnum != "*":
             stats_altcont[2] += mod_len
             stats_altcont[4] += map_seg
 
-    stats_autos.sort(key=lambda x: int(x[0]))
+    if build == "Cat":
+        stats_autos.sort(key=lambda x: x[0])
+    else:
+        stats_autos.sort(key=lambda x: int(x[0]) if x[0].isdigit() else x[0])
+
     stats_somal.sort(key=lambda x: x[0])
     final_table = stats_autos + stats_somal + stats_mito
 
     for row in final_table:
-        if row[0] == "Y" and gender == "Female":
+        if row[0] == "Y" and gender == "Female" and build not in ["Dog", "Cat"]:
             continue
         stats_total[2] += row[2]
         stats_total[3] += row[3]

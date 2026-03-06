@@ -255,9 +255,11 @@ class LibFrame(ScrollableBaseFrame):
         di = self.main_app.active_downloads[fn]
         dc = ctk.CTkFrame(row, fg_color="transparent")
         dc.pack(side="right", padx=10)
-        ctk.CTkProgressBar(dc, variable=di["progress_var"], width=150).pack(
-            side="left", padx=5
-        )
+
+        pbar = ctk.CTkProgressBar(dc, variable=di["progress_var"], width=150)
+        pbar.pack(side="left", padx=5)
+        di["pbar_widget"] = pbar
+
         ctk.CTkLabel(dc, textvariable=di["status_var"], font=ctk.CTkFont(size=10)).pack(
             side="left", padx=5
         )

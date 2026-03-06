@@ -490,6 +490,44 @@ class UIUtilsMixin:
 
         return cb
 
+    def create_option_menu(
+        self: Any,
+        p: ctk.CTkFrame,
+        label_text: str,
+        options: list[str],
+        variable: ctk.StringVar | None = None,
+        on_change: Callable[[str], None] | None = None,
+        info_text: str | None = None,
+    ) -> ctk.CTkOptionMenu:
+        """Create an option menu row with a label and dropdown."""
+        f = ctk.CTkFrame(p)
+        f.pack(fill="x", padx=20, pady=5)
+
+        label_f = ctk.CTkFrame(f, fg_color="transparent")
+        label_f.pack(side="left", padx=10)
+
+        ctk.CTkLabel(label_f, text=label_text, width=120, anchor="w").pack(side="left")
+
+        if info_text:
+            i_lbl = ctk.CTkLabel(
+                label_f,
+                text=" ⓘ",
+                font=ctk.CTkFont(size=14),
+                text_color="#55aaff",
+                cursor="hand2",
+            )
+            i_lbl.pack(side="left")
+            ToolTip(i_lbl, info_text)
+
+        menu = ctk.CTkOptionMenu(
+            f,
+            values=options,
+            variable=variable,
+            command=on_change,
+        )
+        menu.pack(side="right", padx=10, fill="x", expand=True)
+        return menu
+
     def create_section_title(
         self: Any, p: ctk.CTkFrame, text: str, info_text: str | None = None
     ) -> None:

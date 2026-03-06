@@ -11,10 +11,12 @@ from PIL import Image
 
 from wgsextract_cli.ui.constants import BUTTON_FONT, UI_METADATA
 from wgsextract_cli.ui.gui_parts.controller import GUIController
+from wgsextract_cli.ui.gui_parts.fastq import FastqFrame
 from wgsextract_cli.ui.gui_parts.flow import FlowFrame
 from wgsextract_cli.ui.gui_parts.gen import GenericFrame
 from wgsextract_cli.ui.gui_parts.lib import LibFrame
 from wgsextract_cli.ui.gui_parts.micro import MicroFrame
+from wgsextract_cli.ui.gui_parts.pet import PetFrame
 
 
 class InfoWindow(ctk.CTkToplevel):
@@ -153,6 +155,14 @@ class WGSExtractGUI(ctk.CTk):
         self.bind_all("<Button-4>", self._on_mousewheel)
         self.bind_all("<Button-5>", self._on_mousewheel)
 
+        # Protocol for closing
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+
+    def _on_closing(self) -> None:
+        """Handle the window closing event by cancelling all active processes."""
+        self.controller.cancel_all()
+        self.destroy()
+
     def _setup_sidebar(self) -> None:
         """Set up the navigation sidebar."""
         self.sidebar_frame = ctk.CTkFrame(self, width=160, corner_radius=0)
@@ -203,6 +213,10 @@ class WGSExtractGUI(ctk.CTk):
                 frame = LibFrame(self.main_content, self, key, meta)
             elif key == "micro":
                 frame = MicroFrame(self.main_content, self, key, meta)
+            elif key == "fastq":
+                frame = FastqFrame(self.main_content, self, key, meta)
+            elif key == "pet":
+                frame = PetFrame(self.main_content, self, key, meta)
             elif key == "flow":
                 frame = FlowFrame(self.main_content, self, key, meta)
             else:
@@ -258,7 +272,23 @@ class WGSExtractGUI(ctk.CTk):
         """
         for f in self.frames.values():
             f.pack_forget()
-        self.frames[name].pack(fill="both", expand=True)
+        frame = self.frames[name]
+        # Refresh if frame has a setup_ui or update_options method
+        if hasattr(frame, "setup_ui"):
+            # Avoid infinite recursion if setup_ui is complex, but for now it's okay
+            # Note: GenericFrame.setup_ui recreates widgets, which might be slow.
+            # We'll rely on update_options for dynamic parts if possible.
+            pass
+        if hasattr(frame, "update_options"):
+            frame.update_options()
+
+        frame.pack(fill="both", expand=True)
+
+    def refresh_all_frames(self) -> None:
+        """Re-initialize or update UI elements in all active frames."""
+        for frame in self.frames.values():
+            if hasattr(frame, "update_options"):
+                frame.update_options()
 
     def log(self, message: str) -> None:
         """

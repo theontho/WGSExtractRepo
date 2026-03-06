@@ -118,6 +118,23 @@ class GUIController:
             # On Unix, we might need kill if it doesn't respond to terminate
             self.main_app.after(1000, lambda: self._force_kill_if_alive(cmd_key, proc))
 
+    def cancel_all(self) -> None:
+        """Terminate all active process groups."""
+        # Copy keys to avoid mutation issues during iteration
+        keys = list(self.active_processes.keys())
+        for key in keys:
+            self.cancel_cmd(key)
+
+        # Also signal threading events
+        if self.main_app.vep_cancel_event:
+            self.main_app.vep_cancel_event.set()
+        if self.main_app.gene_map_cancel_event:
+            self.main_app.gene_map_cancel_event.set()
+
+        # Signal all library downloads
+        for fn in list(self.main_app.active_downloads.keys()):
+            self.cancel_lib_download(fn)
+
     def _force_kill_if_alive(self, cmd_key: str, proc: subprocess.Popen) -> None:
         if proc.poll() is None:
             try:
@@ -460,7 +477,7 @@ class GUIController:
         lib_frame.setup_ui()
 
         def cb(downloaded: int, total: int, speed: float) -> None:
-            pct = downloaded / total if total > 0 else 0
+            pct = downloaded / total if total > 0 else 1.0
             st = (
                 f"{speed / (1024 * 1024):.1f} MB/s"
                 if speed > 1024 * 1024
@@ -473,6 +490,19 @@ class GUIController:
         def run() -> None:
             from wgsextract_cli.core.ref_library import download_and_process_genome
 
+            def status_cb(msg: str):
+                if self.main_app.winfo_exists():
+
+                    def update():
+                        sv.set(msg)
+                        # Hide progress bar when processing starts
+                        if msg.startswith("Processing"):
+                            di = self.main_app.active_downloads.get(fn)
+                            if di and "pbar_widget" in di:
+                                di["pbar_widget"].pack_forget()
+
+                    self.main_app.after(0, update)
+
             try:
                 success = download_and_process_genome(
                     gd,
@@ -481,6 +511,7 @@ class GUIController:
                     progress_callback=cb,
                     cancel_event=ce,
                     restart=restart,
+                    status_callback=status_cb,
                 )
                 if self.main_app.winfo_exists():
                     self.main_app.after(
@@ -497,6 +528,8 @@ class GUIController:
             finally:
                 if fn in self.main_app.active_downloads:
                     del self.main_app.active_downloads[fn]
+                if self.main_app.winfo_exists():
+                    self.main_app.after(0, self.main_app.refresh_all_frames)
                 if lib_frame.winfo_exists():
                     lib_frame.after(0, lib_frame.setup_ui)
 
@@ -529,6 +562,8 @@ class GUIController:
         except Exception as e:
             self.main_app.log(f"Error during deletion: {e}")
         finally:
+            if self.main_app.winfo_exists():
+                self.main_app.after(0, self.main_app.refresh_all_frames)
             if lib_frame.winfo_exists():
                 lib_frame.after(0, lib_frame.setup_ui)
 
@@ -698,6 +733,41 @@ class GUIController:
                         frame.after(0, frame.setup_ui)
 
             threading.Thread(target=run, daemon=True).start()
+
+    def run_pet_analysis(self, frame: Any, extra_args: dict[str, str]) -> None:
+        """Execute the pet-analysis command."""
+        ref_lib = self.main_app.ref_path_var.get()
+        out_dir = self.main_app.out_dir_var.get()
+
+        if not extra_args.get("r1"):
+            self.main_app.show_error("Missing Required Input", "FASTQ R1 is required.")
+            return
+        if not ref_lib:
+            self.main_app.show_error(
+                "Missing Required Input", "Reference Library is required."
+            )
+            return
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "wgsextract_cli.main",
+            "pet-analysis",
+            "--r1",
+            extra_args["r1"],
+            "--species",
+            extra_args["pet_type"].lower(),
+            "--format",
+            extra_args["format"],
+            "--ref",
+            ref_lib,
+        ]
+        if extra_args.get("r2"):
+            cmd.extend(["--r2", extra_args["r2"]])
+        if out_dir:
+            cmd.extend(["--outdir", out_dir])
+
+        self.run_cmd(cmd, cmd_key="pet-analysis", frame=frame)
 
     def run_dispatch(self, cmd: str, frame: Any) -> None:
         """

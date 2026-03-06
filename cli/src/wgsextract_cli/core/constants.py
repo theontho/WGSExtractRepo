@@ -105,11 +105,31 @@ REFERENCE_MODELS = {
         "rCRS",
         "GCA_000001405.15_GRCh38_no_alt_plus_hs38d1_analysis_set.fna.gz",
     ],
+    "905953051416e9c20e2e5055b40d165f": [
+        "Dog_UU_GSD",
+        "MT",
+        "GCF_011100685.1_UU_Cfam_GSD_1.0_genomic.fna.gz",
+    ],
+    "0c9873d63321ec89b0235339f40d265a": [
+        "Cat_Fca126",
+        "MT",
+        "GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
+    ],
 }
 
 # New approach: Use SN count from BAM header to identify likely reference
 REFGEN_BY_SNCOUNT = {
     25: [True, "hg19_WGSEv2.fa.gz", "chrM"],
+    40: [
+        True,
+        "GCF_011100685.1_UU_Cfam_GSD_1.0_genomic.fna.gz",
+        "MT",
+    ],  # Dog (38 auto + X + MT)
+    62: [
+        True,
+        "GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
+        "MT",
+    ],  # Cat (Fca126)
     84: [True, "human_g1k_v37.fasta.gz", "MT"],
     85: [False, "GCA_000001405.14_GRCh37.p13_no_alt_analysis_set.fna.gz", "chrM"],
     86: [True, "hs37d5.fa.gz", "MT"],
@@ -168,6 +188,8 @@ REF_GENOME_FILENAMES = {
     "T2Tv11": "chm13.draft_v1.1.fasta.gz",
     "T2Tv10": "chm13.draft_v1.0.fasta.gz",
     "T2Tv09": "chm13.draft_v0.9.fasta.gz",
+    "Dog_UU_GSD": "GCF_011100685.1_UU_Cfam_GSD_1.0_genomic.fna.gz",
+    "Cat_Fca126": "GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
 }
 
 N_ADJUST = {
@@ -331,6 +353,30 @@ N_ADJUST = {
         "22": 11658691,
         "X": 1147765,
         "Y": 30812232,
+        "M": 0,
+    },
+    "Dog": {str(i): 0 for i in range(1, 39)} | {"X": 0, "M": 0},
+    "Cat": {
+        "A1": 0,
+        "A2": 0,
+        "A3": 0,
+        "B1": 0,
+        "B2": 0,
+        "B3": 0,
+        "B4": 0,
+        "C1": 0,
+        "C2": 0,
+        "D1": 0,
+        "D2": 0,
+        "D3": 0,
+        "D4": 0,
+        "E1": 0,
+        "E2": 0,
+        "E3": 0,
+        "F1": 0,
+        "F2": 0,
+        "X": 0,
+        "Y": 0,
         "M": 0,
     },
 }

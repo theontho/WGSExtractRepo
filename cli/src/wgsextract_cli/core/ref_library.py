@@ -134,6 +134,27 @@ def get_available_genomes():
     if os.path.exists(csv_path):
         _GENOME_DATA_CACHE = load_genomes_from_csv(csv_path)
 
+    pet_genomes = [
+        {
+            "code": "UU_Cfam_GSD_1.0",
+            "source": "NCBI",
+            "final": "GCF_011100685.1_UU_Cfam_GSD_1.0_genomic.fna.gz",
+            "url": "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/vertebrate_mammalian/Canis_lupus_familiaris/latest_assembly_versions/GCF_011100685.1_UU_Cfam_GSD_1.0/GCF_011100685.1_UU_Cfam_GSD_1.0_genomic.fna.gz",
+            "label": "Dog (Canis lupus familiaris) UU_Cfam_GSD_1.0 (NCBI)",
+            "description": "Dog reference genome (Canis lupus familiaris; @NCBI UU_Cfam_GSD_1.0)",
+            "md5": "a6f017498a4fa2ec9efa0a4f12ccb42c",
+        },
+        {
+            "code": "Fca126_mat1.0",
+            "source": "NCBI",
+            "final": "GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
+            "url": "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/vertebrate_mammalian/Felis_catus/latest_assembly_versions/GCF_018350175.1_F.catus_Fca126_mat1.0/GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
+            "label": "Cat (Felis catus) Fca126_mat1.0 (NCBI)",
+            "description": "Cat reference genome (Felis catus; @NCBI Fca126_mat1.0)",
+            "md5": "d271b9b06c5270d2d662534df8a4fcd9",
+        },
+    ]
+
     if not _GENOME_DATA_CACHE:
         _GENOME_DATA_CACHE = [
             {
@@ -155,6 +176,12 @@ def get_available_genomes():
                 "md5": "5a23f5a85bd78221010561466907bf7d",
             },
         ]
+
+    # Append pet genomes if not already present
+    for pg in pet_genomes:
+        if not any(g["code"] == pg["code"] for g in _GENOME_DATA_CACHE):
+            _GENOME_DATA_CACHE.append(pg)
+
     return _GENOME_DATA_CACHE
 
 
@@ -276,6 +303,7 @@ def download_and_process_genome(
     progress_callback: Callable | None = None,
     cancel_event: Any | None = None,
     restart: bool = False,
+    status_callback: Callable[[str], None] | None = None,
 ):
     verify_dependencies(["samtools", "bgzip", "gzip"])
     target_dir = os.path.join(reflib_dir, "genomes")
@@ -292,7 +320,7 @@ def download_and_process_genome(
     status = get_genome_status(genome_data["final"], reflib_dir)
     if status == "installed":
         if not interactive:
-            return process_reference_file(final_path)
+            return process_reference_file(final_path, status_callback, cancel_event)
         print(f"\n{genome_data['final']} is already installed.")
         choice = input("Re-download anyway? [y/N]: ").strip().lower()
         if choice != "y":
@@ -316,19 +344,65 @@ def download_and_process_genome(
     if not success:
         return False
 
-    return process_reference_file(final_path)
+    return process_reference_file(final_path, status_callback, cancel_event)
 
 
-def process_reference_file(fasta_path: str):
+def wait_with_cancel(
+    process: subprocess.Popen, cancel_event: Any | None = None
+) -> bool:
+    """Waits for a process while checking for a cancel event."""
+    while process.poll() is None:
+        if cancel_event and cancel_event.is_set():
+            logging.info(f"Terminating process {process.pid} due to cancellation.")
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            return False
+        time.sleep(0.1)
+    return process.returncode == 0
+
+
+def process_reference_file(
+    fasta_path: str,
+    status_callback: Callable[[str], None] | None = None,
+    cancel_event: Any | None = None,
+):
     logging.info(f"Processing reference: {fasta_path}")
-    bgzf_path = ensure_bgzf(fasta_path)
+
+    bgzf_path = ensure_bgzf(fasta_path, status_callback, cancel_event)
     if not bgzf_path:
         return False
+
+    if cancel_event and cancel_event.is_set():
+        return False
+
     base_name = re.sub(r"\.(fasta|fna|fa)\.gz$", "", bgzf_path)
     dict_path = base_name + ".dict"
     try:
-        run_command(["samtools", "dict", bgzf_path, "-o", dict_path])
-        run_command(["samtools", "faidx", bgzf_path])
+        logging.info("Generating sequence dictionary...")
+        if status_callback:
+            status_callback("Processing: Generating Dictionary...")
+        p_dict = subprocess.Popen(
+            ["samtools", "dict", bgzf_path, "-o", dict_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if not wait_with_cancel(p_dict, cancel_event):
+            return False
+
+        logging.info("Indexing FASTA...")
+        if status_callback:
+            status_callback("Processing: Indexing FASTA...")
+        p_faidx = subprocess.Popen(
+            ["samtools", "faidx", bgzf_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if not wait_with_cancel(p_faidx, cancel_event):
+            return False
+
     except Exception as e:
         logging.error(f"Indexing failed: {e}")
         return False
@@ -340,16 +414,28 @@ def process_reference_file(fasta_path: str):
     return True
 
 
-def ensure_bgzf(path: str) -> str | None:
+def ensure_bgzf(
+    path: str,
+    status_callback: Callable[[str], None] | None = None,
+    cancel_event: Any | None = None,
+) -> str | None:
     try:
         res = run_command(
             ["samtools", "view", "-H", path], capture_output=True, check=False
         )
         if "BGZF" in res.stdout or "BGZF" in res.stderr:
+            logging.info(f"{path} is already in BGZF format.")
             return path
     except Exception:
         pass
-    logging.info(f"Recompressing {path} to BGZF format...")
+
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    logging.info(f"Recompressing {path} to BGZF format (required for fast access)...")
+    if status_callback:
+        status_callback("Processing: Recompressing (BGZF)...")
+
     tmp_path = path + ".tmp.gz"
     try:
         if path.endswith(".gz"):
@@ -358,18 +444,32 @@ def ensure_bgzf(path: str) -> str | None:
                 p2 = subprocess.Popen(["bgzip", "-c"], stdin=p1.stdout, stdout=f_out)
                 if p1.stdout:
                     p1.stdout.close()
-                p2.communicate()
+
+                if not wait_with_cancel(p2, cancel_event):
+                    p1.terminate()
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                    return None
+
             os.remove(path)
             os.rename(tmp_path, path)
+            logging.info(f"Recompression of {path} complete.")
             return path
         else:
             with open(tmp_path, "wb") as f_out:
-                subprocess.run(["bgzip", "-c", path], stdout=f_out, check=True)
+                p_bgzip = subprocess.Popen(["bgzip", "-c", path], stdout=f_out)
+                if not wait_with_cancel(p_bgzip, cancel_event):
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                    return None
+
             os.remove(path)
             new_path = path + ".gz" if not path.endswith(".gz") else path
             os.rename(tmp_path, new_path)
+            logging.info(f"Recompression to {new_path} complete.")
             return new_path
-    except Exception:
+    except Exception as e:
+        logging.error(f"Recompression failed: {e}")
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
         return None

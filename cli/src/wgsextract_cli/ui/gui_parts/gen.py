@@ -23,12 +23,7 @@ class GenericFrame(ScrollableBaseFrame):
 
         # Shared Reference Field
         if key in ["gen", "vcf", "fastq"]:
-            self.ref_entry = self.create_dir_selector(
-                self,
-                "Reference:",
-                variable=self.main_app.ref_path_var,
-                info_text="Path to the directory containing your reference genomes (FASTA files).",
-            )
+            self.create_ref_selector(self, meta)
 
         # Shared Output Directory Field
         if key in ["gen", "vcf", "fastq"]:
@@ -326,6 +321,15 @@ class GenericFrame(ScrollableBaseFrame):
             self.main_app.out_dir_var.trace_add(
                 "write", lambda *args: self.on_input_change(self.bam_entry.get())
             )
+
+    def create_ref_selector(self, p: ctk.CTkFrame, meta: dict[str, Any]) -> None:
+        """Create the reference directory selector."""
+        self.ref_entry = self.create_dir_selector(
+            p,
+            "Reference:",
+            variable=self.main_app.ref_path_var,
+            info_text="Path to the directory containing your reference genomes (FASTA files).",
+        )
 
     def _create_section(
         self, title: str | None, commands: list[dict[str, Any]], cols: int = 3

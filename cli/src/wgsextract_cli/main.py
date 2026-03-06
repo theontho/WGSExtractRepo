@@ -13,6 +13,7 @@ from .commands import (
     info,
     lineage,
     microarray,
+    pet,
     qc,
     ref,
     repair,
@@ -102,6 +103,7 @@ def main():
         qc,
         ref,
         align,
+        pet,
         vep,
     ]:
         cmd_module.register(subparsers, base_parser)

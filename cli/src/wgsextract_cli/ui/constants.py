@@ -199,6 +199,17 @@ UI_METADATA: dict[str, dict[str, Any]] = {
             {"label": "FastP", "cmd": "fastp", "help": UI_TOOLTIPS["fastp"]},
         ],
     },
+    "pet": {
+        "title": "Pet Analysis",
+        "help": "Analyze DNA data for your pets. Align raw FASTQ reads against a dog or cat reference genome and generate variant calls (VCF). This uses standard bioinformatics tools optimized for non-human species.",
+        "commands": [
+            {
+                "label": "Run Pet Analysis",
+                "cmd": "pet-analysis",
+                "help": UI_TOOLTIPS["pet-analysis"],
+            },
+        ],
+    },
     "lib": {
         "title": "Library",
         "help": "Manage your reference data library. Download and verify standardized reference genomes (FASTA), gene maps for annotation, and VEP caches required for advanced variant effect prediction.",

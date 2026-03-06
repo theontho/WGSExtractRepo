@@ -40,6 +40,7 @@ HELP_TEXTS = {
     "vep-download": "Download the VEP cache (standard GRCh37/38) to your local machine for faster, offline annotation. (Time: 1-3 hours, Space: 20 GB)",
     "vep-verify": "Check your existing VEP cache for missing files or corruption. (Time: 5-10 mins)",
     "microarray": "Simulate a consumer microarray (like 23andMe or AncestryDNA) from your WGS data. (Time: 10-30 mins)",
+    "pet-analysis": "Align raw FASTQ reads against a cat or dog reference genome and call variants to produce a VCF file. (Time: 2-8 hours)",
     "lineage-y": "Predict your paternal haplogroup using the Yleaf tool. Requires a BAM with Y-chromosome reads. (Time: 5-15 mins)",
     "lineage-mt": "Predict your maternal haplogroup using Haplogrep. Requires a BAM with mitochondrial reads. (Time: 1-5 mins)",
     "fastqc": "The industry-standard quality check for raw reads. Produces a visual report of base quality, GC content, and adapter contamination. (Time: 30-60 mins)",
