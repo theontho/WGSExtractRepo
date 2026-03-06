@@ -92,6 +92,10 @@ class WGSExtractGUI(ctk.CTk):
         self.out_dir_var = ctk.StringVar(value=os.environ.get("WGSE_OUTDIR", ""))
         self.vep_cache_var = ctk.StringVar()
         self.vcf_exclude_gaps_var = ctk.BooleanVar(value=False)
+        self.yleaf_path_var = ctk.StringVar(value=os.environ.get("WGSE_YLEAF_PATH", ""))
+        self.haplogrep_path_var = ctk.StringVar(
+            value=os.environ.get("WGSE_HAPLOGREP_PATH", "")
+        )
 
         cli_root = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..", "..")

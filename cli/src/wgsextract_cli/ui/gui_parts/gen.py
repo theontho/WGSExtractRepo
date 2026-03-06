@@ -152,6 +152,7 @@ class GenericFrame(ScrollableBaseFrame):
             self.yleaf_path = self.create_file_selector(
                 self,
                 GUI_LABELS["yleaf_path"],
+                variable=self.main_app.yleaf_path_var,
                 info_text="Path to the Yleaf executable for Y-haplogroup prediction.",
             )
             self.yleaf_pos = self.create_file_selector(
@@ -168,6 +169,7 @@ class GenericFrame(ScrollableBaseFrame):
             self.haplogrep_path = self.create_file_selector(
                 self,
                 GUI_LABELS["haplogrep_path"],
+                variable=self.main_app.haplogrep_path_var,
                 button_text=mt_cmd["label"],
                 command=lambda: self.handle_button_click("lineage-mt"),
                 info_text="Path to the Haplogrep jar or executable for mitochondrial lineage.",
