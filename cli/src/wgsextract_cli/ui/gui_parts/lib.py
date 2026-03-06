@@ -256,14 +256,22 @@ class LibFrame(BaseFrame):
         ctk.CTkLabel(dc, textvariable=di["status_var"], font=ctk.CTkFont(size=10)).pack(
             side="left", padx=5
         )
-        ctk.CTkButton(
+        cbtn = ctk.CTkButton(
             dc,
-            text="Cancel",
-            width=60,
-            fg_color="#666666",
-            hover_color="#888888",
+            text="Cancel |",
+            width=80,
+            fg_color=("#cfd8dc", "#455a64"),
+            hover_color=("#b0bec5", "#37474f"),
+            text_color=("#000000", "#ffffff"),
             command=lambda f=fn: self.main_app.cancel_lib_download(f),
-        ).pack(side="left", padx=5)
+        )
+        cbtn.pack(side="left", padx=5)
+
+        # Register for spinner
+        cmd_key = f"cancel-dl-{fn}"
+        self.cmd_buttons[cmd_key] = cbtn
+        self.running_spinners[cmd_key] = True
+        self._animate_spinner(cmd_key)
 
     def _add_installed_controls(self, row: ctk.CTkFrame, group: dict[str, Any]) -> None:
         from wgsextract_cli.core.ref_library import has_ref_ns
@@ -449,9 +457,23 @@ class LibFrame(BaseFrame):
             self.vep_stat_lbl.pack(side="left", padx=5)
             self.vep_cancel_btn.pack(side="left", padx=5)
 
+            # Start spinner on VEP cancel button
+            cmd_key = "vep-cancel"
+            self.cmd_buttons[cmd_key] = self.vep_cancel_btn
+            self.vep_cancel_btn.configure(
+                text="Cancel |",
+                fg_color=("#cfd8dc", "#455a64"),
+                hover_color=("#b0bec5", "#37474f"),
+                text_color=("#000000", "#ffffff"),
+            )
+            self.running_spinners[cmd_key] = True
+            self._animate_spinner(cmd_key)
+
     def hide_vep_progress(self) -> None:
         """Hide the VEP progress UI elements."""
         if self.winfo_exists():
+            if "vep-cancel" in self.running_spinners:
+                del self.running_spinners["vep-cancel"]
             self.vep_prog_frame.pack_forget()
             self.vep_pbar.pack_forget()
             self.vep_stat_lbl.pack_forget()
@@ -464,14 +486,18 @@ class LibFrame(BaseFrame):
 
         btn = self.cmd_buttons[cmd_key]
         if state == "running":
+            self.running_spinners[cmd_key] = True
             btn.configure(
-                text="Cancel",
+                text="Cancel |",
                 fg_color=("#cfd8dc", "#455a64"),
                 hover_color=("#b0bec5", "#37474f"),
                 text_color=("#000000", "#ffffff"),
                 command=lambda: self.main_app.controller.cancel_cmd(cmd_key),
             )
+            self._animate_spinner(cmd_key)
         else:
+            if cmd_key in self.running_spinners:
+                del self.running_spinners[cmd_key]
             # Restore original label and color
             label = ""
             if cmd_key.startswith("verify-"):

@@ -77,8 +77,21 @@ class BaseFrame(ctk.CTkScrollableFrame):
         self.key = key
         self.meta = meta
         self.cmd_buttons: dict[str, ctk.CTkButton] = {}
+        self.running_spinners: dict[str, bool] = {}
         self.info_frame: ctk.CTkFrame | None = None
         self.setup_ui()
+
+    def _animate_spinner(self, cmd_key: str, step: int = 0) -> None:
+        """Animate a text-based spinner on a button."""
+        if cmd_key not in self.running_spinners or not self.winfo_exists():
+            return
+
+        chars = ["|", "/", "-", "\\"]
+        char = chars[step % len(chars)]
+        btn = self.cmd_buttons.get(cmd_key)
+        if btn and btn.winfo_exists():
+            btn.configure(text=f"Cancel {char}")
+            self.after(200, lambda: self._animate_spinner(cmd_key, step + 1))
 
     def setup_ui(self) -> None:
         """Set up the basic UI elements for the frame."""
@@ -96,13 +109,17 @@ class BaseFrame(ctk.CTkScrollableFrame):
 
         btn = self.cmd_buttons[cmd_key]
         if state == "running":
+            self.running_spinners[cmd_key] = True
             btn.configure(
-                text="Cancel",
+                text="Cancel |",
                 fg_color=("#cfd8dc", "#455a64"),
                 hover_color=("#b0bec5", "#37474f"),
                 text_color=("#000000", "#ffffff"),
             )
+            self._animate_spinner(cmd_key)
         else:
+            if cmd_key in self.running_spinners:
+                del self.running_spinners[cmd_key]
             # Restore original label and color from meta
             # Handle split commands for 'gen' key
             all_cmds = []
