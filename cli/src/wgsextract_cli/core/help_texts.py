@@ -61,3 +61,27 @@ UI_TOOLTIPS.update(
         "ref-library": "Opens the interactive reference manager. Note: This will run in your terminal window.",
     }
 )
+
+ABOUT_PET_SEQUENCING = """
+ABOUT PET SEQUENCING
+
+Pet sequencing allows you to explore the genetic makeup of your dogs and cats. While the process is similar to human sequencing, there are key differences in genomic structure, population genetics, and how you obtain the data.
+
+1. CHROMOSOME STRUCTURE:
+   - DOGS (Canis lupus familiaris): The dog genome (UU_Cfam_GSD_1.0) consists of 38 pairs of autosomes (numbered 1-38) plus the X and Y sex chromosomes.
+   - CATS (Felis catus): The cat genome (Fca126_mat1.0) is organized differently, with 18 pairs of autosomes plus X and Y. Cat chromosomes are named by groups: A1-A3, B1-B4, C1-C2, D1-D4, E1-E3, and F1-F2.
+
+2. POPULATION GENETICS:
+   - DOGS: Have a very high degree of genetic "structure" due to centuries of selective breeding. This created many distinct, isolated populations (breeds) with unique genetic signatures and varying risks for inherited diseases.
+   - CATS: Generally exhibit much less genetic structure. Most cats belong to a single, large, globally distributed population (random-bred cats). Purebred cats exist but represent a smaller fraction of the overall population, meaning most cats share a more homogeneous genetic background compared to the diverse "islands" of dog breeds.
+
+3. OBTAINING DATA (FASTQ/FASTA):
+   - Pet-Specific Services: Companies like Basepaws (cats) and Embark or Wisdom Panel (dogs) provide consumer kits. You can often request your "Raw Data" (FASTQ files) from their support teams.
+   - Human WGS Services (The "Bio-Hack"): Because human sequencing is a much larger industry, Whole Genome Sequencing (WGS) for humans is often cheaper than pet-specific WGS. Some advanced users use human WGS services (like Nebula Genomics or Dante Labs) by submitting their pet's cheek swab as if it were a human sample.
+   - CAVEAT: Most human services do not officially support non-human samples. The laboratory's Quality Control (QC) systems might flag the sample as "contaminated" or "failed" if they detect non-human DNA, potentially leading to a rejected sample without a refund. Furthermore, human-centric bioinformatics pipelines provided by these services will fail to analyze the data; you will only be able to use the raw FASTQ files with external tools like this one.
+
+4. ANALYSIS GOALS:
+   - Breed/Ancestry Identification: Discovering the ancestral mix of your pet.
+   - Health Screening: Identifying known genetic variants associated with specific conditions (e.g., HCM in cats or DM in dogs).
+   - Trait Discovery: Understanding the genetics behind coat color, patterns, and physical characteristics.
+"""

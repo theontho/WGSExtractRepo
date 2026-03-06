@@ -2,6 +2,9 @@
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.help_texts import ABOUT_PET_SEQUENCING
+from wgsextract_cli.ui.constants import BUTTON_FONT
+
 from .common import ScrollableBaseFrame, ToolTip
 
 
@@ -14,6 +17,22 @@ class PetFrame(ScrollableBaseFrame):
         """Set up the UI elements for the pet analysis frame."""
         super().setup_ui()
         meta = self.meta
+
+        # About Pet Sequencing Button
+        f = ctk.CTkFrame(self, fg_color="transparent")
+        f.pack(fill="x", padx=20, pady=5)
+        btn = ctk.CTkButton(
+            f,
+            text="About Pet Sequencing",
+            command=self.show_about_pets,
+            font=BUTTON_FONT,
+            fg_color="#2c3e50",
+            hover_color="#34495e",
+        )
+        btn.pack(side="left", padx=10)
+        ToolTip(
+            btn, "Click to learn more about dog and cat sequencing and how to get data."
+        )
 
         # Pet Type Selection
         self.pet_type_var = ctk.StringVar(value="Dog")
@@ -83,3 +102,7 @@ class PetFrame(ScrollableBaseFrame):
             self.main_app.controller.run_pet_analysis(self, extra_args)
         else:
             super().handle_button_click(cmd_key)
+
+    def show_about_pets(self) -> None:
+        """Show information about pet sequencing."""
+        self.main_app.show_info_window("About Pet Sequencing", ABOUT_PET_SEQUENCING)
