@@ -164,16 +164,29 @@ class GUIController:
 
             self.main_app.log(f"Running: {' '.join(cmd)}")
             try:
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    env=env,
-                )
+                # Use process groups so we can kill children safely
+                popen_kwargs: dict[str, Any] = {
+                    "stdout": subprocess.PIPE,
+                    "stderr": subprocess.STDOUT,
+                    "text": True,
+                    "env": env,
+                }
+                if sys.platform == "win32":
+                    popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                else:
+                    popen_kwargs["preexec_fn"] = os.setpgrp
+
+                process = subprocess.Popen(cmd, **popen_kwargs)
                 self.active_processes["info"] = process
 
                 output, _ = process.communicate()
+
+                if process.returncode != 0:
+                    # Cancelled or failed, don't open a blank window
+                    self.main_app.log(
+                        f"Info process finished (Exit {process.returncode})."
+                    )
+                    return
 
                 # Filter out "Analyzing..." line
                 lines = [
