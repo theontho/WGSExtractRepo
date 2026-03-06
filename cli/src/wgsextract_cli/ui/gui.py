@@ -18,6 +18,7 @@ from wgsextract_cli.ui.gui_parts.gen import GenericFrame
 from wgsextract_cli.ui.gui_parts.lib import LibFrame
 from wgsextract_cli.ui.gui_parts.micro import MicroFrame
 from wgsextract_cli.ui.gui_parts.pet import PetFrame
+from wgsextract_cli.ui.gui_parts.settings import SettingsFrame
 
 
 class InfoWindow(ctk.CTkToplevel):
@@ -91,6 +92,11 @@ class WGSExtractGUI(ctk.CTk):
         self.out_dir_var = ctk.StringVar(value=os.environ.get("WGSE_OUTDIR", ""))
         self.vep_cache_var = ctk.StringVar()
         self.vcf_exclude_gaps_var = ctk.BooleanVar(value=False)
+
+        cli_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
+        self.env_local_var = ctk.StringVar(value=os.path.join(cli_root, ".env.local"))
 
         # Handle initial VCF value if WGSE_INPUT looks like VCF
         init_input = os.environ.get("WGSE_INPUT", "")
@@ -188,13 +194,21 @@ class WGSExtractGUI(ctk.CTk):
             font=ctk.CTkFont(size=20, weight="bold"),
         ).grid(row=1, column=0, padx=20, pady=(10, 20))
 
-        for i, (key, meta) in enumerate(UI_METADATA.items()):
+        row_idx = 2
+        for key, meta in UI_METADATA.items():
+            if key == "settings":
+                self.sidebar_frame.grid_rowconfigure(row_idx, weight=1)
+                spacer = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+                spacer.grid(row=row_idx, column=0, sticky="nsew")
+                row_idx += 1
+
             ctk.CTkButton(
                 self.sidebar_frame,
                 text=meta["title"],
                 command=lambda k=key: self.show_frame(k),
                 font=BUTTON_FONT,
-            ).grid(row=i + 2, column=0, padx=20, pady=10)
+            ).grid(row=row_idx, column=0, padx=20, pady=10)
+            row_idx += 1
 
     def _setup_main_content(self) -> None:
         """Set up the main content area where tab frames are displayed."""
@@ -222,6 +236,8 @@ class WGSExtractGUI(ctk.CTk):
                 frame = PetFrame(self.main_content, self, key, meta)
             elif key == "flow":
                 frame = FlowFrame(self.main_content, self, key, meta)
+            elif key == "settings":
+                frame = SettingsFrame(self.main_content, self, key, meta)
             else:
                 frame = GenericFrame(self.main_content, self, key, meta)
             self.frames[key] = frame

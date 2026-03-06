@@ -273,4 +273,8 @@ UI_METADATA: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "settings": {
+        "title": "Settings",
+        "help": "Configure application paths and settings cache.",
+    },
 }
