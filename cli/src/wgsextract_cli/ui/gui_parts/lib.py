@@ -62,19 +62,39 @@ class LibFrame(BaseFrame):
             info_text="Main directory where reference genomes are stored.",
         )
 
+        from wgsextract_cli.core.gene_map import are_gene_maps_installed
+
+        reflib = self.main_app.ref_path_var.get()
+        is_gene_map_installed = are_gene_maps_installed(reflib)
+
         gf = ctk.CTkFrame(self, fg_color="transparent")
         gf.pack(fill="x", padx=20)
         for i, cm in enumerate(commands):
+            label = cm["label"]
+            cmd = cm["cmd"]
+            fg_color = None
+            hover_color = None
+
+            if cmd == "ref-gene-map":
+                if is_gene_map_installed:
+                    label = "Delete Gene Map"
+                    fg_color = "#AA3333"
+                    hover_color = "#CC4444"
+                else:
+                    label = "Download Gene Map"
+
             r, c = divmod(i, 3)
             gf.grid_columnconfigure(c, weight=1)
             btn = ctk.CTkButton(
                 gf,
-                text=cm["label"],
-                command=lambda cc=cm["cmd"]: self.main_app.run_dispatch(cc, self),
+                text=label,
+                fg_color=fg_color,
+                hover_color=hover_color,
+                command=lambda cc=cmd: self.handle_button_click(cc),
             )
             btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])
-            self.cmd_buttons[cm["cmd"]] = btn
+            self.cmd_buttons[cmd] = btn
 
     def _setup_vep_mgmt_section(self, vep_commands: list[dict[str, Any]]) -> None:
         """Set up the VEP cache management controls and progress bars."""
@@ -120,7 +140,7 @@ class LibFrame(BaseFrame):
             btn = ctk.CTkButton(
                 vep_btn_f,
                 text=cm["label"],
-                command=lambda cc=cm["cmd"]: self.main_app.run_dispatch(cc, self),
+                command=lambda cc=cm["cmd"]: self.handle_button_click(cc),
             )
             btn.grid(row=0, column=i, padx=5, pady=5, sticky="ew")
             ToolTip(btn, cm["help"])

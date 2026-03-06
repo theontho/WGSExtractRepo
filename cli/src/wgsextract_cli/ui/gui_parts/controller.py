@@ -9,6 +9,12 @@ from typing import Any
 
 import customtkinter as ctk
 
+from wgsextract_cli.core.gene_map import (
+    are_gene_maps_installed,
+    delete_gene_maps,
+    download_gene_maps,
+)
+
 
 class GUIController:
     """Handles the execution of background commands and logic for the GUI."""
@@ -620,6 +626,66 @@ class GUIController:
             self.main_app.log("Cancelling VEP download...")
             self.main_app.vep_cancel_event.set()
 
+    def cancel_gene_map_download(self) -> None:
+        """Cancel the active gene map download."""
+        if self.main_app.gene_map_cancel_event:
+            self.main_app.log("Cancelling Gene Map download...")
+            self.main_app.gene_map_cancel_event.set()
+
+    def run_gene_map_op(self, frame: Any) -> None:
+        """Downloads or deletes the Gene Map database based on current status."""
+        reflib = self.main_app.ref_path_var.get()
+        if not reflib:
+            self.main_app.show_error(
+                "Missing Required Input", "Reference Library path is required."
+            )
+            return
+
+        if are_gene_maps_installed(reflib):
+            self.main_app.log(f"Deleting Gene Maps from {reflib}...")
+            if delete_gene_maps(reflib):
+                self.main_app.log("Successfully deleted Gene Maps.")
+            else:
+                self.main_app.log("Failed to delete Gene Maps.")
+            if frame and frame.winfo_exists():
+                frame.setup_ui()
+        else:
+            self.main_app.log(f"Downloading Gene Maps to {reflib}...")
+            if frame and frame.winfo_exists():
+                frame.set_button_state("ref-gene-map", "running")
+
+            self.main_app.gene_map_cancel_event = threading.Event()
+
+            def run():
+                try:
+                    success = download_gene_maps(
+                        reflib, cancel_event=self.main_app.gene_map_cancel_event
+                    )
+                    if self.main_app.winfo_exists():
+                        if success:
+                            self.main_app.after(
+                                0,
+                                lambda: self.main_app.log(
+                                    "Successfully downloaded Gene Maps."
+                                ),
+                            )
+                        else:
+                            self.main_app.after(
+                                0,
+                                lambda: self.main_app.log(
+                                    "Gene Map download cancelled or failed."
+                                ),
+                            )
+                finally:
+                    self.main_app.gene_map_cancel_event = None
+                    if frame and frame.winfo_exists():
+                        frame.after(
+                            0, lambda: frame.set_button_state("ref-gene-map", "normal")
+                        )
+                        frame.after(0, frame.setup_ui)
+
+            threading.Thread(target=run, daemon=True).start()
+
     def run_dispatch(self, cmd: str, frame: Any) -> None:
         """
         Maps UI button commands to actual CLI operations.
@@ -660,6 +726,10 @@ class GUIController:
 
         if cmd == "vep-download":
             self.run_vep_download(frame)
+            return
+
+        if cmd == "ref-gene-map":
+            self.run_gene_map_op(frame)
             return
 
         if cmd == "info":

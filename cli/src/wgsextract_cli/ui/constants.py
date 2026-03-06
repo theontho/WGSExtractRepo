@@ -179,9 +179,9 @@ UI_METADATA = {
         "help": "Reference data and VEP management",
         "commands": [
             {
-                "label": "Download Genes",
-                "cmd": "ref-download-genes",
-                "help": UI_TOOLTIPS["ref-download-genes"],
+                "label": "Gene Map",
+                "cmd": "ref-gene-map",
+                "help": UI_TOOLTIPS["ref-gene-map"],
             },
         ],
         "vep_commands": [

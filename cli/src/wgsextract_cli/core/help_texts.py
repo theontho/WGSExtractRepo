@@ -45,7 +45,7 @@ HELP_TEXTS = {
     "ref-download": "Download curated, standard-compliant reference genomes (hg19, hg38, T2T) optimized for use with this tool. (Time: 10-30 mins, Space: 3-5 GB)",
     "ref-verify": "Ensure your reference genome file isn't corrupted and has all the necessary companion files (indexes, dicts). (Time: 1-5 mins)",
     "ref-count-ns": "Calculate the percentage of 'N' (unknown) bases in a genome. Useful for understanding the 'mappability' of different reference builds. (Time: 5-10 mins)",
-    "ref-download-genes": "Download lightweight gene-to-coordinate mapping files, enabling you to filter VCFs by gene name (e.g. BRCA1). (Time: <1 min)",
+    "ref-gene-map": "Download or delete lightweight gene-to-coordinate mapping files (hg19/hg38), enabling you to filter VCFs by gene name (e.g. BRCA1). (Time: <1 min)",
     "ref-library": "Opens the interactive reference manager to help you organize and download genomic data.",
 }
 

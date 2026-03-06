@@ -74,6 +74,7 @@ class WGSExtractGUI(ctk.CTk):
         # State management
         self.active_downloads: dict[str, Any] = {}
         self.vep_cancel_event: threading.Event | None = None
+        self.gene_map_cancel_event: threading.Event | None = None
         self.controller = GUIController(self)
 
         # Shared variables for synchronization across tabs
@@ -307,6 +308,10 @@ class WGSExtractGUI(ctk.CTk):
     def cancel_vep_download(self) -> None:
         """Delegate VEP download cancellation to the controller."""
         self.controller.cancel_vep_download()
+
+    def cancel_gene_map_download(self) -> None:
+        """Delegate gene map download cancellation to the controller."""
+        self.controller.cancel_gene_map_download()
 
     def show_info_window(self, title: str, text: str) -> None:
         """Open a separate window to show detailed info."""

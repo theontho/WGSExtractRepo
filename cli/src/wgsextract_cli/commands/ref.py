@@ -58,10 +58,13 @@ def register(subparsers, base_parser):
     )
     lib_parser.set_defaults(func=cmd_library)
 
-    dlgenes_parser = ref_subs.add_parser(
-        "download-genes", parents=[base_parser], help=HELP_TEXTS["ref-download-genes"]
+    genemap_parser = ref_subs.add_parser(
+        "gene-map", parents=[base_parser], help=HELP_TEXTS["ref-gene-map"]
     )
-    dlgenes_parser.set_defaults(func=cmd_download_genes)
+    genemap_parser.add_argument(
+        "--delete", action="store_true", help="Delete gene maps instead of downloading"
+    )
+    genemap_parser.set_defaults(func=cmd_gene_map)
 
 
 def cmd_identify(args):
@@ -230,7 +233,7 @@ def cmd_library(args):
     print("=" * 80)
     print("Select an option:")
     print(" 0) Exit")
-    print(" G) Download Gene Mapping Database (hg19/hg38)")
+    print(" G) Gene Map (hg19/hg38)")
 
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
@@ -250,9 +253,21 @@ def cmd_library(args):
             return
 
         if choice == "G":
-            from wgsextract_cli.core.gene_map import download_gene_maps
+            from wgsextract_cli.core.gene_map import (
+                are_gene_maps_installed,
+                delete_gene_maps,
+                download_gene_maps,
+            )
 
-            download_gene_maps(reflib_dir)
+            if are_gene_maps_installed(reflib_dir):
+                confirm = input("Gene maps already installed. Delete? (y/n): ").lower()
+                if confirm == "y":
+                    if delete_gene_maps(reflib_dir):
+                        print("Gene maps deleted.")
+                    else:
+                        print("Deletion failed.")
+            else:
+                download_gene_maps(reflib_dir)
             return
 
         idx = int(choice) - 1
@@ -267,12 +282,19 @@ def cmd_library(args):
         print("\nExiting library manager.")
 
 
-def cmd_download_genes(args):
-    from wgsextract_cli.core.gene_map import download_gene_maps
+def cmd_gene_map(args):
+    from wgsextract_cli.core.gene_map import delete_gene_maps, download_gene_maps
 
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
-    if download_gene_maps(reflib):
-        print(f"Gene maps installed to {reflib}/ref")
+
+    if getattr(args, "delete", False):
+        if delete_gene_maps(reflib):
+            print(f"Gene maps deleted from {reflib}/ref")
+        else:
+            print("Failed to delete gene maps.")
     else:
-        print("Failed to download gene maps.")
+        if download_gene_maps(reflib):
+            print(f"Gene maps installed to {reflib}/ref")
+        else:
+            print("Failed to download gene maps.")

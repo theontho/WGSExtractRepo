@@ -67,27 +67,69 @@ class GeneMap:
         return self.maps[build_key].get(gene_symbol.upper())
 
 
-def download_gene_maps(reflib_dir):
+def are_gene_maps_installed(reflib_dir: str) -> bool:
+    """Checks if gene mapping files for both hg19 and hg38 are installed."""
+    if not reflib_dir:
+        return False
+    target_dir = os.path.join(reflib_dir, "ref")
+    for build in GENE_MAP_URLS.keys():
+        tsv_path = os.path.join(target_dir, f"genes_{build}.tsv")
+        if not os.path.exists(tsv_path):
+            return False
+    return True
+
+
+def delete_gene_maps(reflib_dir: str) -> bool:
+    """Deletes gene mapping files from the reference library."""
+    if not reflib_dir:
+        return False
+    target_dir = os.path.join(reflib_dir, "ref")
+    success = True
+    for build in GENE_MAP_URLS.keys():
+        tsv_path = os.path.join(target_dir, f"genes_{build}.tsv")
+        if os.path.exists(tsv_path):
+            try:
+                os.remove(tsv_path)
+            except Exception as e:
+                logging.error(f"Failed to delete {tsv_path}: {e}")
+                success = False
+    return success
+
+
+def download_gene_maps(reflib_dir, cancel_event=None):
     """Downloads and processes official UCSC RefGene maps."""
     target_dir = os.path.join(reflib_dir, "ref")
     os.makedirs(target_dir, exist_ok=True)
 
     success = True
     for build, url in GENE_MAP_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
         gz_path = os.path.join(target_dir, f"refGene_{build}.txt.gz")
         tsv_path = os.path.join(target_dir, f"genes_{build}.tsv")
 
         logging.info(f"Downloading {build} gene database from UCSC...")
         try:
             # 1. Download
+            # Use curl but check cancel_event periodically if possible
+            # For simplicity, we check before/after large steps
             run_command(["curl", "-L", "-o", gz_path, url])
+
+            if cancel_event and cancel_event.is_set():
+                if os.path.exists(gz_path):
+                    os.remove(gz_path)
+                return False
 
             # 2. Parse UCSC format to simple TSV
             # UCSC refGene columns: 2=chrom, 4=txStart, 5=txEnd, 12=name2(Symbol)
             gene_data: dict[str, list[Any]] = {}  # Symbol -> (chrom, start, end)
 
             with gzip.open(gz_path, "rt") as f_in:
-                for line in f_in:
+                for i, line in enumerate(f_in):
+                    if i % 1000 == 0 and cancel_event and cancel_event.is_set():
+                        return False
+
                     cols = line.split("\t")
                     if len(cols) < 13:
                         continue
