@@ -18,6 +18,7 @@ dependencies = [
     "psutil",        # Detects system RAM/CPU for automatic resource tuning (e.g., samtools memory)
     "customtkinter", # Modern GUI framework
     "Pillow",        # Image processing (needed by customtkinter)
+    "nicegui",       # Web-based GUI framework
     # Unused dependencies (currently delegated to external binaries or not yet implemented):
     # "wakepy",    # Intended to prevent system sleep during long operations (not yet implemented in CLI)
     # "pandas",    # Data analysis/manipulation (CLI currently uses awk and subprocess)

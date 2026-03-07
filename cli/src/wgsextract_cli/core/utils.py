@@ -56,8 +56,10 @@ class ReferenceLibrary:
         self.ploidy_file = None
         self.ref_vcf_tab = None
         self.build = None
+        self.vep_cache = None
 
         if root_path and os.path.isdir(root_path):
+            self.vep_cache = os.path.join(root_path, "vep")
             self._resolve(skip_full_search)
         elif root_path and os.path.isfile(root_path):
             self.fasta = root_path

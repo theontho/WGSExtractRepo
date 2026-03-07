@@ -126,6 +126,13 @@ def main():
         func=lambda args: __import__("wgsextract_cli.ui.gui", fromlist=["main"]).main()
     )
 
+    webgui_parser = subparsers.add_parser("web-gui", help="Start the Web-based GUI.")
+    webgui_parser.set_defaults(
+        func=lambda args: __import__(
+            "wgsextract_cli.ui.web_gui", fromlist=["main"]
+        ).main()
+    )
+
     # 3. Register all subcommands, passing the base_parser as a parent
     for cmd_module in [
         info,
