@@ -8,6 +8,7 @@ from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_resource_defaults,
     resolve_reference,
+    run_command,
 )
 from wgsextract_cli.core.warnings import print_warning
 
@@ -20,6 +21,9 @@ def register(subparsers, base_parser):
     parser.add_argument("--r2", help=CLI_HELP["arg_r2"])
     parser.add_argument(
         "--long-read", action="store_true", help=CLI_HELP["arg_long_read"]
+    )
+    parser.add_argument(
+        "--format", choices=["BAM", "CRAM"], default="BAM", help="Output format"
     )
     parser.set_defaults(func=run)
 
@@ -49,10 +53,23 @@ def align_bwa(args):
         logging.error(LOG_MESSAGES["ref_required_for"].format(task="BWA alignment"))
         return
 
+    # Check for BWA index files, if missing, run indexing
+    bwt_index = resolved_ref + ".bwt"
+    if not os.path.exists(bwt_index):
+        logging.info(
+            f"BWA index missing for {resolved_ref}. Generating now (may take a while)..."
+        )
+        try:
+            run_command(["bwa", "index", resolved_ref])
+        except Exception as e:
+            logging.error(f"Automatic indexing failed: {e}")
+            return
+
     print_warning("ButtonBWAAlign", threads=threads)
 
     base_name = os.path.basename(args.r1).split(".")[0]
-    out_bam = os.path.join(outdir, f"{base_name}_aligned.bam")
+    ext = ".cram" if args.format == "CRAM" else ".bam"
+    out_bam = os.path.join(outdir, f"{base_name}_aligned{ext}")
 
     r2_args = [args.r2] if args.r2 else []
 
@@ -60,13 +77,17 @@ def align_bwa(args):
         LOG_MESSAGES["aligning_reads"].format(input=args.r1, output=out_bam, tool="BWA")
     )
     try:
+        # Samtools view (BAM/CRAM)
+        sam_args = ["samtools", "view", "-bh"]
+        if args.format == "CRAM":
+            sam_args = ["samtools", "view", "-Ch", "--reference", resolved_ref]
+        sam_args += ["-o", out_bam]
+
         p1 = subprocess.Popen(
             ["bwa", "mem", "-t", threads, resolved_ref, args.r1] + r2_args,
             stdout=subprocess.PIPE,
         )
-        p2 = subprocess.Popen(
-            ["samtools", "view", "-bh", "-o", out_bam], stdin=p1.stdout
-        )
+        p2 = subprocess.Popen(sam_args, stdin=p1.stdout)
         if p1.stdout:
             p1.stdout.close()
         p2.communicate()
@@ -96,7 +117,8 @@ def align_minimap2(args):
         return
 
     base_name = os.path.basename(args.r1).split(".")[0]
-    out_bam = os.path.join(outdir, f"{base_name}_aligned.bam")
+    ext = ".cram" if args.format == "CRAM" else ".bam"
+    out_bam = os.path.join(outdir, f"{base_name}_aligned{ext}")
 
     r2_args = [args.r2] if args.r2 else []
 
@@ -106,13 +128,17 @@ def align_minimap2(args):
         )
     )
     try:
+        # Samtools view (BAM/CRAM)
+        sam_args = ["samtools", "view", "-bh"]
+        if args.format == "CRAM":
+            sam_args = ["samtools", "view", "-Ch", "--reference", resolved_ref]
+        sam_args += ["-o", out_bam]
+
         p1 = subprocess.Popen(
             ["minimap2", "-ax", "sr", "-t", threads, resolved_ref, args.r1] + r2_args,
             stdout=subprocess.PIPE,
         )
-        p2 = subprocess.Popen(
-            ["samtools", "view", "-bh", "-o", out_bam], stdin=p1.stdout
-        )
+        p2 = subprocess.Popen(sam_args, stdin=p1.stdout)
         if p1.stdout:
             p1.stdout.close()
         p2.communicate()

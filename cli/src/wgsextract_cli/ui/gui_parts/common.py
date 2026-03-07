@@ -7,7 +7,7 @@ from typing import Any
 
 import customtkinter as ctk
 
-from wgsextract_cli.core.messages import GUI_LABELS
+from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
 from wgsextract_cli.ui.constants import BUTTON_FONT
 
 
@@ -143,6 +143,56 @@ class UIUtilsMixin:
             self.main_app.controller.cancel_gene_map_download()
         else:
             self.main_app.run_dispatch(cmd_key, self)
+
+    def _create_section(
+        self: Any, title: str | None, commands: list[dict[str, Any]], cols: int = 3
+    ) -> None:
+        """Helper to create a section of command buttons."""
+        if not commands:
+            return
+
+        if title:
+            # Map known titles to tooltips
+            help_map = {
+                GUI_LABELS["info_commands"]: GUI_TOOLTIPS["info_commands_help"],
+                GUI_LABELS["bam_cram_mgmt"]: GUI_TOOLTIPS["bam_mgmt_help"],
+            }
+            self.create_section_title(self, title, help_map.get(title))
+
+        grid_f = ctk.CTkFrame(self, fg_color="transparent")
+        grid_f.pack(fill="x", padx=20, pady=5)
+
+        for i, cmd_m in enumerate(commands):
+            r, c = divmod(i, cols)
+            grid_f.grid_columnconfigure(c, weight=1)
+
+            # Special styling for destructive commands
+            is_destructive = cmd_m["cmd"] in ["clear-cache", "unsort", "unindex"]
+            btn_color = ("#d32f2f", "#b71c1c") if is_destructive else None
+
+            btn = ctk.CTkButton(
+                grid_f,
+                text=cmd_m["label"],
+                fg_color=btn_color,
+                hover_color="#9a0007" if is_destructive else None,
+                command=lambda cc=cmd_m["cmd"]: self.handle_button_click(cc),
+                font=BUTTON_FONT,
+            )
+            btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
+            ToolTip(btn, cmd_m["help"])
+            self.cmd_buttons[cmd_m["cmd"]] = btn
+
+            # Hide specific buttons by default in info tab
+            if self.key == "gen" and cmd_m["cmd"] in [
+                "clear-cache",
+                "sort",
+                "unsort",
+                "index",
+                "unindex",
+                "to-bam",
+                "to-cram",
+            ]:
+                btn.grid_remove()
 
     def update_info_display(self: Any, data: Any) -> None:
         """Update the info frame with fast info output (dict or error string)."""
@@ -289,7 +339,7 @@ class UIUtilsMixin:
                 text_color="#55aaff",
                 cursor="hand2",
             )
-            i_lbl.pack(side="left")
+            i_lbl.pack(side="left", padx=(10, 0))
             ToolTip(i_lbl, info_text)
 
         entry = ctk.CTkEntry(frame, textvariable=variable)
@@ -351,7 +401,7 @@ class UIUtilsMixin:
                 text_color="#55aaff",
                 cursor="hand2",
             )
-            i_lbl.pack(side="left")
+            i_lbl.pack(side="left", padx=(10, 0))
             ToolTip(i_lbl, info_text)
 
         entry = ctk.CTkEntry(frame, textvariable=variable)
@@ -393,7 +443,7 @@ class UIUtilsMixin:
                 text_color="#55aaff",
                 cursor="hand2",
             )
-            i_lbl.pack(side="left")
+            i_lbl.pack(side="left", padx=(10, 0))
             ToolTip(i_lbl, info_text)
 
         e = ctk.CTkEntry(f)
@@ -453,7 +503,7 @@ class UIUtilsMixin:
                 text_color="#55aaff",
                 cursor="hand2",
             )
-            i_lbl.pack(side="left")
+            i_lbl.pack(side="left", padx=(10, 0))
             ToolTip(i_lbl, info_text)
 
         e = ctk.CTkEntry(f, textvariable=variable, state="readonly")
@@ -494,7 +544,7 @@ class UIUtilsMixin:
             text_color="#55aaff",
             cursor="hand2",
         )
-        i_lbl.pack(side="left")
+        i_lbl.pack(side="left", padx=(10, 0))
         ToolTip(i_lbl, info_text)
 
         return cb
@@ -525,7 +575,7 @@ class UIUtilsMixin:
                 text_color="#55aaff",
                 cursor="hand2",
             )
-            i_lbl.pack(side="left")
+            i_lbl.pack(side="left", padx=(10, 0))
             ToolTip(i_lbl, info_text)
 
         menu = ctk.CTkOptionMenu(
@@ -555,7 +605,7 @@ class UIUtilsMixin:
                 text_color="#55aaff",
                 cursor="hand2",
             )
-            i_lbl.pack(side="left")
+            i_lbl.pack(side="left", padx=(10, 0))
             ToolTip(i_lbl, info_text)
 
     def browse_file(

@@ -17,14 +17,11 @@ class FastqFrame(GenericFrame):
     """
 
     def create_ref_selector(self, p: ctk.CTkFrame, meta: dict[str, Any]) -> None:
-        """Override reference selector to use a dropdown for known genomes."""
-        # Add a section for Reference Selection
-        self.create_section_title(self, GUI_LABELS["ref_genome_selection"])
-
-        # 1. Genome Library Dropdown
+        """Override reference selector to use a dropdown and manual path only."""
+        # 1. Genome Dropdown
         self.genome_var = ctk.StringVar(value="Select from Library...")
         self.genome_menu = self.create_option_menu(
-            self,
+            p,
             GUI_LABELS["genome_library"],
             options=self._get_genome_options(),
             variable=self.genome_var,
@@ -32,9 +29,9 @@ class FastqFrame(GenericFrame):
             info_text=GUI_TOOLTIPS["genome_lib_tip"],
         )
 
-        # 2. Manual Reference Path (as fallback/direct path)
-        self.ref_entry = self.create_file_selector(
-            self,
+        # 2. Manual Reference Path (Reference Genome)
+        self.ref_fasta = self.create_file_selector(
+            p,
             GUI_LABELS["manual_ref_path"],
             variable=self.main_app.fastq_ref_fasta_var,
             info_text="Optional: Manually specify a path to a reference genome FASTA file.",

@@ -84,7 +84,9 @@ class WGSExtractGUI(ctk.CTk):
 
         # Shared variables for synchronization across tabs
         self.bam_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT", ""))
-        self.vcf_path_var = ctk.StringVar()
+        self.vcf_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT_VCF", ""))
+        self.vcf_mother_var = ctk.StringVar(value=os.environ.get("WGSE_MOTHER_VCF", ""))
+        self.vcf_father_var = ctk.StringVar(value=os.environ.get("WGSE_FATHER_VCF", ""))
         self.fastq_path_var = ctk.StringVar()
         self.ref_path_var = ctk.StringVar(value=os.environ.get("WGSE_REF", ""))
         self.fastq_ref_fasta_var = ctk.StringVar()
@@ -102,9 +104,11 @@ class WGSExtractGUI(ctk.CTk):
         )
         self.env_local_var = ctk.StringVar(value=os.path.join(cli_root, ".env.local"))
 
-        # Handle initial VCF value if WGSE_INPUT looks like VCF
+        # Handle initial VCF value if WGSE_INPUT looks like VCF and WGSE_INPUT_VCF not set
         init_input = os.environ.get("WGSE_INPUT", "")
-        if init_input.lower().endswith((".vcf", ".vcf.gz", ".bcf")):
+        if not self.vcf_path_var.get() and init_input.lower().endswith(
+            (".vcf", ".vcf.gz", ".bcf")
+        ):
             self.vcf_path_var.set(init_input)
             self.bam_path_var.set("")
         elif init_input.lower().endswith((".fastq", ".fq", ".fastq.gz", ".fq.gz")):

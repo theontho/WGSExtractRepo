@@ -55,9 +55,10 @@ class GUIController:
             # Use process groups so we can kill children (like bcftools)
             popen_kwargs: dict[str, Any] = {
                 "stdout": subprocess.PIPE,
-                "stderr": subprocess.STDOUT,
+                "stderr": subprocess.PIPE,  # Separate stderr to prefix it differently
                 "text": True,
                 "bufsize": 1,
+                "errors": "replace",
             }
 
             if sys.platform == "win32":
@@ -70,18 +71,74 @@ class GUIController:
             if cmd_key:
                 self.active_processes[cmd_key] = process
 
-            if process.stdout:
-                for line in process.stdout:
+            # Function to read a stream and log it with a prefix
+            def read_stream(stream: Any, default_prefix: str) -> None:
+                if not stream:
+                    return
+                for line in stream:
                     if not self.main_app.winfo_exists():
                         break
+                    msg = line.strip()
+                    if not msg:
+                        continue
+
+                    # Intelligent level detection for tools like GATK/samtools
+                    upper_msg = msg.upper()
+                    detected_lvl = default_prefix
+
+                    # Heuristics for info/warning/error keywords in the line
+                    if (
+                        " ERROR " in upper_msg
+                        or "EXCEPTION" in upper_msg
+                        or " FATAL " in upper_msg
+                    ):
+                        detected_lvl = "❌"
+                    elif " WARN " in upper_msg or " WARNING " in upper_msg:
+                        detected_lvl = "⚠️"
+                    elif (
+                        " INFO " in upper_msg
+                        or msg.startswith("[")
+                        or "USING GATK JAR" in upper_msg
+                        or "RUNNING:" in upper_msg
+                        or "RUNTIME.TOTALMEMORY" in upper_msg
+                        or msg.startswith("/")  # Command echoes often start with paths
+                    ):
+                        # samtools uses [mpileup] etc on stderr, those are info
+                        detected_lvl = "ℹ️"
+                    elif " DEBUG " in upper_msg:
+                        detected_lvl = "🔍"
+
+                    # If the message already starts with our final prefix strings, don't re-add
+                    if any(
+                        msg.startswith(p)
+                        for p in [
+                            "🔍",
+                            "ℹ️",
+                            "⚠️",
+                            "❌",
+                            "🚨",
+                        ]
+                    ):
+                        final_msg = msg
+                    else:
+                        final_msg = f"{detected_lvl}: {msg}"
+
                     self.main_app.after(
                         0,
-                        lambda line_content=line: self.main_app.log(
-                            line_content.strip()
-                        ),
+                        lambda m=final_msg: self.main_app.log(m),
                     )
 
+            # Use threads to read stdout and stderr concurrently
+            import threading
+
+            t1 = threading.Thread(target=read_stream, args=(process.stdout, "ℹ️"))
+            t2 = threading.Thread(target=read_stream, args=(process.stderr, "❌"))
+            t1.start()
+            t2.start()
+
             process.wait()
+            t1.join()
+            t2.join()
 
             if cmd_key in self.active_processes:
                 del self.active_processes[cmd_key]
@@ -299,7 +356,7 @@ class GUIController:
             if out_dir:
                 cmd.extend(["--outdir", out_dir])
 
-            self.main_app.log(f"DEBUG: Triggering fast info: {' '.join(cmd)}")
+            self.main_app.log(f"🔍: Triggering fast info: {' '.join(cmd)}")
             try:
                 # Run command to ensure cache is populated
                 res = subprocess.run(
@@ -311,17 +368,13 @@ class GUIController:
                     for line in res.stdout.strip().splitlines():
                         self.main_app.after(
                             0,
-                            lambda msg_line=line: self.main_app.log(
-                                f"INFO: {msg_line}"
-                            ),
+                            lambda msg_line=line: self.main_app.log(f"ℹ️: {msg_line}"),
                         )
                 if res.stderr:
                     for line in res.stderr.strip().splitlines():
                         self.main_app.after(
                             0,
-                            lambda msg_line=line: self.main_app.log(
-                                f"DEBUG: {msg_line}"
-                            ),
+                            lambda msg_line=line: self.main_app.log(f"🔍: {msg_line}"),
                         )
 
                 if res.returncode != 0:
@@ -819,14 +872,15 @@ class GUIController:
         vcf_val = vcf_path.get() if vcf_path else ""
 
         fastq_path = getattr(frame, "fastq_entry", None)
-        fastq_val = fastq_path.get() if fastq_path else ""
+        fastq_r1_path = getattr(frame, "align_r1", None)
+        fastq_val = (
+            fastq_path.get()
+            if fastq_path
+            else (fastq_r1_path.get() if fastq_r1_path else "")
+        )
 
         ref_path = getattr(frame, "ref_entry", None)
         ref_val = ref_path.get() if ref_path else ""
-
-        self.main_app.log(
-            f"DEBUG: run_dispatch cmd={cmd} bam={bam_val} fastq={fastq_val}"
-        )
 
         # Validate inputs before proceeding
         if not self._validate_inputs(
@@ -864,6 +918,12 @@ class GUIController:
             c = bc + ["align", "--r1", frame.align_r1.get(), "--ref", ref_val]
             if hasattr(frame, "align_r2") and frame.align_r2.get():
                 c.extend(["--r2", frame.align_r2.get()])
+
+            # Use output format if provided
+            fmt_var = getattr(frame, "output_format_var", None)
+            if fmt_var:
+                c.extend(["--format", fmt_var.get()])
+
             self.run_cmd(c, cmd_key=cmd, frame=frame)
 
         elif cmd in [
@@ -880,6 +940,23 @@ class GUIController:
             c = bc + ["bam", cmd, "--input", bam_val]
             if ref_val:
                 c.extend(["--ref", ref_val])
+
+            out_dir = self.main_app.out_dir_var.get()
+            if out_dir:
+                c.extend(["--outdir", out_dir])
+
+            if cmd == "unalign":
+                # unalign requires --r1 and --r2 output paths
+                base = os.path.basename(bam_val).split(".")[0]
+                effective_out = out_dir if out_dir else os.path.dirname(bam_val)
+                r1 = os.path.join(effective_out, f"{base}_R1.fastq.gz")
+                r2 = os.path.join(effective_out, f"{base}_R2.fastq.gz")
+                c.extend(["--r1", r1, "--r2", r2])
+
+            if cmd == "to-cram":
+                cram_ver = getattr(frame, "cram_version_var", None)
+                if cram_ver:
+                    c.extend(["--cram-version", cram_ver.get()])
 
             region = getattr(frame, "region_entry", None)
             if (
@@ -1010,9 +1087,20 @@ class GUIController:
                 frame=frame,
             )
 
-        elif cmd in ["fastqc", "fastp"]:
+        elif cmd == "fastp":
+            c = bc + ["qc", "fastp", "--r1", fastq_val]
+            fastq_r2 = getattr(frame, "align_r2", None)
+            if fastq_r2 and fastq_r2.get():
+                c.extend(["--r2", fastq_r2.get()])
             self.run_cmd(
-                bc + ["qc", cmd, "--input", fastq_val or bam_val],
+                c,
+                cmd_key=cmd,
+                frame=frame,
+            )
+
+        elif cmd == "fastqc":
+            self.run_cmd(
+                bc + ["qc", "fastqc", "--input", fastq_val or bam_val],
                 cmd_key=cmd,
                 frame=frame,
             )
@@ -1114,7 +1202,35 @@ class GUIController:
                 c += ["--vep-cache", cv]
             if sub == "run" and frame.vcf_vep_args.get():
                 c += ["--vep-args", frame.vcf_vep_args.get()]
-        self.run_cmd(c, cmd_key=cmd, frame=frame)
+
+        if cmd == "vcf-qc":
+            # Handle caching and opening stats window
+            outdir = self.main_app.out_dir_var.get()
+            if not outdir:
+                outdir = os.path.dirname(os.path.abspath(vcf_val))
+
+            base_name = os.path.basename(vcf_val)
+            out_stats = os.path.join(outdir, f"{base_name}.vcfstats.txt")
+
+            def open_stats() -> None:
+                if os.path.exists(out_stats):
+                    try:
+                        with open(out_stats, encoding="utf-8") as f:
+                            content = f.read()
+                        self.main_app.show_info_window(
+                            f"VCF Stats: {base_name}", content
+                        )
+                    except Exception as e:
+                        self.main_app.log(f"❌: Failed to read stats file: {e}")
+
+            if os.path.exists(out_stats):
+                self.main_app.log(f"ℹ️: Using cached VCF stats: {out_stats}")
+                open_stats()
+                return
+
+            self.run_cmd(c, cmd_key=cmd, frame=frame, on_finish=open_stats)
+        else:
+            self.run_cmd(c, cmd_key=cmd, frame=frame)
 
     def _validate_inputs(self, cmd: str, frame: Any, **vals: str) -> bool:
         """
@@ -1125,10 +1241,6 @@ class GUIController:
         vcf_val = vals.get("vcf_val", "")
         fastq_val = vals.get("fastq_val", "")
         ref_val = vals.get("ref_val", "")
-
-        self.main_app.log(
-            f"DEBUG: _validate_inputs cmd={repr(cmd)} bam={repr(bam_val)} fastq={repr(fastq_val)}"
-        )
 
         errors = []
 
@@ -1243,13 +1355,23 @@ class GUIController:
                     )
                 )
 
-        if cmd in ["fastqc", "fastp"]:
-            self.main_app.log(
-                f"DEBUG: inside fastqc block, bam={repr(bam_val)}, fastq={repr(fastq_val)}"
-            )
+        if cmd == "fastp":
+            if not fastq_val:
+                errors.append(
+                    GUI_MESSAGES["error_input_required"].format(
+                        field=GUI_LABELS["fastq_qc"]
+                    )
+                )
+        elif cmd == "fastqc":
             if not bam_val and not fastq_val:
-                self.main_app.log("DEBUG: appending error for fastqc")
                 errors.append(GUI_MESSAGES["error_bam_fastq_required"])
+            elif not fastq_val and bam_val.lower().endswith(".cram"):
+                # FastQC technically supports BAM but often fails on CRAM
+                # unless specifically configured with samtools in path.
+                # However, it's safer to unalign first.
+                errors.append(
+                    "FastQC does not support CRAM files. Please unalign to FASTQ first."
+                )
 
         if cmd == "vep-run":
             if not bam_val and not vcf_val:

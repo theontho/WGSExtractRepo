@@ -5,7 +5,6 @@ from typing import Any
 import customtkinter as ctk
 
 from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
-from wgsextract_cli.ui.constants import BUTTON_FONT
 
 from .common import ScrollableBaseFrame, ToolTip
 
@@ -23,7 +22,7 @@ class GenericFrame(ScrollableBaseFrame):
         meta = self.meta
 
         # Shared Reference Field
-        if key in ["gen", "vcf", "fastq"]:
+        if key in ["gen", "vcf"]:
             self.create_ref_selector(self, meta)
 
         # Shared Output Directory Field
@@ -38,34 +37,61 @@ class GenericFrame(ScrollableBaseFrame):
         # Typed Input Fields
         cmds_to_hide: set[str] = set()
 
-        if key in ["gen", "ext", "anc", "vcf", "fastq"]:
+        if key in ["gen", "ext", "anc", "vcf"]:
             cb = self.on_input_change if key == "gen" else None
-
-            button_text = None
-            command = None
-            if key == "fastq":
-                unalign_cmd = next(c for c in meta["commands"] if c["cmd"] == "unalign")
-                button_text = unalign_cmd["label"]
-
-                def unalign_cb():
-                    return self.handle_button_click("unalign")
-
-                command = unalign_cb
-                cmds_to_hide.add("unalign")
 
             self.bam_entry = self.create_file_selector(
                 self,
                 GUI_LABELS["bam_cram"],
                 variable=self.main_app.bam_path_var,
                 on_change=cb,
-                button_text=button_text,
-                command=command,
                 info_text=GUI_TOOLTIPS["bam_input_tip"],
             )
 
-            if key == "fastq" and "unalign" in cmds_to_hide:
-                self.cmd_buttons["unalign"] = self.bam_entry.action_button
-                ToolTip(self.cmd_buttons["unalign"], unalign_cmd["help"])
+        elif key == "fastq":
+            # Separate BAM/CRAM input for Unalign
+            self.create_section_title(self, "BAM / CRAM -> FASTQ")
+            unalign_cmd = next(c for c in meta["commands"] if c["cmd"] == "unalign")
+
+            self.bam_entry = self.create_file_selector(
+                self,
+                GUI_LABELS["bam_cram"],
+                variable=self.main_app.bam_path_var,
+                button_text=unalign_cmd["label"],
+                command=lambda: self.handle_button_click("unalign"),
+                info_text=GUI_TOOLTIPS["bam_input_tip"],
+            )
+            self.cmd_buttons["unalign"] = self.bam_entry.action_button
+            ToolTip(self.cmd_buttons["unalign"], unalign_cmd["help"])
+            cmds_to_hide.add("unalign")
+
+            # FASTQ Input Section
+            self.create_section_title(self, "FASTQ -> BAM/CRAM")
+
+            # Reference fields (including dropdown via override in FastqFrame)
+            self.create_ref_selector(self, meta)
+
+            self.align_r1 = self.create_file_selector(
+                self,
+                GUI_LABELS["fastq_r1"],
+                info_text=GUI_TOOLTIPS["pet_r1_tip"],
+            )
+
+            self.align_r2 = self.create_file_selector(
+                self,
+                GUI_LABELS["fastq_r2"],
+                info_text=GUI_TOOLTIPS["pet_r2_tip"],
+            )
+
+            # Output format selection
+            self.output_format_var = ctk.StringVar(value="BAM")
+            self.create_option_menu(
+                self,
+                GUI_LABELS["output_format"],
+                options=["BAM", "CRAM"],
+                variable=self.output_format_var,
+                info_text=GUI_TOOLTIPS["output_fmt_tip"],
+            )
 
         if key == "vcf":
             self.vcf_entry = self.create_file_selector(
@@ -80,37 +106,23 @@ class GenericFrame(ScrollableBaseFrame):
             self.info_frame = ctk.CTkFrame(self, fg_color="transparent")
             self.info_frame.pack(fill="x", padx=30, pady=5)
 
+            # CRAM Version selector for General tab
+            self.cram_version_var = ctk.StringVar(value="3.0")
+            self.create_option_menu(
+                self,
+                "Output CRAM Version:",
+                options=["2.1", "3.0", "3.1"],
+                variable=self.cram_version_var,
+                info_text="Select CRAM version for to-cram conversion. 3.0 is recommended for GATK compatibility.",
+            )
+
         # Tab-Specific Fields
         if key == "gen":
             # No region_entry here anymore
             pass
         elif key == "fastq":
-            align_cmd = next(c for c in meta["commands"] if c["cmd"] == "align")
-            self.align_r1 = self.create_file_selector(
-                self,
-                GUI_LABELS["fastq_r1"],
-                button_text=align_cmd["label"],
-                command=lambda: self.handle_button_click("align"),
-                info_text=GUI_TOOLTIPS["pet_r1_tip"],
-            )
-            self.cmd_buttons["align"] = self.align_r1.action_button
-            ToolTip(self.cmd_buttons["align"], align_cmd["help"])
-            cmds_to_hide.add("align")
-
-            self.align_r2 = self.create_file_selector(
-                self,
-                GUI_LABELS["fastq_r2"],
-                info_text=GUI_TOOLTIPS["pet_r2_tip"],
-            )
-
-            # FastQ for QC as the last field
-            self.fastq_entry = self.create_file_selector(
-                self,
-                GUI_LABELS["fastq_qc"],
-                variable=self.main_app.fastq_path_var,
-                info_text="Primary FASTQ file for QC actions (FastQC, FastP).",
-            )
-
+            # Already handled in Typed Input Fields above
+            pass
         elif key == "ext":
             self.out_dir = self.create_dir_selector(
                 self,
@@ -260,12 +272,14 @@ class GenericFrame(ScrollableBaseFrame):
             self.vcf_mother = self.create_file_selector(
                 self,
                 GUI_LABELS["mother_vcf"],
+                variable=self.main_app.vcf_mother_var,
                 button_text=None,
                 info_text="Path to the mother's VCF for trio analysis.",
             )
             self.vcf_father = self.create_file_selector(
                 self,
                 GUI_LABELS["father_vcf"],
+                variable=self.main_app.vcf_father_var,
                 button_text=trio_cmd["label"],
                 command=lambda: self.handle_button_click("trio"),
                 info_text="Path to the father's VCF for trio analysis. The proband should be in the primary VCF Input field.",
@@ -333,56 +347,6 @@ class GenericFrame(ScrollableBaseFrame):
             variable=self.main_app.ref_path_var,
             info_text="Path to the directory containing your reference genomes.",
         )
-
-    def _create_section(
-        self, title: str | None, commands: list[dict[str, Any]], cols: int = 3
-    ) -> None:
-        """Helper to create a section of command buttons."""
-        if not commands:
-            return
-
-        if title:
-            # Map known titles to tooltips
-            help_map = {
-                GUI_LABELS["info_commands"]: GUI_TOOLTIPS["info_commands_help"],
-                GUI_LABELS["bam_cram_mgmt"]: GUI_TOOLTIPS["bam_mgmt_help"],
-            }
-            self.create_section_title(self, title, help_map.get(title))
-
-        grid_f = ctk.CTkFrame(self, fg_color="transparent")
-        grid_f.pack(fill="x", padx=20, pady=5)
-
-        for i, cmd_m in enumerate(commands):
-            r, c = divmod(i, cols)
-            grid_f.grid_columnconfigure(c, weight=1)
-
-            # Special styling for destructive commands
-            is_destructive = cmd_m["cmd"] in ["clear-cache", "unsort", "unindex"]
-            btn_color = ("#d32f2f", "#b71c1c") if is_destructive else None
-
-            btn = ctk.CTkButton(
-                grid_f,
-                text=cmd_m["label"],
-                fg_color=btn_color,
-                hover_color="#9a0007" if is_destructive else None,
-                command=lambda cc=cmd_m["cmd"]: self.handle_button_click(cc),
-                font=BUTTON_FONT,
-            )
-            btn.grid(row=r, column=c, padx=5, pady=5, sticky="ew")
-            ToolTip(btn, cmd_m["help"])
-            self.cmd_buttons[cmd_m["cmd"]] = btn
-
-            # Hide specific buttons by default in info tab
-            if self.key == "gen" and cmd_m["cmd"] in [
-                "clear-cache",
-                "sort",
-                "unsort",
-                "index",
-                "unindex",
-                "to-bam",
-                "to-cram",
-            ]:
-                btn.grid_remove()
 
     def update_info_display(self, data: Any) -> None:
         """Override to handle dynamic button layout and greying."""

@@ -66,17 +66,11 @@ class PetFrame(ScrollableBaseFrame):
         )
 
         # FASTQ Inputs
-        align_cmd = next(c for c in meta["commands"] if c["cmd"] == "pet-analysis")
-
         self.fastq_r1 = self.create_file_selector(
             self,
             GUI_LABELS["fastq_r1"],
-            button_text=align_cmd["label"],
-            command=lambda: self.handle_button_click("pet-analysis"),
             info_text=GUI_TOOLTIPS["pet_r1_tip"],
         )
-        self.cmd_buttons["pet-analysis"] = self.fastq_r1.action_button
-        ToolTip(self.cmd_buttons["pet-analysis"], align_cmd["help"])
 
         self.fastq_r2 = self.create_file_selector(
             self,
@@ -93,6 +87,9 @@ class PetFrame(ScrollableBaseFrame):
             variable=self.output_format_var,
             info_text=GUI_TOOLTIPS["output_fmt_tip"],
         )
+
+        # Action Buttons Section
+        self._create_section(None, meta["commands"])
 
     def _get_pet_options(self) -> list[str]:
         """Get list of pet genomes with their installation status."""

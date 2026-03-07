@@ -457,6 +457,8 @@ def render_info(data, detailed=False):
     output_lines.append(
         f"{LOG_MESSAGES['info_file_stats']:<28}{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {fstats.get('size_gb', 0):.1f} GBs"
     )
+    if fstats.get("version"):
+        output_lines.append(f"{'File Format':<28}{fstats['version']}")
 
     if detailed:
         glossary = [
@@ -717,6 +719,10 @@ def run(args):
             f"File stats: {size_gb:.2f}GB, indexed={indexed} (took {time.time() - t0:.3f}s)"
         )
 
+        from wgsextract_cli.core.utils import get_file_version
+
+        file_version = get_file_version(args.input)
+
         # Get SN count from header for fast mode
         num_sns = len([line for line in header.splitlines() if line.startswith("@SQ")])
 
@@ -775,6 +781,7 @@ def run(args):
                     "sorted": sorted_status,
                     "indexed": indexed,
                     "size_gb": size_gb,
+                    "version": file_version,
                 },
                 "ref_model_str": ref_model_str,
                 "suggested_ref_file": ref_fname,

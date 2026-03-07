@@ -45,6 +45,12 @@ def register(subparsers, base_parser):
         "to-cram", parents=[base_parser], help=CLI_HELP["cmd_to-cram"]
     )
     tocram_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    tocram_parser.add_argument(
+        "--cram-version",
+        choices=["2.1", "3.0", "3.1"],
+        default="3.0",
+        help="CRAM version to output (default: 3.0 for better compatibility)",
+    )
     tocram_parser.set_defaults(func=cmd_tocram)
 
     tobam_parser = bam_subs.add_parser(
@@ -269,7 +275,13 @@ def cmd_tocram(args):
     try:
         region_args = [args.region] if args.region else []
         run_command(
-            ["samtools", "view", "-Ch"]
+            [
+                "samtools",
+                "view",
+                "-Ch",
+                "--output-fmt-option",
+                f"version={args.cram_version}",
+            ]
             + cram_opt
             + ["-@", threads, "-o", out_file, args.input]
             + region_args

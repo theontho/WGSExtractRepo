@@ -37,12 +37,29 @@ def run(args):
         "dog": "GCF_011100685.1_UU_Cfam_GSD_1.0_genomic.fna.gz",
         "cat": "GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
     }
-    ref_file = os.path.join(args.ref, "genomes", ref_map[args.species])
+
+    if os.path.isfile(args.ref):
+        ref_file = args.ref
+    else:
+        ref_file = os.path.join(args.ref, "genomes", ref_map[args.species])
 
     if not os.path.exists(ref_file):
         logging.error(f"Reference genome for {args.species} not found at {ref_file}")
-        logging.info("Please download it in the Library tab of the GUI.")
+        if not os.path.isfile(args.ref):
+            logging.info("Please download it in the Library tab of the GUI.")
         return
+
+    # Check for BWA index files, if missing, run indexing
+    bwt_index = ref_file + ".bwt"
+    if not os.path.exists(bwt_index):
+        logging.info(
+            f"BWA index missing for {ref_file}. Generating now (may take a while)..."
+        )
+        try:
+            run_command(["bwa", "index", ref_file])
+        except Exception as e:
+            logging.error(f"Automatic indexing failed: {e}")
+            return
 
     outdir = args.outdir if args.outdir else os.getcwd()
     base_name = os.path.basename(args.r1).split(".")[0]

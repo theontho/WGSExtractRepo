@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -23,6 +24,23 @@ from .commands import (
 from .core.messages import CLI_HELP
 
 
+class EmojiFormatter(logging.Formatter):
+    """Custom formatter to add emojis to log levels."""
+
+    LEVEL_EMOJIS = {
+        logging.DEBUG: "🔍",
+        logging.INFO: "ℹ️",
+        logging.WARNING: "⚠️",
+        logging.ERROR: "❌",
+        logging.CRITICAL: "🚨",
+    }
+
+    def format(self, record):
+        level_fmt = self.LEVEL_EMOJIS.get(record.levelno, record.levelname)
+        record.levelname = level_fmt
+        return super().format(record)
+
+
 def main():
     # Load environment variables
     if os.environ.get("WGSE_SKIP_DOTENV") != "1":
@@ -34,7 +52,10 @@ def main():
         if os.path.exists(env_std):
             load_dotenv(dotenv_path=env_std)
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    handler = logging.StreamHandler()
+    handler.setFormatter(EmojiFormatter("%(levelname)s: %(message)s"))
+    # Use force=True to ensure our handler replaces any existing ones
+    logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
     # 1. Create a parent parser for shared arguments
     # This allows arguments like --input to be placed AFTER the subcommand
@@ -75,6 +96,21 @@ def main():
         default=os.environ.get("WGSE_MEMORY"),
         help=CLI_HELP["arg_memory"],
     )
+    base_parser.add_argument(
+        "--vcf-input",
+        default=os.environ.get("WGSE_INPUT_VCF"),
+        help="Input VCF file path.",
+    )
+    base_parser.add_argument(
+        "--mother",
+        default=os.environ.get("WGSE_MOTHER_VCF"),
+        help="Mother VCF file path for trio analysis.",
+    )
+    base_parser.add_argument(
+        "--father",
+        default=os.environ.get("WGSE_FATHER_VCF"),
+        help="Father VCF file path for trio analysis.",
+    )
 
     # 2. Main parser
     parser = argparse.ArgumentParser(
@@ -111,6 +147,16 @@ def main():
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    # Handle signals for clean exit (allows finally blocks to run)
+    import signal
+
+    def signal_handler(signum, frame):
+        logging.info(f"Received signal {signum}, exiting...")
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
 
     if args.outdir:
         os.makedirs(args.outdir, exist_ok=True)

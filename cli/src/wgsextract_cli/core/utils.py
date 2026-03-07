@@ -3,7 +3,7 @@ import logging
 import os
 import subprocess
 
-from wgsextract_cli.core.constants import REF_GENOME_FILENAMES, REFERENCE_MODELS
+from wgsextract_cli.core.constants import REF_GENOME_FILENAMES
 from wgsextract_cli.core.messages import LOG_MESSAGES
 
 try:
@@ -12,296 +12,127 @@ except ImportError:
     psutil = None
 
 
-def get_resource_defaults(threads_arg=None, memory_arg=None, mode="per_thread"):
+def get_resource_defaults(threads_arg=None, memory_arg=None):
     """
-    Calculates default threads and memory based on system resources.
-
-    Args:
-        threads_arg: User-provided thread count
-        memory_arg: User-provided memory string (e.g., '2G')
-        mode: 'per_thread' (default for samtools sort -m) or 'total'
-
-    Returns: (threads: str, memory: str)
+    Calculate default CPU threads and memory if not provided.
+    Logic inspired by Adjust_Mem in program/mainwindow.py.
     """
-    # Calculate threads
-    if threads_arg:
-        threads_val = int(threads_arg)
+    # 1. Threads
+    if threads_arg is not None:
+        threads = str(threads_arg)
     else:
-        # Default to 75% of available CPU cores, minimum 1
-        cpu_count = os.cpu_count() or 1
-        threads_val = max(1, int(cpu_count * 0.75))
+        # Default to 75% of available cores
+        cpus = os.cpu_count() or 4
+        threads = str(max(1, int(cpus * 0.75)))
 
-    threads = str(threads_val)
-
-    # Calculate memory
-    if memory_arg:
-        memory = memory_arg
+    # 2. Memory (in GB per thread for samtools sort)
+    if memory_arg is not None:
+        memory = str(memory_arg)
     else:
-        # Default fallback
-        memory = "2G"
+        # Default to 4GB total or 1GB per thread, whichever is smaller
         if psutil:
-            try:
-                # Default to safe fraction of available RAM, formatted as "XG" or "XM"
-                total_ram_gb = psutil.virtual_memory().total / (1024**3)
-                available_ram_gb = psutil.virtual_memory().available / (1024**3)
-
-                # Total safe memory for the app (e.g., 50% of total or 80% of available)
-                total_safe_gb = min(available_ram_gb * 0.8, total_ram_gb * 0.5)
-
-                if mode == "per_thread":
-                    # Divide total safe memory by threads for tools like samtools sort -m
-                    per_thread_gb = total_safe_gb / threads_val
-                    if per_thread_gb >= 1:
-                        memory = f"{int(per_thread_gb)}G"
-                    else:
-                        per_thread_mb = max(256, int(per_thread_gb * 1024))
-                        memory = f"{per_thread_mb}M"
-                else:
-                    # Return total safe memory
-                    memory = f"{max(2, int(total_safe_gb))}G"
-            except Exception:
-                pass  # Use "2G" fallback
+            total_mem_gb = psutil.virtual_memory().total / (1024**3)
+            # Use 25% of system memory
+            safe_mem = max(2, int(total_mem_gb * 0.25))
+            # samtools sort -m is PER THREAD
+            mem_per_thread = max(1, safe_mem // int(threads))
+            memory = f"{mem_per_thread}G"
+        else:
+            memory = "1G"
 
     return threads, memory
 
 
 class ReferenceLibrary:
-    """
-    Handles automatic resolution of various reference files based on
-    the provided reference directory or file path.
-    """
+    """Helper to manage and resolve reference genome paths."""
 
-    def __init__(self, ref_path, md5_sig=None, skip_full_search=False):
-        self.root = ref_path
+    def __init__(self, root_path, md5_sig=None, skip_full_search=False):
+        self.root = root_path
         self.md5 = md5_sig
         self.fasta = None
+        self.dict_file = None
+        self.fai = None
+        self.liftover_chain = None
         self.ploidy_file = None
         self.ref_vcf_tab = None
-        self.wes_bed = None
-        self.ymt_bed = None
-        self.cma_dir = None
-        self.vep_cache = None
-        self.liftover_chain = None
-        self.dict_file = None
         self.build = None
-        self.skip_full_search = skip_full_search
 
-        if not ref_path:
+        if root_path and os.path.isdir(root_path):
+            self._resolve(skip_full_search)
+        elif root_path and os.path.isfile(root_path):
+            self.fasta = root_path
+            self._resolve_sidecars(root_path)
+
+    def _resolve(self, skip_full_search):
+        # 1. Try known filenames for this MD5
+        if self.md5 and self.md5 in REF_GENOME_FILENAMES:
+            for fname in REF_GENOME_FILENAMES[self.md5]:
+                path = os.path.join(self.root, "genomes", fname)
+                if os.path.exists(path):
+                    self.fasta = path
+                    self._resolve_sidecars(path)
+                    return
+
+        # 2. If skip_full_search is True, don't walk the directory
+        if skip_full_search:
             return
 
-        if os.path.isfile(ref_path):
-            if ref_path.lower().endswith((".fa", ".fasta", ".fa.gz", ".fasta.gz")):
-                self.fasta = ref_path
-                potential_dict = (
-                    ref_path.replace(".fa.gz", ".dict")
-                    .replace(".fasta.gz", ".dict")
-                    .replace(".fa", ".dict")
-                    .replace(".fasta", ".dict")
-                )
-                if os.path.exists(potential_dict):
-                    self.dict_file = potential_dict
-            self._search_dir(os.path.dirname(ref_path))
+        # 3. Fallback: Search for any .fa/.fasta/.fna file
+        for d, _, files in os.walk(self.root):
+            for f in files:
+                if f.endswith(
+                    (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")
+                ):
+                    path = os.path.join(d, f)
+                    self.fasta = path
+                    self._resolve_sidecars(path)
+                    return
 
-        if os.path.isdir(ref_path):
-            # Search specialized subdirectories FIRST
-            for sub in ["microarray", "genomes", "genome", "ref", "vep"]:
-                self._search_dir(os.path.join(ref_path, sub))
+    def _resolve_sidecars(self, fasta_path):
+        base = os.path.splitext(fasta_path)[0]
+        if base.endswith(".fa") or base.endswith(".fasta") or base.endswith(".fna"):
+            base = os.path.splitext(base)[0]
 
-            # Then search the root directory
-            self._search_dir(ref_path)
+        for ext in [".dict", ".fna.dict", ".fa.dict", ".fasta.dict"]:
+            if os.path.exists(base + ext):
+                self.dict_file = base + ext
+                break
 
-            # If we are inside 'genomes' or 'genome', also search the parent and its siblings
-            # to handle cases where --ref points directly to the genomes folder.
-            base_dir = ref_path.rstrip(os.sep)
-            if os.path.basename(base_dir) in ["genomes", "genome"]:
-                parent = os.path.dirname(base_dir)
-                self._search_dir(parent)
-                for sub in ["genome", "genomes", "microarray", "ref", "vep"]:
-                    self._search_dir(os.path.join(parent, sub))
+        if os.path.exists(fasta_path + ".fai"):
+            self.fai = fasta_path + ".fai"
 
-        # If we found a fasta, try to deduce the build if not already known
-        if self.fasta and not self.build and self.md5 in REFERENCE_MODELS:
-            self.build = REFERENCE_MODELS[self.md5][0]
+        # Look for chain files in root or same dir
+        d = os.path.dirname(fasta_path)
+        for c in ["hg38ToHg19.over.chain.gz", "GRCh38ToGRCh37.over.chain.gz"]:
+            potential = os.path.join(d, c)
+            if os.path.exists(potential):
+                self.liftover_chain = potential
+                break
 
-        if self.fasta:
-            logging.debug(
-                LOG_MESSAGES["util_auto_resolved"].format(type="FASTA", path=self.fasta)
-            )
-        if self.vep_cache:
-            logging.debug(
-                LOG_MESSAGES["util_auto_resolved"].format(
-                    type="VEP cache", path=self.vep_cache
-                )
-            )
-        if self.ploidy_file:
-            logging.debug(
-                LOG_MESSAGES["util_auto_resolved"].format(
-                    type="ploidy", path=self.ploidy_file
-                )
-            )
-        if self.ref_vcf_tab:
-            logging.debug(
-                LOG_MESSAGES["util_auto_resolved"].format(
-                    type="ref-vcf-tab", path=self.ref_vcf_tab
-                )
-            )
-        if self.dict_file:
-            logging.debug(
-                LOG_MESSAGES["util_auto_resolved"].format(
-                    type="dict", path=self.dict_file
-                )
-            )
+        # Ploidy files
+        for p in ["ploidy.txt", "ploidy"]:
+            potential = os.path.join(d, p)
+            if os.path.exists(potential):
+                self.ploidy_file = potential
+                break
 
-    def _search_dir(self, d):
-        if not os.path.isdir(d):
-            return
+        # Annotation VCFs
+        for v in ["All_SNPs.vcf.gz", "common_all.vcf.gz"]:
+            potential = os.path.join(d, v)
+            if os.path.exists(potential):
+                self.ref_vcf_tab = potential
+                break
 
-        # 1. Look for FASTA
-        if not self.fasta:
-            if self.md5 and self.md5 in REFERENCE_MODELS:
-                self.build = REFERENCE_MODELS[self.md5][0]
-                # Try specific filename from constants
-                potential = os.path.join(
-                    d,
-                    REF_GENOME_FILENAMES.get(self.build, REFERENCE_MODELS[self.md5][2]),
-                )
-                if os.path.exists(potential):
-                    self.fasta = potential
-                else:
-                    # Try the exact filename registered in REFERENCE_MODELS for this MD5
-                    potential = os.path.join(d, REFERENCE_MODELS[self.md5][2])
-                    if os.path.exists(potential):
-                        self.fasta = potential
-
-            # General fallback: pick first fasta found in this directory
-            if not self.fasta:
-                try:
-                    for f in os.listdir(d):
-                        if f.lower().endswith((".fa.gz", ".fasta.gz", ".fa", ".fasta")):
-                            self.fasta = os.path.join(d, f)
-                            break
-                except Exception:
-                    pass
-
-        # If only resolving fasta, we can stop here
-        if self.skip_full_search and self.fasta:
-            return
-
-        # Look for dict if we have fasta
-        if self.fasta and not self.dict_file:
-            potential_dict = (
-                self.fasta.replace(".fa.gz", ".dict")
-                .replace(".fasta.gz", ".dict")
-                .replace(".fa", ".dict")
-                .replace(".fasta", ".dict")
-            )
-            if os.path.exists(potential_dict):
-                self.dict_file = potential_dict
-            else:
-                try:
-                    for f in os.listdir(d):
-                        if f.lower().endswith(".dict"):
-                            self.dict_file = os.path.join(d, f)
-                            break
-                except Exception:
-                    pass
-
-        # 2. Look for ploidy.txt
-        if not self.ploidy_file:
-            for p in ["ploidy.txt", "ploidy_file.txt"]:
-                potential = os.path.join(d, p)
-                if os.path.exists(potential):
-                    self.ploidy_file = potential
-
-        # 3. Look for microarray VCF
-        if not self.ref_vcf_tab:
-            search_builds = []
-            if self.build:
-                search_builds.append(self.build)
-                # Map common equivalents
-                if self.build in ["hs38DH", "hg38", "GRCh38"]:
-                    search_builds.extend(["hg38", "GRCh38", "hs38DH"])
-                elif self.build in ["hg19", "GRCh37", "hs37d5"]:
-                    search_builds.extend(["hg19", "GRCh37", "hs37d5"])
-            else:
-                search_builds = ["hg38", "GRCh38", "hs38DH", "hg19", "GRCh37", "hs37d5"]
-
-            for b in search_builds:
-                if not b:
-                    continue
-                # Prioritize All_SNPs patterns over snps patterns
-                for pattern in [
-                    f"All_SNPs_{b}_ref.tab.gz",
-                    f"All_SNPs_{b.lower()}_ref.tab.gz",
-                    f"snps_{b}.vcf.gz",
-                    f"snps_{b.lower()}.vcf.gz",
-                ]:
-                    potential = os.path.join(d, pattern)
-                    if os.path.exists(potential):
-                        self.ref_vcf_tab = potential
-                        break
-                if self.ref_vcf_tab:
-                    break
-
-            # General fallbacks
-            if not self.ref_vcf_tab:
-                for v in [
-                    "microarray.vcf.gz",
-                    "ref_vcf_tab.vcf.gz",
-                    "CombinedKit_Ref.vcf.gz",
-                ]:
-                    potential = os.path.join(d, v)
-                    if os.path.exists(potential):
-                        self.ref_vcf_tab = potential
-                        break
-
-        # 4. Look for WES BED
-        if not self.wes_bed:
-            for b in [
-                "TruSeq_Exome_TargetedRegions_v1.2.bed",
-                "TruSeq_Exome_TargetedRegions_v1.2num.bed",
-                "xgen_plus_spikein.GRCh38.bed",
-                "xgen_plus_spikein.GRCh38num.bed",
-            ]:
-                potential = os.path.join(d, b)
-                if os.path.exists(potential):
-                    self.wes_bed = potential
-                    break
-
-        # 5. Look for Y/MT BED
-        if not self.ymt_bed:
-            for b in [
-                "CombBED_McDonald_Poznik_Merged_hg37.bed",
-                "CombBED_McDonald_Poznik_Merged_hg37num.bed",
-                "CombBED_McDonald_Poznik_Merged_hg38.bed",
-                "CombBED_McDonald_Poznik_Merged_hg38num.bed",
-            ]:
-                potential = os.path.join(d, b)
-                if os.path.exists(potential):
-                    self.ymt_bed = potential
-                    break
-
-        # 6. Look for cma_dir (directory containing raw_file_templates)
-        if not self.cma_dir:
-            if os.path.isdir(os.path.join(d, "raw_file_templates")):
-                self.cma_dir = d + ("/" if not d.endswith("/") else "")
-            elif os.path.isdir(os.path.join(d, "microarray", "raw_file_templates")):
-                self.cma_dir = os.path.join(d, "microarray") + "/"
-
-        # 7. Look for vep cache (directory containing homo_sapiens)
-        if not self.vep_cache:
-            if os.path.isdir(os.path.join(d, "homo_sapiens")):
-                self.vep_cache = d
-            elif os.path.isdir(os.path.join(d, "vep", "homo_sapiens")):
-                self.vep_cache = os.path.join(d, "vep")
-
-        # 5. Look for liftover chain
-        if not self.liftover_chain:
-            for c in ["hg38ToHg19.over.chain.gz", "GRCh38ToGRCh37.over.chain.gz"]:
-                potential = os.path.join(d, c)
-                if os.path.exists(potential):
-                    self.liftover_chain = potential
-                    break
+        # Deduce build
+        bn = os.path.basename(fasta_path).upper()
+        if "38" in bn or "HG38" in bn or "GRCH38" in bn:
+            self.build = "hg38"
+        elif "37" in bn or "HG19" in bn or "GRCH37" in bn:
+            self.build = "hg19"
+        elif "DOG" in bn:
+            self.build = "dog"
+        elif "CAT" in bn:
+            self.build = "cat"
 
 
 def resolve_reference(ref_path, md5_sig):
@@ -415,6 +246,50 @@ def ensure_vcf_indexed(vcf_path):
         logging.debug(LOG_MESSAGES["util_skipping_auto_index"].format(path=vcf_path))
 
     return False
+
+
+def ensure_vcf_prepared(vcf_path: str) -> str:
+    """
+    Ensures a VCF is bgzipped and indexed.
+    Returns the path to the usable (bgzipped) VCF file.
+    """
+    if not vcf_path or not os.path.exists(vcf_path):
+        return vcf_path
+
+    # Check if already bgzipped
+    is_bgzipped = False
+    try:
+        with open(vcf_path, "rb") as f:
+            header = f.read(3)
+            if header == b"\x1f\x8b\x08":
+                is_bgzipped = True
+    except Exception:
+        pass
+
+    usable_path = vcf_path
+    if not is_bgzipped:
+        # If it's a plain VCF, we need to bgzip it
+        if vcf_path.lower().endswith(".vcf"):
+            bgzipped_path = vcf_path + ".gz"
+            if not os.path.exists(bgzipped_path):
+                logging.info(f"ℹ️: Bgzipping {vcf_path}...")
+                try:
+                    subprocess.run(
+                        ["bgzip", "-c", vcf_path],
+                        stdout=open(bgzipped_path, "wb"),
+                        check=True,
+                    )
+                except Exception as e:
+                    logging.error(f"❌: Failed to bgzip VCF: {e}")
+                    return vcf_path
+            usable_path = bgzipped_path
+        else:
+            # Not a .vcf extension and not bgzipped? Might be a problem, but let's try to index anyway
+            pass
+
+    # Ensure it's indexed
+    ensure_vcf_indexed(usable_path)
+    return usable_path
 
 
 def get_bam_header(bam_path, cram_opt=None):
@@ -553,6 +428,24 @@ def get_ref_mito(bam_path, cram_opt=None, header=None):
         return "Yoruba"  # Build 15
 
     return "rCRS"  # Default
+
+
+def get_file_version(filepath: str) -> str:
+    """Retrieve the format and version of a genomic file using htsfile."""
+    try:
+        res = subprocess.run(["htsfile", filepath], capture_output=True, text=True)
+        if res.returncode == 0:
+            # Output format: "path: Format version X sequence data"
+            # e.g., "file.cram: CRAM version 3.1 sequence data"
+            out = res.stdout.strip()
+            if ":" in out:
+                version_info = out.split(":", 1)[1].strip()
+                # Clean up "sequence data" suffix if present
+                version_info = version_info.replace(" sequence data", "")
+                return version_info
+    except Exception:
+        pass
+    return "Unknown"
 
 
 def is_long_read(bam_path, cram_opt=None, header=None):

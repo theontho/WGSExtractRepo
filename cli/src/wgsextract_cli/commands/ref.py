@@ -95,7 +95,7 @@ def cmd_download(args):
 
 
 def cmd_index(args):
-    verify_dependencies(["samtools"])
+    verify_dependencies(["samtools", "bwa"])
     if not args.ref:
         logging.error("--ref is required.")
         return
@@ -105,10 +105,23 @@ def cmd_index(args):
 
     logging.info(LOG_MESSAGES["ref_indexing"].format(path=args.ref))
     try:
+        # 1. samtools faidx
+        logging.info("Indexing FASTA with samtools faidx...")
         subprocess.run(["samtools", "faidx", args.ref], check=True)
+
+        # 2. samtools dict
         out_dict = os.path.splitext(args.ref)[0] + ".dict"
+        if out_dict.endswith(".fna") or out_dict.endswith(".fa"):
+            out_dict = os.path.splitext(out_dict)[0] + ".dict"
+
         logging.info(LOG_MESSAGES["ref_creating_dict"].format(path=out_dict))
         subprocess.run(["samtools", "dict", args.ref, "-o", out_dict], check=True)
+
+        # 3. bwa index
+        logging.info("Indexing FASTA with bwa index (required for alignment)...")
+        subprocess.run(["bwa", "index", args.ref], check=True)
+
+        logging.info("Indexing complete.")
     except subprocess.CalledProcessError as e:
         logging.error(f"Indexing failed: {e}")
 

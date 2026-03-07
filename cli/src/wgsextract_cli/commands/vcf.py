@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 
 from wgsextract_cli.core.dependencies import verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
@@ -9,6 +10,7 @@ from wgsextract_cli.core.utils import (
     ReferenceLibrary,
     calculate_bam_md5,
     ensure_vcf_indexed,
+    ensure_vcf_prepared,
     get_resource_defaults,
     run_command,
     verify_paths_exist,
@@ -79,16 +81,14 @@ def register(subparsers, base_parser):
     trio_parser = vcf_subs.add_parser(
         "trio", parents=[base_parser], help=CLI_HELP["cmd_trio"]
     )
-    trio_parser.add_argument("--proband", required=True, help="VCF file for the child")
-    trio_parser.add_argument("--mother", required=True, help="VCF file for the mother")
-    trio_parser.add_argument("--father", required=True, help="VCF file for the father")
+    trio_parser.add_argument("--proband", help="VCF file for the child")
+    trio_parser.set_defaults(func=cmd_trio)
     trio_parser.add_argument(
         "--mode",
         choices=["denovo", "recessive", "comphet"],
         default="denovo",
         help="Inheritance mode to filter for",
     )
-    trio_parser.set_defaults(func=cmd_trio)
 
     cnv_parser = vcf_subs.add_parser(
         "cnv", parents=[base_parser], help=CLI_HELP["cmd_cnv"]
@@ -133,8 +133,12 @@ def register(subparsers, base_parser):
 
 
 def get_base_args(args):
-    # For trio, input comes from --proband
-    input_file = getattr(args, "input", None) or getattr(args, "proband", None)
+    # Support multiple input argument names for different VCF commands
+    input_file = (
+        getattr(args, "vcf_input", None)
+        or getattr(args, "input", None)
+        or getattr(args, "proband", None)
+    )
 
     if not input_file:
         logging.error(LOG_MESSAGES["input_required"])
@@ -300,11 +304,12 @@ def cmd_indel(args):
 
 def cmd_annotate(args):
     verify_dependencies(["bcftools", "tabix"])
-    if not args.input:
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
     outdir = (
-        args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
     out_vcf = os.path.join(outdir, "annotated.vcf.gz")
 
@@ -314,8 +319,8 @@ def cmd_annotate(args):
     if not ann_vcf:
         # Try to auto-resolve from reference library
         md5_sig = (
-            calculate_bam_md5(args.input, None)
-            if args.input.lower().endswith((".bam", ".cram"))
+            calculate_bam_md5(input_file, None)
+            if input_file.lower().endswith((".bam", ".cram"))
             else None
         )
         lib = ReferenceLibrary(args.ref, md5_sig)
@@ -333,15 +338,14 @@ def cmd_annotate(args):
         logging.error("--cols is required (e.g., ID,INFO/HG).")
         return
 
-    if not verify_paths_exist({"--input": args.input, "--ann-vcf": ann_vcf}):
+    if not verify_paths_exist({"--input": input_file, "--ann-vcf": ann_vcf}):
         return
 
-    ensure_vcf_indexed(args.input)
-    ensure_vcf_indexed(ann_vcf)
+    # Ensure inputs are bgzipped and indexed
+    input_vcf = ensure_vcf_prepared(input_file)
+    ann_vcf = ensure_vcf_prepared(ann_vcf)
 
-    logging.info(
-        LOG_MESSAGES["vcf_annotating"].format(input=args.input, output=out_vcf)
-    )
+    logging.info(LOG_MESSAGES["vcf_annotating"].format(input=input_vcf, output=out_vcf))
     try:
         subprocess.run(
             [
@@ -354,30 +358,31 @@ def cmd_annotate(args):
                 "-Oz",
                 "-o",
                 out_vcf,
-                args.input,
+                input_vcf,
             ],
             check=True,
         )
         ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
-        logging.error(f"Annotation failed: {e}")
+        logging.error(f"❌: Annotation failed: {e}")
 
 
 def cmd_filter(args):
     verify_dependencies(["bcftools", "tabix"])
-    if not args.input:
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
-    if not verify_paths_exist({"--input": args.input}):
+    if not verify_paths_exist({"--input": input_file}):
         return
 
     outdir = (
-        args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
     out_vcf = os.path.join(outdir, "filtered.vcf.gz")
 
     # Resolve reference if needed for gap filtering or gene resolution
-    md5_sig = calculate_bam_md5(args.input, None)
+    md5_sig = calculate_bam_md5(input_file, None)
     lib = ReferenceLibrary(args.ref, md5_sig)
 
     # Gene-based region resolution
@@ -386,7 +391,7 @@ def cmd_filter(args):
         from wgsextract_cli.core.gene_map import GeneMap
 
         gm = GeneMap(
-            lib.root if lib.root else os.path.dirname(os.path.abspath(args.input))
+            lib.root if lib.root else os.path.dirname(os.path.abspath(input_file))
         )
         resolved_region = gm.get_coords(args.gene, lib.build or "hg38")
 
@@ -418,20 +423,20 @@ def cmd_filter(args):
                 "Gap exclusion requested but reference genome not resolved."
             )
 
-    ensure_vcf_indexed(args.input)
-    logging.info(LOG_MESSAGES["vcf_filtering"].format(input=args.input, output=out_vcf))
+    input_vcf = ensure_vcf_prepared(input_file)
+    logging.info(LOG_MESSAGES["vcf_filtering"].format(input=input_vcf, output=out_vcf))
     try:
         subprocess.run(
             ["bcftools", "view"]
             + region_args
             + expr_args
             + exclude_args
-            + ["-Oz", "-o", out_vcf, args.input],
+            + ["-Oz", "-o", out_vcf, input_vcf],
             check=True,
         )
         ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
-        logging.error(f"Filtering failed: {e}")
+        logging.error(f"❌: Filtering failed: {e}")
     finally:
         if gaps_bed and os.path.exists(gaps_bed):
             os.remove(gaps_bed)
@@ -472,39 +477,51 @@ def get_gaps_bed(ref_path):
 
 def cmd_trio(args):
     verify_dependencies(["bcftools", "tabix"])
+
+    proband = args.proband if args.proband else args.vcf_input
+    mother = args.mother
+    father = args.father
+
+    if not proband or not mother or not father:
+        logging.error("Proband, Mother, and Father VCFs are all required.")
+        return
+
     if not verify_paths_exist(
-        {"--proband": args.proband, "--mother": args.mother, "--father": args.father}
+        {"--proband": proband, "--mother": mother, "--father": father}
     ):
         return
 
-    outdir = (
-        args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.proband))
-    )
+    outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(proband))
     out_vcf = os.path.join(outdir, f"trio_{args.mode}.vcf.gz")
 
     logging.info(
         LOG_MESSAGES["vcf_trio_analysis"].format(mode=args.mode, output=out_vcf)
     )
 
-    # 1. Merge the three VCFs (ensures they are indexed)
-    for f in [args.proband, args.mother, args.father]:
-        ensure_vcf_indexed(f)
+    # 1. Prepare and Merge the three VCFs
+    p_vcf = ensure_vcf_prepared(proband)
+    m_vcf = ensure_vcf_prepared(mother)
+    f_vcf = ensure_vcf_prepared(father)
 
     merged_vcf = os.path.join(outdir, "merged_trio.vcf.gz")
-    subprocess.run(
-        [
-            "bcftools",
-            "merge",
-            "--force-samples",
-            "-Oz",
-            "-o",
-            merged_vcf,
-            args.proband,
-            args.mother,
-            args.father,
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "bcftools",
+                "merge",
+                "--force-samples",
+                "-Oz",
+                "-o",
+                merged_vcf,
+                p_vcf,
+                m_vcf,
+                f_vcf,
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logging.error(f"❌: VCF merge failed: {e}")
+        return
 
     # 2. Apply Inheritance Filters
     # [0] = proband, [1] = mother, [2] = father
@@ -533,22 +550,24 @@ def cmd_trio(args):
 
 def cmd_qc(args):
     verify_dependencies(["bcftools"])
-    if not args.input:
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
         logging.error("--input is required.")
         return
 
-    if not verify_paths_exist({"--input": args.input}):
+    if not verify_paths_exist({"--input": input_file}):
         return
 
     outdir = (
-        args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
-    out_stats = os.path.join(outdir, "vcf_stats.txt")
+    base_name = os.path.basename(input_file)
+    out_stats = os.path.join(outdir, f"{base_name}.vcfstats.txt")
 
-    logging.info(LOG_MESSAGES["vcf_stats"].format(input=args.input, output=out_stats))
+    logging.info(LOG_MESSAGES["vcf_stats"].format(input=input_file, output=out_stats))
     try:
         with open(out_stats, "w") as f:
-            subprocess.run(["bcftools", "stats", args.input], stdout=f, check=True)
+            subprocess.run(["bcftools", "stats", input_file], stdout=f, check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"VCF stats failed: {e}")
 
@@ -577,7 +596,10 @@ def cmd_cnv(args):
             os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"CNV calling failed: {e}")
-        raise
+        logging.error(
+            "Hint: If using macOS, ensure 'delly' and 'boost' are correctly installed via Homebrew."
+        )
+        sys.exit(e.returncode)
 
 
 def cmd_sv(args):
@@ -603,11 +625,14 @@ def cmd_sv(args):
             os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"SV calling failed: {e}")
-        raise
+        logging.error(
+            "Hint: If using macOS, ensure 'delly' and 'boost' are correctly installed via Homebrew."
+        )
+        sys.exit(e.returncode)
 
 
 def cmd_freebayes(args):
-    verify_dependencies(["freebayes", "bcftools", "tabix"])
+    verify_dependencies(["freebayes", "bcftools", "tabix", "samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -618,14 +643,42 @@ def cmd_freebayes(args):
     logging.info(LOG_MESSAGES["vcf_calling_freebayes"].format(output=out_vcf))
     region_args = ["-r", args.region] if args.region else []
 
+    # Freebayes requires an uncompressed reference sequence.
+    # If the reference is .gz, we must decompress it temporarily.
+    temp_ref = None
+    use_ref = ref
+
+    if ref.lower().endswith(".gz"):
+        logging.info(
+            "Freebayes requires an uncompressed reference. Decompressing temporarily..."
+        )
+        import tempfile
+
+        # Create temp file in outdir to ensure enough space
+        fd, temp_ref = tempfile.mkstemp(suffix=".fa", dir=outdir)
+        os.close(fd)
+        try:
+            with open(temp_ref, "wb") as f_out:
+                subprocess.run(["gunzip", "-c", ref], stdout=f_out, check=True)
+            # Index the temp ref
+            logging.info("Indexing temporary reference...")
+            subprocess.run(["samtools", "faidx", temp_ref], check=True)
+            use_ref = temp_ref
+        except Exception as e:
+            logging.error(f"Failed to prepare uncompressed reference: {e}")
+            if temp_ref and os.path.exists(temp_ref):
+                os.remove(temp_ref)
+                if os.path.exists(temp_ref + ".fai"):
+                    os.remove(temp_ref + ".fai")
+            return
+
     # Check if input is CRAM
     is_cram = args.input.lower().endswith(".cram")
 
     try:
         if is_cram:
-            # freebayes doesn't always handle CRAM perfectly via stdin or without explicit reference handling in some versions
-            # We use samtools view to pipe decompressed BAM to freebayes
-            view_cmd = ["samtools", "view", "-uh", "-T", ref, args.input]
+            # freebayes doesn't always handle CRAM perfectly via stdin
+            view_cmd = ["samtools", "view", "-uh", "-T", use_ref, args.input]
             if args.region:
                 view_cmd.extend(
                     ["-r", args.region] if "-r" not in region_args else region_args
@@ -633,7 +686,7 @@ def cmd_freebayes(args):
 
             p_view = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
             p_fb = subprocess.Popen(
-                ["freebayes", "-f", ref, "--stdin"],
+                ["freebayes", "-f", use_ref, "--stdin"],
                 stdin=p_view.stdout,
                 stdout=subprocess.PIPE,
             )
@@ -651,13 +704,10 @@ def cmd_freebayes(args):
                 logging.error(
                     f"Freebayes/bcftools pipeline failed with return code {p_vcf.returncode}"
                 )
-                raise subprocess.CalledProcessError(
-                    p_vcf.returncode, "freebayes pipeline"
-                )
         else:
             # BAM handling
             p1 = subprocess.Popen(
-                ["freebayes", "-f", ref] + region_args + [args.input],
+                ["freebayes", "-f", use_ref] + region_args + [args.input],
                 stdout=subprocess.PIPE,
             )
             p2 = subprocess.Popen(
@@ -671,25 +721,27 @@ def cmd_freebayes(args):
                 logging.error(
                     f"Freebayes/bcftools failed with return code {p2.returncode}"
                 )
-                raise subprocess.CalledProcessError(p2.returncode, "freebayes")
 
         ensure_vcf_indexed(out_vcf)
     except Exception as e:
         logging.error(f"Freebayes failed: {e}")
-        raise
+    finally:
+        # Clean up temp reference
+        if temp_ref and os.path.exists(temp_ref):
+            logging.info("Cleaning up temporary reference...")
+            os.remove(temp_ref)
+            if os.path.exists(temp_ref + ".fai"):
+                os.remove(temp_ref + ".fai")
 
 
 def cmd_gatk(args):
-    from wgsextract_cli.core.dependencies import get_jar_path
-
-    verify_dependencies(["java", "samtools", "gatk-package-4.1.9.0-local.jar"])
+    verify_dependencies(["gatk", "samtools"])
     base = get_base_args(args)
     if not base:
         return
     threads, outdir, ref, lib = base
 
     out_vcf = os.path.join(outdir, "gatk.vcf.gz")
-    jar = get_jar_path("gatk-package-4.1.9.0-local.jar")
 
     # GATK requires a .dict file
     if not lib.dict_file:
@@ -711,12 +763,9 @@ def cmd_gatk(args):
     region_args = ["-L", args.region] if args.region else []
 
     try:
-        # Note: -Xmx4g is a safe default for local workstation
+        # Use system gatk binary
         cmd = [
-            "java",
-            "-Xmx4g",
-            "-jar",
-            jar,
+            "gatk",
             "HaplotypeCaller",
             "-R",
             ref,
@@ -729,7 +778,12 @@ def cmd_gatk(args):
         ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"GATK failed: {e}")
-        raise
+        if args.input.lower().endswith(".cram"):
+            logging.error(
+                "Hint: Older GATK versions do not support CRAM version 3.1. "
+                "If this failed with a CRAM error, please convert to BAM or upgrade GATK."
+            )
+        sys.exit(e.returncode)
 
 
 def cmd_deepvariant(args):
@@ -833,4 +887,4 @@ def cmd_deepvariant(args):
         ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"DeepVariant failed: {e}")
-        raise
+        sys.exit(e.returncode)

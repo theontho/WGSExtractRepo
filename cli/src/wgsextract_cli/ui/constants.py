@@ -244,7 +244,7 @@ UI_METADATA: dict[str, dict[str, Any]] = {
         "help": GUI_TOOLTIPS["pet_help"],
         "commands": [
             {
-                "label": "Run Pet Analysis",
+                "label": "Align Pet FASTQ",
                 "cmd": "pet-analysis",
                 "help": GUI_TOOLTIPS["pet-analysis"],
             },

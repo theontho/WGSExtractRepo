@@ -118,7 +118,7 @@ class LibFrame(ScrollableBaseFrame):
             text_color="#55aaff",
             cursor="hand2",
         )
-        v_info.pack(side="left", padx=5)
+        v_info.pack(side="left", padx=(10, 0))
         ToolTip(
             v_info,
             GUI_TOOLTIPS["vep_mgmt_tip"],
@@ -192,7 +192,7 @@ class LibFrame(ScrollableBaseFrame):
             text_color="#55aaff",
             cursor="hand2",
         )
-        ii.pack(side="left", padx=5)
+        ii.pack(side="left", padx=(10, 0))
         ToolTip(ii, GUI_TOOLTIPS["ref_genomes_tip"])
 
         # Refresh List button moved here
