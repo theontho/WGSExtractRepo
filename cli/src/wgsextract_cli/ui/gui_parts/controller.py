@@ -36,6 +36,7 @@ class GUIController:
         cmd_key: str | None = None,
         frame: Any = None,
         on_finish: Any | None = None,
+        label: str | None = None,
     ) -> None:
         """
         Execute a shell command in a background thread and log output.
@@ -45,8 +46,13 @@ class GUIController:
             cmd_key: Unique identifier for this command (to support cancellation).
             frame: The UI frame that triggered the command.
             on_finish: Optional callback to run when the command finishes.
+            label: Display label for the log tab.
         """
-        self.main_app.log(LOG_MESSAGES["running_cmd"].format(command=" ".join(command)))
+        tab_key = self.main_app.add_log_tab(label or cmd_key or "Task", cmd_key=cmd_key)
+        self.main_app.log(
+            LOG_MESSAGES["running_cmd"].format(command=" ".join(command)),
+            tab_key=tab_key,
+        )
 
         if cmd_key and frame:
             frame.after(0, lambda: frame.set_button_state(cmd_key, "running"))
@@ -125,7 +131,7 @@ class GUIController:
 
                     self.main_app.after(
                         0,
-                        lambda m=final_msg: self.main_app.log(m),
+                        lambda m=final_msg: self.main_app.log(m, tab_key=tab_key),
                     )
 
             # Use threads to read stdout and stderr concurrently
@@ -147,9 +153,21 @@ class GUIController:
                 self.main_app.after(
                     0,
                     lambda: self.main_app.log(
-                        LOG_MESSAGES["finished_exit"].format(code=process.returncode)
+                        LOG_MESSAGES["finished_exit"].format(code=process.returncode),
+                        tab_key=tab_key,
                     ),
                 )
+
+                # Check if tab should be closed (was marked for closure during cancellation)
+                if tab_key in self.main_app.pending_closure:
+                    self.main_app.after(
+                        500, lambda: self.main_app.remove_log_tab(tab_key)
+                    )
+                else:
+                    self.main_app.after(
+                        0, lambda: self.main_app.mark_tab_finished(tab_key)
+                    )
+
             if cmd_key and frame and frame.winfo_exists():
                 frame.after(0, lambda: frame.set_button_state(cmd_key, "normal"))
             if on_finish and frame and frame.winfo_exists():
@@ -161,7 +179,10 @@ class GUIController:
         """Terminate a running process group."""
         if cmd_key in self.active_processes:
             proc = self.active_processes[cmd_key]
-            self.main_app.log(LOG_MESSAGES["cancelling_proc"].format(pid=proc.pid))
+            tab_key = self.main_app.cmd_to_tab.get(cmd_key, "Main")
+            self.main_app.log(
+                LOG_MESSAGES["cancelling_proc"].format(pid=proc.pid), tab_key=tab_key
+            )
 
             try:
                 if sys.platform == "win32":
@@ -173,7 +194,9 @@ class GUIController:
 
                     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
             except Exception as e:
-                self.main_app.log(LOG_MESSAGES["cancel_error"].format(error=e))
+                self.main_app.log(
+                    LOG_MESSAGES["cancel_error"].format(error=e), tab_key=tab_key
+                )
 
             # On Unix, we might need kill if it doesn't respond to terminate
             self.main_app.after(1000, lambda: self._force_kill_if_alive(cmd_key, proc))
@@ -197,6 +220,7 @@ class GUIController:
 
     def _force_kill_if_alive(self, cmd_key: str, proc: subprocess.Popen) -> None:
         if proc.poll() is None:
+            tab_key = self.main_app.cmd_to_tab.get(cmd_key, "Main")
             try:
                 if sys.platform == "win32":
                     proc.kill()
@@ -205,7 +229,10 @@ class GUIController:
 
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 if self.main_app.winfo_exists():
-                    self.main_app.log(LOG_MESSAGES["force_killed"].format(pid=proc.pid))
+                    self.main_app.log(
+                        LOG_MESSAGES["force_killed"].format(pid=proc.pid),
+                        tab_key=tab_key,
+                    )
             except Exception:
                 pass
 
@@ -222,6 +249,7 @@ class GUIController:
             )
             return
 
+        tab_key = self.main_app.add_log_tab("Detailed Info", cmd_key="info")
         if frame:
             frame.after(0, lambda: frame.set_button_state("info", "running"))
 
@@ -241,7 +269,10 @@ class GUIController:
             if ref_path:
                 cmd.extend(["--ref", ref_path])
 
-            self.main_app.log(LOG_MESSAGES["running_cmd"].format(command=" ".join(cmd)))
+            self.main_app.log(
+                LOG_MESSAGES["running_cmd"].format(command=" ".join(cmd)),
+                tab_key=tab_key,
+            )
             try:
                 # Use process groups so we can kill children safely
                 popen_kwargs: dict[str, Any] = {
@@ -263,7 +294,8 @@ class GUIController:
                 if process.returncode != 0:
                     # Cancelled or failed, don't open a blank window
                     self.main_app.log(
-                        f"Info process finished (Exit {process.returncode})."
+                        f"Info process finished (Exit {process.returncode}).",
+                        tab_key=tab_key,
                     )
                     return
 
@@ -283,12 +315,23 @@ class GUIController:
                     )
             except Exception as e:
                 if self.main_app.winfo_exists():
-                    self.main_app.log(GUI_MESSAGES["info_error"].format(error=e))
+                    self.main_app.log(
+                        GUI_MESSAGES["info_error"].format(error=e), tab_key=tab_key
+                    )
             finally:
                 if "info" in self.active_processes:
                     del self.active_processes["info"]
                 if frame and frame.winfo_exists():
                     frame.after(0, lambda: frame.set_button_state("info", "normal"))
+
+                if tab_key in self.main_app.pending_closure:
+                    self.main_app.after(
+                        500, lambda: self.main_app.remove_log_tab(tab_key)
+                    )
+                else:
+                    self.main_app.after(
+                        0, lambda: self.main_app.mark_tab_finished(tab_key)
+                    )
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -451,6 +494,7 @@ class GUIController:
             )
             return
 
+        tab_key = self.main_app.add_log_tab("VEP Download", cmd_key="vep-download")
         lib_frame.show_vep_progress()
         self.main_app.vep_cancel_event = threading.Event()
 
@@ -489,7 +533,7 @@ class GUIController:
             a.ref = lib_frame.ref_entry.get()
             a.progress_callback = cb
             a.cancel_event = self.main_app.vep_cancel_event
-            self.main_app.log(LOG_MESSAGES["starting_vep_dl"])
+            self.main_app.log(LOG_MESSAGES["starting_vep_dl"], tab_key=tab_key)
             try:
                 success = cmd_vep_download(a)
                 if self.main_app.winfo_exists():
@@ -498,18 +542,29 @@ class GUIController:
                         lambda: self.main_app.log(
                             LOG_MESSAGES["vep_dl_success"]
                             if success
-                            else LOG_MESSAGES["vep_dl_failed"]
+                            else LOG_MESSAGES["vep_dl_failed"],
+                            tab_key=tab_key,
                         ),
                     )
             except Exception as e:
                 if self.main_app.winfo_exists():
                     self.main_app.after(
-                        0, lambda _e=e: self.main_app.log(f"Error: {_e}")
+                        0,
+                        lambda _e=e: self.main_app.log(f"Error: {_e}", tab_key=tab_key),
                     )
             finally:
                 if lib_frame.winfo_exists():
                     lib_frame.after(0, lib_frame.hide_vep_progress)
                 self.main_app.vep_cancel_event = None
+
+                if tab_key in self.main_app.pending_closure:
+                    self.main_app.after(
+                        500, lambda: self.main_app.remove_log_tab(tab_key)
+                    )
+                else:
+                    self.main_app.after(
+                        0, lambda: self.main_app.mark_tab_finished(tab_key)
+                    )
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -539,8 +594,10 @@ class GUIController:
             return
 
         mode = "restart" if restart else "download"
+        tab_key = self.main_app.add_log_tab(f"DL: {gd['label']}", cmd_key=fn)
         self.main_app.log(
-            LOG_MESSAGES["starting_lib_dl"].format(mode=mode, label=gd["label"])
+            LOG_MESSAGES["starting_lib_dl"].format(mode=mode, label=gd["label"]),
+            tab_key=tab_key,
         )
         ce = threading.Event()
         pv = ctk.DoubleVar(value=0)
@@ -578,6 +635,7 @@ class GUIController:
                                 di["pbar_widget"].pack_forget()
 
                     self.main_app.after(0, update)
+                self.main_app.log(msg, tab_key=tab_key)
 
             try:
                 success = download_and_process_genome(
@@ -597,13 +655,17 @@ class GUIController:
                                 LOG_MESSAGES["lib_dl_success"]
                                 if success
                                 else LOG_MESSAGES["lib_dl_failed"]
-                            ).format(label=gd["label"])
+                            ).format(label=gd["label"]),
+                            tab_key=tab_key,
                         ),
                     )
             except Exception as e:
                 if self.main_app.winfo_exists():
                     self.main_app.after(
-                        0, lambda _e=e: self.main_app.log(f"Error: {str(_e)}")
+                        0,
+                        lambda _e=e: self.main_app.log(
+                            f"Error: {str(_e)}", tab_key=tab_key
+                        ),
                     )
             finally:
                 if fn in self.main_app.active_downloads:
@@ -612,6 +674,15 @@ class GUIController:
                     self.main_app.after(0, self.main_app.refresh_all_frames)
                 if lib_frame.winfo_exists():
                     lib_frame.after(0, lib_frame.setup_ui)
+
+                if tab_key in self.main_app.pending_closure:
+                    self.main_app.after(
+                        500, lambda: self.main_app.remove_log_tab(tab_key)
+                    )
+                else:
+                    self.main_app.after(
+                        0, lambda: self.main_app.mark_tab_finished(tab_key)
+                    )
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -677,6 +748,7 @@ class GUIController:
             cmd_key=f"index-{group['final']}",
             frame=lib_frame,
             on_finish=lib_frame.setup_ui,
+            label=f"Index {group['final']}",
         )
 
     def run_ref_unindex(self, group: dict[str, Any], lib_frame: Any) -> None:
@@ -714,6 +786,7 @@ class GUIController:
             cmd_key=f"verify-{group['final']}",
             frame=lib_frame,
             on_finish=lib_frame.setup_ui,
+            label=f"Verify {group['final']}",
         )
 
     def run_ref_count_ns(self, group: dict[str, Any], lib_frame: Any) -> None:
@@ -730,6 +803,7 @@ class GUIController:
             cmd_key=f"count-ns-{group['final']}",
             frame=lib_frame,
             on_finish=lib_frame.setup_ui,
+            label=f"Count Ns {group['final']}",
         )
 
     def run_ref_del_ns(self, group: dict[str, Any], lib_frame: Any) -> None:
@@ -775,15 +849,19 @@ class GUIController:
             return
 
         if are_gene_maps_installed(reflib):
-            self.main_app.log(f"Deleting Gene Maps from {reflib}...")
+            tab_key = self.main_app.add_log_tab("Gene Map Delete")
+            self.main_app.log(f"Deleting Gene Maps from {reflib}...", tab_key=tab_key)
             if delete_gene_maps(reflib):
-                self.main_app.log("Successfully deleted Gene Maps.")
+                self.main_app.log("Successfully deleted Gene Maps.", tab_key=tab_key)
             else:
-                self.main_app.log("Failed to delete Gene Maps.")
+                self.main_app.log("Failed to delete Gene Maps.", tab_key=tab_key)
             if frame and frame.winfo_exists():
                 frame.setup_ui()
         else:
-            self.main_app.log(f"Downloading Gene Maps to {reflib}...")
+            tab_key = self.main_app.add_log_tab(
+                "Gene Map Download", cmd_key="ref-gene-map"
+            )
+            self.main_app.log(f"Downloading Gene Maps to {reflib}...", tab_key=tab_key)
             if frame and frame.winfo_exists():
                 frame.set_button_state("ref-gene-map", "running")
 
@@ -799,14 +877,16 @@ class GUIController:
                             self.main_app.after(
                                 0,
                                 lambda: self.main_app.log(
-                                    "Successfully downloaded Gene Maps."
+                                    "Successfully downloaded Gene Maps.",
+                                    tab_key=tab_key,
                                 ),
                             )
                         else:
                             self.main_app.after(
                                 0,
                                 lambda: self.main_app.log(
-                                    "Gene Map download cancelled or failed."
+                                    "Gene Map download cancelled or failed.",
+                                    tab_key=tab_key,
                                 ),
                             )
                 finally:
@@ -816,6 +896,15 @@ class GUIController:
                             0, lambda: frame.set_button_state("ref-gene-map", "normal")
                         )
                         frame.after(0, frame.setup_ui)
+
+                    if tab_key in self.main_app.pending_closure:
+                        self.main_app.after(
+                            500, lambda: self.main_app.remove_log_tab(tab_key)
+                        )
+                    else:
+                        self.main_app.after(
+                            0, lambda: self.main_app.mark_tab_finished(tab_key)
+                        )
 
             threading.Thread(target=run, daemon=True).start()
 
@@ -852,15 +941,21 @@ class GUIController:
         if out_dir:
             cmd.extend(["--outdir", out_dir])
 
-        self.run_cmd(cmd, cmd_key="pet-analysis", frame=frame)
+        label = "Pet Analysis"
+        btn = frame.cmd_buttons.get("pet-analysis")
+        if btn:
+            label = btn.cget("text")
 
-    def run_dispatch(self, cmd: str, frame: Any) -> None:
+        self.run_cmd(cmd, cmd_key="pet-analysis", frame=frame, label=label)
+
+    def run_dispatch(self, cmd: str, frame: Any, label: str | None = None) -> None:
         """
         Maps UI button commands to actual CLI operations.
 
         Args:
             cmd: The command identifier from UI_METADATA.
             frame: The frame from which the command was triggered.
+            label: Display label for the log tab.
         """
         bc = [sys.executable, "-m", "wgsextract_cli.main"]
 
@@ -912,7 +1007,7 @@ class GUIController:
             region = getattr(frame, "region_entry", None)
             if region and region.get():
                 c.extend(["-r", region.get()])
-            self.run_cmd(c, cmd_key=cmd, frame=frame)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
         elif cmd == "align":
             c = bc + ["align", "--r1", frame.align_r1.get(), "--ref", ref_val]
@@ -924,7 +1019,7 @@ class GUIController:
             if fmt_var:
                 c.extend(["--format", fmt_var.get()])
 
-            self.run_cmd(c, cmd_key=cmd, frame=frame)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
         elif cmd in [
             "sort",
@@ -973,7 +1068,7 @@ class GUIController:
                     c.extend(["-f", val])
                 else:
                     c.append(val)
-            self.run_cmd(c, cmd_key=cmd, frame=frame)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
         elif cmd.startswith("repair-"):
             # Repair FTDNA VCF takes VCF input, others take BAM
@@ -982,6 +1077,7 @@ class GUIController:
                 bc + ["repair", cmd.replace("repair-", ""), "--input", input_to_use],
                 cmd_key=cmd,
                 frame=frame,
+                label=label,
             )
 
         elif cmd in [
@@ -1011,7 +1107,7 @@ class GUIController:
             out_dir = getattr(frame, "out_dir", None)
             if out_dir and out_dir.get():
                 c.extend(["--outdir", out_dir.get()])
-            self.run_cmd(c, cmd_key=cmd, frame=frame)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
         elif cmd in [
             "snp",
@@ -1036,6 +1132,7 @@ class GUIController:
                 vcf_val=vcf_val,
                 ref_val=ref_val,
                 bc=bc,
+                label=label,
             )
 
         elif cmd == "microarray":
@@ -1053,6 +1150,7 @@ class GUIController:
                 ],
                 cmd_key=cmd,
                 frame=frame,
+                label=label,
             )
 
         elif cmd == "lineage-y":
@@ -1070,6 +1168,7 @@ class GUIController:
                 ],
                 cmd_key=cmd,
                 frame=frame,
+                label=label,
             )
 
         elif cmd == "lineage-mt":
@@ -1085,6 +1184,7 @@ class GUIController:
                 ],
                 cmd_key=cmd,
                 frame=frame,
+                label=label,
             )
 
         elif cmd == "fastp":
@@ -1096,6 +1196,7 @@ class GUIController:
                 c,
                 cmd_key=cmd,
                 frame=frame,
+                label=label,
             )
 
         elif cmd == "fastqc":
@@ -1103,6 +1204,7 @@ class GUIController:
                 bc + ["qc", "fastqc", "--input", fastq_val or bam_val],
                 cmd_key=cmd,
                 frame=frame,
+                label=label,
             )
 
         elif cmd.startswith("ref-"):
@@ -1112,7 +1214,7 @@ class GUIController:
                 c += ["--input", bam_val]
             if sub not in ["download", "download-genes"] and ref_val:
                 c += ["--ref", ref_val]
-            self.run_cmd(c, cmd_key=cmd, frame=frame)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
     def _dispatch_vcf_vep(
         self,
@@ -1123,6 +1225,7 @@ class GUIController:
         vcf_val: str,
         ref_val: str,
         bc: list[str],
+        label: str | None = None,
     ) -> None:
         """Helper to handle VCF and VEP command dispatching."""
         sub = (
@@ -1228,9 +1331,9 @@ class GUIController:
                 open_stats()
                 return
 
-            self.run_cmd(c, cmd_key=cmd, frame=frame, on_finish=open_stats)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, on_finish=open_stats, label=label)
         else:
-            self.run_cmd(c, cmd_key=cmd, frame=frame)
+            self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
     def _validate_inputs(self, cmd: str, frame: Any, **vals: str) -> bool:
         """

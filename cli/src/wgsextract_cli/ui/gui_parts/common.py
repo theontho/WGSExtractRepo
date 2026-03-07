@@ -137,12 +137,15 @@ class UIUtilsMixin:
 
     def handle_button_click(self: Any, cmd_key: str) -> None:
         """Handle button click, either running a new command or cancelling an active one."""
+        btn = self.cmd_buttons.get(cmd_key)
+        label = btn.cget("text") if btn else cmd_key
+
         if cmd_key in self.main_app.controller.active_processes:
             self.main_app.controller.cancel_cmd(cmd_key)
         elif cmd_key == "ref-gene-map" and self.main_app.gene_map_cancel_event:
             self.main_app.controller.cancel_gene_map_download()
         else:
-            self.main_app.run_dispatch(cmd_key, self)
+            self.main_app.run_dispatch(cmd_key, self, label=label)
 
     def _create_section(
         self: Any, title: str | None, commands: list[dict[str, Any]], cols: int = 3

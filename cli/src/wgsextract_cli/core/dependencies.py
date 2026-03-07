@@ -4,17 +4,12 @@ import shutil
 import sys
 
 
-def verify_dependencies(tool_list):
+def check_dependencies(tool_list):
     """
     Checks if all required tools or JAR files are available.
-    Exits gracefully if a tool is missing.
+    Returns a list of missing tools.
     """
     missing = []
-
-    # Base directory for JAR tools (assume relative to cli/ root or repo root)
-    # The cli/tests/e2e_base.py sets up sys.path.
-    # From cli/src/wgsextract_cli/core/dependencies.py, repo root is 4 levels up.
-    # But often it's easier to check from the current script's location.
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.abspath(os.path.join(current_dir, "../../../.."))
@@ -27,6 +22,15 @@ def verify_dependencies(tool_list):
         else:
             if shutil.which(tool) is None:
                 missing.append(tool)
+    return missing
+
+
+def verify_dependencies(tool_list):
+    """
+    Checks if all required tools or JAR files are available.
+    Exits gracefully if a tool is missing.
+    """
+    missing = check_dependencies(tool_list)
 
     if missing:
         logging.error("Fatal Error: Missing required tools or JAR files.")

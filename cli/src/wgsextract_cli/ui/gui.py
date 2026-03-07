@@ -1,7 +1,9 @@
 """Main entry point for the WGS Extract Graphical User Interface."""
 
+import logging
 import os
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox
 from typing import Any
@@ -9,6 +11,7 @@ from typing import Any
 import customtkinter as ctk
 from PIL import Image
 
+from wgsextract_cli.core.dependencies import check_dependencies
 from wgsextract_cli.core.messages import GUI_LABELS
 from wgsextract_cli.ui.constants import BUTTON_FONT, UI_METADATA
 from wgsextract_cli.ui.gui_parts.controller import GUIController
@@ -19,6 +22,8 @@ from wgsextract_cli.ui.gui_parts.lib import LibFrame
 from wgsextract_cli.ui.gui_parts.micro import MicroFrame
 from wgsextract_cli.ui.gui_parts.pet import PetFrame
 from wgsextract_cli.ui.gui_parts.settings import SettingsFrame
+
+logger = logging.getLogger(__name__)
 
 
 class InfoWindow(ctk.CTkToplevel):
@@ -38,8 +43,10 @@ class InfoWindow(ctk.CTkToplevel):
             except Exception:
                 pass
 
-        # Use a textbox for scrollable, monospace text
-        self.textbox = ctk.CTkTextbox(self, font=ctk.CTkFont(family="Courier", size=13))
+        # Use a textbox for scrollable text with word wrap
+        self.textbox = ctk.CTkTextbox(
+            self, font=ctk.CTkFont(family="Courier", size=13), wrap="word"
+        )
         self.textbox.pack(fill="both", expand=True, padx=20, pady=20)
         self.textbox.insert("0.0", text)
         self.textbox.configure(state="disabled")  # Read-only
@@ -53,13 +60,29 @@ class WGSExtractGUI(ctk.CTk):
 
     def __init__(self) -> None:
         """Initialize the GUI application, setting up the layout and components."""
+        start_time = time.time()
+        logger.debug(
+            f"[{time.time() - start_time:.3f}s] Starting WGSExtractGUI initialization..."
+        )
+
         super().__init__()
         self.title(GUI_LABELS["app_title"])
         self.geometry("1100x850")
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
 
+        # Initial centered loading label
+        self.loading_label = ctk.CTkLabel(
+            self,
+            text="Loading WGS Extract...",
+            font=ctk.CTkFont(size=24, weight="bold"),
+        )
+        self.loading_label.place(relx=0.5, rely=0.5, anchor="center")
+        self.update()
+        logger.debug(f"[{time.time() - start_time:.3f}s] Loading label displayed.")
+
         # Load assets
+        logger.debug(f"[{time.time() - start_time:.3f}s] Loading assets...")
         self.icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.png")
         self.logo_image: ctk.CTkImage | None = None
         if os.path.exists(self.icon_path):
@@ -76,13 +99,36 @@ class WGSExtractGUI(ctk.CTk):
             except Exception:
                 pass
 
+        # Perform global dependency check
+        logger.debug(f"[{time.time() - start_time:.3f}s] Checking dependencies...")
+        core_tools = [
+            "samtools",
+            "bcftools",
+            "bwa",
+            "minimap2",
+            "tabix",
+            "bgzip",
+            "fastp",
+            "fastqc",
+            "curl",
+        ]
+        missing = check_dependencies(core_tools)
+        if missing:
+            logger.warning(f"Missing core dependencies: {', '.join(missing)}")
+
         # State management
+        logger.debug(
+            f"[{time.time() - start_time:.3f}s] Setting up state management..."
+        )
         self.active_downloads: dict[str, Any] = {}
         self.vep_cancel_event: threading.Event | None = None
         self.gene_map_cancel_event: threading.Event | None = None
         self.controller = GUIController(self)
 
         # Shared variables for synchronization across tabs
+        logger.debug(
+            f"[{time.time() - start_time:.3f}s] Initializing shared variables..."
+        )
         self.bam_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT", ""))
         self.vcf_path_var = ctk.StringVar(value=os.environ.get("WGSE_INPUT_VCF", ""))
         self.vcf_mother_var = ctk.StringVar(value=os.environ.get("WGSE_MOTHER_VCF", ""))
@@ -159,21 +205,34 @@ class WGSExtractGUI(ctk.CTk):
         update_vep_cache()  # Initial call
 
         # UI Layout
+        logger.debug(f"[{time.time() - start_time:.3f}s] Setting up sidebar...")
         self._setup_sidebar()
+        logger.debug(
+            f"[{time.time() - start_time:.3f}s] Setting up main content area..."
+        )
         self._setup_main_content()
+        logger.debug(f"[{time.time() - start_time:.3f}s] Setting up output area...")
         self._setup_output_area()
-        self._setup_frames()
 
-        # Default view
+        # Initialize frame storage (loaded on demand)
+        self.frames: dict[str, ctk.CTkFrame] = {}
+
+        # Finalize
+        logger.debug(
+            f"[{time.time() - start_time:.3f}s] Finalizing startup, showing workflow frame..."
+        )
+        self.loading_label.destroy()
         self.show_frame("flow")
 
         # Event bindings
+        logger.debug(f"[{time.time() - start_time:.3f}s] Binding events...")
         self.bind_all("<MouseWheel>", self._on_mousewheel)
         self.bind_all("<Button-4>", self._on_mousewheel)
         self.bind_all("<Button-5>", self._on_mousewheel)
 
         # Protocol for closing
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        logger.debug(f"[{time.time() - start_time:.3f}s] Initialization complete.")
 
     def _on_closing(self) -> None:
         """Handle the window closing event by cancelling all active processes."""
@@ -226,29 +285,255 @@ class WGSExtractGUI(ctk.CTk):
         self.main_content.grid_columnconfigure(0, weight=1)
 
     def _setup_output_area(self) -> None:
-        """Set up the scrollable text output area at the bottom."""
-        self.output_text = ctk.CTkTextbox(self, height=200)
-        self.output_text.grid(row=1, column=1, sticky="nsew", padx=20, pady=(0, 20))
+        """Set up the custom tabbed output area at the bottom."""
+        self.log_container = ctk.CTkFrame(self, height=250)
+        self.log_container.grid(row=1, column=1, sticky="nsew", padx=20, pady=(0, 20))
 
-    def _setup_frames(self) -> None:
-        """Initialize all tab frames from UI_METADATA."""
-        self.frames: dict[str, ctk.CTkFrame] = {}
-        for key, meta in UI_METADATA.items():
-            if key == "lib":
-                frame = LibFrame(self.main_content, self, key, meta)
-            elif key == "micro":
-                frame = MicroFrame(self.main_content, self, key, meta)
-            elif key == "fastq":
-                frame = FastqFrame(self.main_content, self, key, meta)
-            elif key == "pet":
-                frame = PetFrame(self.main_content, self, key, meta)
-            elif key == "flow":
-                frame = FlowFrame(self.main_content, self, key, meta)
-            elif key == "settings":
-                frame = SettingsFrame(self.main_content, self, key, meta)
-            else:
-                frame = GenericFrame(self.main_content, self, key, meta)
-            self.frames[key] = frame
+        # Header row for tabs and close button
+        self.log_header = ctk.CTkFrame(self.log_container, fg_color="transparent")
+        self.log_header.pack(fill="x", padx=10, pady=(5, 0))
+
+        # Left-justified tabs using SegmentedButton
+        self.log_tabs_button = ctk.CTkSegmentedButton(
+            self.log_header, command=self._on_log_tab_changed
+        )
+        self.log_tabs_button.pack(side="left")
+
+        # Right-justified close button
+        self.close_tab_btn = ctk.CTkButton(
+            self.log_header,
+            text="X",
+            width=30,
+            height=25,
+            fg_color="#d32f2f",
+            hover_color="#b71c1c",
+            command=self._on_close_active_tab_clicked,
+        )
+        self.close_tab_btn.pack(side="right")
+
+        # Content area for textboxes
+        self.log_content = ctk.CTkFrame(self.log_container)
+        self.log_content.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.log_textboxes: dict[str, ctk.CTkTextbox] = {}
+        self.tab_to_cmd: dict[str, str] = {}
+        self.cmd_to_tab: dict[str, str] = {}
+        self.tab_names: list[str] = []
+        self.active_tab: str | None = None
+        self.pending_closure: set[str] = set()
+
+        self.add_log_tab("Main")
+
+    def _on_log_tab_changed(self, name: str) -> None:
+        """Switch the visible textbox when a tab is selected."""
+        if self.active_tab and self.active_tab in self.log_textboxes:
+            self.log_textboxes[self.active_tab].pack_forget()
+
+        self.active_tab = name
+        if name in self.log_textboxes:
+            self.log_textboxes[name].pack(fill="both", expand=True)
+
+        # Disable X for Main tab
+        if name == "Main":
+            self.close_tab_btn.configure(state="disabled", fg_color="gray")
+        else:
+            self.close_tab_btn.configure(state="normal", fg_color="#d32f2f")
+
+    def add_log_tab(self, label: str, cmd_key: str | None = None) -> str:
+        """
+        Add a new tab to the log area.
+
+        Args:
+            label: The display name for the tab.
+            cmd_key: Optional command key associated with this tab for cancellation.
+
+        Returns:
+            The unique tab name.
+        """
+        base_name = label
+        unique_name = label
+        counter = 1
+        while unique_name in self.tab_names:
+            unique_name = f"{base_name} ({counter})"
+            counter += 1
+
+        # Create the textbox
+        textbox = ctk.CTkTextbox(
+            self.log_content, font=ctk.CTkFont(family="Courier", size=12)
+        )
+        self.log_textboxes[unique_name] = textbox
+        self.tab_names.append(unique_name)
+
+        if cmd_key:
+            self.tab_to_cmd[unique_name] = cmd_key
+            self.cmd_to_tab[cmd_key] = unique_name
+
+        # Update the segmented button
+        self.log_tabs_button.configure(values=self.tab_names)
+        self.log_tabs_button.set(unique_name)
+        self._on_log_tab_changed(unique_name)
+
+        return unique_name
+
+    def _on_close_active_tab_clicked(self) -> None:
+        """Handle clicking the 'X' button for the current active tab."""
+        if not self.active_tab or self.active_tab == "Main":
+            return
+
+        tab_key = self.active_tab
+        cmd_key = self.tab_to_cmd.get(tab_key)
+
+        if cmd_key:
+            # Check for active processes
+            if cmd_key in self.controller.active_processes:
+                self.log(
+                    f"\n[System] Cancelling task and closing tab: {tab_key}", tab_key
+                )
+                self.pending_closure.add(tab_key)
+                self.controller.cancel_cmd(cmd_key)
+                return
+
+            # If it's a download
+            for dl_key, _dl_data in self.active_downloads.items():
+                if dl_key == cmd_key or (
+                    isinstance(cmd_key, str) and cmd_key in dl_key
+                ):
+                    self.log(
+                        f"\n[System] Cancelling download and closing tab: {tab_key}",
+                        tab_key,
+                    )
+                    self.pending_closure.add(tab_key)
+                    self.controller.cancel_lib_download(dl_key)
+                    return
+
+        self.remove_log_tab(tab_key)
+
+    def remove_log_tab(self, tab_key: str) -> None:
+        """Remove a tab and its associated widgets."""
+        if tab_key == "Main" or tab_key not in self.tab_names:
+            return
+
+        cmd_key = self.tab_to_cmd.get(tab_key)
+        if tab_key in self.log_textboxes:
+            self.log_textboxes[tab_key].destroy()
+            del self.log_textboxes[tab_key]
+        if tab_key in self.tab_to_cmd:
+            del self.tab_to_cmd[tab_key]
+        if (
+            cmd_key
+            and cmd_key in self.cmd_to_tab
+            and self.cmd_to_tab[cmd_key] == tab_key
+        ):
+            del self.cmd_to_tab[cmd_key]
+        if tab_key in self.pending_closure:
+            self.pending_closure.remove(tab_key)
+
+        if tab_key in self.tab_names:
+            self.tab_names.remove(tab_key)
+
+        # Update the UI
+        self.log_tabs_button.configure(values=self.tab_names)
+
+        # Select Main or another tab
+        new_tab = (
+            "Main"
+            if "Main" in self.tab_names
+            else (self.tab_names[0] if self.tab_names else None)
+        )
+        if new_tab:
+            self.log_tabs_button.set(new_tab)
+            self._on_log_tab_changed(new_tab)
+
+    def mark_tab_finished(self, tab_key: str) -> None:
+        """Add a green checkmark to the tab name to indicate it's done."""
+        if tab_key == "Main" or tab_key not in self.tab_names or "✅" in tab_key:
+            return
+
+        old_name = tab_key
+        new_name = f"{old_name} ✅"
+
+        # Update tracking lists
+        try:
+            idx = self.tab_names.index(old_name)
+            self.tab_names[idx] = new_name
+        except ValueError:
+            return
+
+        # Update dictionaries
+        if old_name in self.log_textboxes:
+            self.log_textboxes[new_name] = self.log_textboxes.pop(old_name)
+
+        if old_name in self.tab_to_cmd:
+            cmd_key = self.tab_to_cmd.pop(old_name)
+            self.tab_to_cmd[new_name] = cmd_key
+            self.cmd_to_tab[cmd_key] = new_name
+
+        if self.active_tab == old_name:
+            self.active_tab = new_name
+
+        # Refresh UI
+        self.log_tabs_button.configure(values=self.tab_names)
+        if self.active_tab == new_name:
+            self.log_tabs_button.set(new_name)
+
+    def _create_frame(self, key: str) -> ctk.CTkFrame:
+        """Create a frame instance based on the key."""
+        start_time = time.time()
+        logger.debug(f"Initializing frame: {key}...")
+        meta = UI_METADATA[key]
+        if key == "lib":
+            frame = LibFrame(self.main_content, self, key, meta)
+        elif key == "micro":
+            frame = MicroFrame(self.main_content, self, key, meta)
+        elif key == "fastq":
+            frame = FastqFrame(self.main_content, self, key, meta)
+        elif key == "pet":
+            frame = PetFrame(self.main_content, self, key, meta)
+        elif key == "flow":
+            frame = FlowFrame(self.main_content, self, key, meta)
+        elif key == "settings":
+            frame = SettingsFrame(self.main_content, self, key, meta)
+        else:
+            frame = GenericFrame(self.main_content, self, key, meta)
+        logger.debug(f"Frame {key} initialized in {time.time() - start_time:.3f}s.")
+        return frame
+
+    def show_frame(self, name: str) -> None:
+        """
+        Switch the visible frame in the main content area, loading it if necessary.
+
+        Args:
+            name: The key of the frame to show.
+        """
+        # Hide all existing frames
+        for f in self.frames.values():
+            f.pack_forget()
+
+        # Show loading message
+        load_msg = ctk.CTkLabel(
+            self.main_content,
+            text=f"Loading {UI_METADATA[name]['title']}...",
+            font=ctk.CTkFont(size=20),
+        )
+        load_msg.place(relx=0.5, rely=0.5, anchor="center")
+        self.update()
+
+        try:
+            # Load frame on demand if not already initialized
+            if name not in self.frames:
+                frame = self._create_frame(name)
+                self.frames[name] = frame
+
+            frame = self.frames[name]
+
+            # Refresh if frame has update_options method
+            if hasattr(frame, "update_options"):
+                frame.update_options()
+
+            frame.pack(fill="both", expand=True)
+            self.update()
+        finally:
+            load_msg.destroy()
 
     def _on_mousewheel(self, event: tk.Event) -> None:
         """Handle mouse wheel events for scrolling across different widgets."""
@@ -290,43 +575,30 @@ class WGSExtractGUI(ctk.CTk):
             except AttributeError:
                 break
 
-    def show_frame(self, name: str) -> None:
-        """
-        Switch the visible frame in the main content area.
-
-        Args:
-            name: The key of the frame to show.
-        """
-        for f in self.frames.values():
-            f.pack_forget()
-        frame = self.frames[name]
-        # Refresh if frame has a setup_ui or update_options method
-        if hasattr(frame, "setup_ui"):
-            # Avoid infinite recursion if setup_ui is complex, but for now it's okay
-            # Note: GenericFrame.setup_ui recreates widgets, which might be slow.
-            # We'll rely on update_options for dynamic parts if possible.
-            pass
-        if hasattr(frame, "update_options"):
-            frame.update_options()
-
-        frame.pack(fill="both", expand=True)
-
     def refresh_all_frames(self) -> None:
         """Re-initialize or update UI elements in all active frames."""
         for frame in self.frames.values():
             if hasattr(frame, "update_options"):
                 frame.update_options()
 
-    def log(self, message: str) -> None:
+    def log(self, message: str, tab_key: str = "Main") -> None:
         """
-        Append a message to the output text area and print to stdout.
+        Append a message to a specific output tab and print to stdout.
 
         Args:
             message: The string to log.
+            tab_key: The name of the tab to log to.
         """
-        print(message)  # Also print to terminal for easier debugging
-        self.output_text.insert("end", message + "\n")
-        self.output_text.see("end")
+        print(f"[{tab_key}] {message}")  # Also print to terminal
+
+        textbox = self.log_textboxes.get(tab_key)
+        if not textbox:
+            # Fallback to Main if tab doesn't exist
+            textbox = self.log_textboxes.get("Main")
+
+        if textbox:
+            textbox.insert("end", message + "\n")
+            textbox.see("end")
 
     def show_error(self, title: str, message: str) -> None:
         """Show an error message box."""
@@ -337,9 +609,9 @@ class WGSExtractGUI(ctk.CTk):
         messagebox.showinfo(title, message)
 
     # Delegate logic methods to controller
-    def run_dispatch(self, cmd: str, frame: Any) -> None:
+    def run_dispatch(self, cmd: str, frame: Any, label: str | None = None) -> None:
         """Delegate command dispatch to the controller."""
-        self.controller.run_dispatch(cmd, frame)
+        self.controller.run_dispatch(cmd, frame, label=label)
 
     def run_lib_download(
         self, gd: dict[str, Any], lib_frame: Any, restart: bool = False
