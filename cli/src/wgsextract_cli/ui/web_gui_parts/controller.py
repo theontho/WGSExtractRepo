@@ -11,6 +11,8 @@ from typing import Any
 
 from nicegui import ui
 
+from wgsextract_cli.core.utils import proc_registry
+
 from .state import state
 
 
@@ -83,6 +85,9 @@ class WebController:
         self.log(f"Running: {' '.join(command)}", tab_name)
 
         try:
+            # Add parent PID for automatic cleanup if GUI dies
+            command.extend(["--parent-pid", str(os.getpid())])
+
             # Use process groups for cancellation on Unix
             process = await asyncio.create_subprocess_exec(
                 *command,
@@ -93,6 +98,9 @@ class WebController:
 
             if cmd_key:
                 state.running_processes[cmd_key] = process
+                # Cast to Any because asyncio process has slightly different type than Popen
+                # but we only use it for polling/killing which works similarly.
+                proc_registry.register_process(cmd_key, process)  # type: ignore
 
             async def read_stream(stream, prefix):
                 while True:
@@ -113,6 +121,7 @@ class WebController:
 
             if cmd_key and cmd_key in state.running_processes:
                 del state.running_processes[cmd_key]
+                proc_registry.unregister_process(cmd_key)
 
             if on_finish:
                 on_finish()
@@ -139,8 +148,8 @@ class WebController:
         render_content_refresh()
         ui.update()
 
-    async def get_info_fast(self, input_path: str) -> None:
-        """Run the 'info' command in fast mode and update the state."""
+    async def get_info_fast(self, input_path: str, detailed: bool = False) -> None:
+        """Run the 'info' command and update the state."""
         if not input_path or not os.path.exists(input_path):
             return
 
@@ -152,34 +161,60 @@ class WebController:
             "--input",
             input_path,
         ]
+        if detailed:
+            command.append("--detailed")
         if state.ref_path:
             command.extend(["--ref", state.ref_path])
         if state.out_dir:
             command.extend(["--outdir", state.out_dir])
 
-        self.log(f"🔍: Triggering fast info: {' '.join(command)}")
+        # Add parent PID
+        command.extend(["--parent-pid", str(os.getpid())])
 
-        # Run in a separate thread to not block the loop
-        def run():
-            env = os.environ.copy()
-            env["WGSE_SKIP_DOTENV"] = "1"
-            subprocess.run(command, capture_output=True, text=True, env=env)
+        if detailed:
+            # For detailed info, run via run_cmd to show progress in a log tab
+            async def on_finish():
+                out_dir = state.out_dir or os.path.dirname(os.path.abspath(input_path))
+                json_cache = os.path.join(
+                    out_dir, f"{os.path.basename(input_path)}.wgse_info.json"
+                )
+                if os.path.exists(json_cache):
+                    with open(json_cache) as f:
+                        data = json.load(f)
+                    self.info_data = data
+                    # Refresh UI
+                    from .common import render_content_refresh
 
-            # Load from json cache
-            out_dir = state.out_dir or os.path.dirname(os.path.abspath(input_path))
-            json_cache = os.path.join(
-                out_dir, f"{os.path.basename(input_path)}.wgse_info.json"
-            )
+                    render_content_refresh()
+                    ui.update()
 
-            if os.path.exists(json_cache):
-                with open(json_cache) as f:
-                    data = json.load(f)
-                self.info_data = data
-                ui.run_javascript(
-                    "window.location.reload()"
-                )  # Force refresh to update UI
+            await self.run_cmd(command, label="Detailed Info", on_finish=on_finish)
+        else:
+            self.log(f"🔍: Triggering fast info: {' '.join(command)}")
 
-        threading.Thread(target=run, daemon=True).start()
+            # Run in a separate thread to not block the loop for fast info
+            def run():
+                env = os.environ.copy()
+                env["WGSE_SKIP_DOTENV"] = "1"
+                subprocess.run(command, capture_output=True, text=True, env=env)
+
+                # Load from json cache
+                out_dir = state.out_dir or os.path.dirname(os.path.abspath(input_path))
+                json_cache = os.path.join(
+                    out_dir, f"{os.path.basename(input_path)}.wgse_info.json"
+                )
+
+                if os.path.exists(json_cache):
+                    with open(json_cache) as f:
+                        data = json.load(f)
+                    self.info_data = data
+                    # Refresh UI instead of reloading window
+                    from .common import render_content_refresh
+
+                    render_content_refresh()
+                    ui.update()
+
+            threading.Thread(target=run, daemon=True).start()
 
     # --- Library Management ---
 
@@ -199,6 +234,7 @@ class WebController:
             f"Starting download: {gd['label']}"
         )  # Removed tab_lvl="INFO" as log method handles it
         ce = threading.Event()
+        proc_registry.register_event(fn, ce)
         self.active_downloads[fn] = {"cancel": ce, "prog": 0.0, "status": "Waiting..."}
 
         def cb(downloaded: int, total: int, speed: float) -> None:
@@ -239,6 +275,7 @@ class WebController:
             finally:
                 if fn in self.active_downloads:
                     del self.active_downloads[fn]
+                proc_registry.unregister_event(fn)
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -250,6 +287,7 @@ class WebController:
 
         self.log("Starting VEP download...")  # Removed tab_lvl="INFO"
         ce = threading.Event()
+        proc_registry.register_event("vep-download", ce)
         self.active_processes["vep-download"] = (
             ce  # Reuse dictionary for cancel signaling
         )
@@ -281,6 +319,7 @@ class WebController:
             finally:
                 if "vep-download" in self.active_processes:
                     del self.active_processes["vep-download"]
+                proc_registry.unregister_event("vep-download")
 
         threading.Thread(target=run, daemon=True).start()
 

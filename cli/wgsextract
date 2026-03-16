@@ -1,10 +1,13 @@
 #!/bin/bash
-# CLI wrapper for wgsextract-cli module
-# Usage: ./wgsextract [ARGS]
+# Find the real directory of this script, even if it's a symlink
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_ROOT="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
-# Get the directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-# Run the module using uv with PYTHONPATH set to the src directory
-# This ensures we're running the latest code without needing a full reinstall.
-cd "$SCRIPT_DIR" && PYTHONPATH=src uv run python -m wgsextract_cli.main "$@"
+# Run the module using uv with PYTHONPATH set to the absolute src directory
+export PYTHONPATH="$REPO_ROOT/src"
+cd "$REPO_ROOT" && uv run python -m wgsextract_cli.main "$@"

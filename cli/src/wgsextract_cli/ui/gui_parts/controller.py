@@ -15,6 +15,7 @@ from wgsextract_cli.core.gene_map import (
     download_gene_maps,
 )
 from wgsextract_cli.core.messages import GUI_LABELS, GUI_MESSAGES, LOG_MESSAGES
+from wgsextract_cli.core.utils import proc_registry
 
 
 class GUIController:
@@ -72,10 +73,14 @@ class GUIController:
             else:
                 popen_kwargs["preexec_fn"] = os.setpgrp
 
+            # Add parent PID for automatic cleanup if GUI dies
+            command.extend(["--parent-pid", str(os.getpid())])
+
             process = subprocess.Popen(command, **popen_kwargs)
 
             if cmd_key:
                 self.active_processes[cmd_key] = process
+                proc_registry.register_process(cmd_key, process)
 
             # Function to read a stream and log it with a prefix
             def read_stream(stream: Any, default_prefix: str) -> None:
@@ -148,6 +153,7 @@ class GUIController:
 
             if cmd_key in self.active_processes:
                 del self.active_processes[cmd_key]
+                proc_registry.unregister_process(cmd_key)
 
             if self.main_app.winfo_exists():
                 self.main_app.after(
@@ -238,6 +244,7 @@ class GUIController:
 
         if cmd_key in self.active_processes:
             del self.active_processes[cmd_key]
+            proc_registry.unregister_process(cmd_key)
 
     def run_info_detailed(
         self, input_path: str, ref_path: str, frame: Any = None
@@ -286,8 +293,12 @@ class GUIController:
                 else:
                     popen_kwargs["preexec_fn"] = os.setpgrp
 
+                # Add parent PID
+                cmd.extend(["--parent-pid", str(os.getpid())])
+
                 process = subprocess.Popen(cmd, **popen_kwargs)
                 self.active_processes["info"] = process
+                proc_registry.register_process("info", process)
 
                 output, _ = process.communicate()
 
@@ -321,6 +332,7 @@ class GUIController:
             finally:
                 if "info" in self.active_processes:
                     del self.active_processes["info"]
+                    proc_registry.unregister_process("info")
                 if frame and frame.winfo_exists():
                     frame.after(0, lambda: frame.set_button_state("info", "normal"))
 
@@ -398,6 +410,9 @@ class GUIController:
             out_dir = self.main_app.out_dir_var.get()
             if out_dir:
                 cmd.extend(["--outdir", out_dir])
+
+            # Add parent PID
+            cmd.extend(["--parent-pid", str(os.getpid())])
 
             self.main_app.log(f"🔍: Triggering fast info: {' '.join(cmd)}")
             try:
@@ -497,6 +512,7 @@ class GUIController:
         tab_key = self.main_app.add_log_tab("VEP Download", cmd_key="vep-download")
         lib_frame.show_vep_progress()
         self.main_app.vep_cancel_event = threading.Event()
+        proc_registry.register_event("vep-download", self.main_app.vep_cancel_event)
 
         def cb(downloaded: int, total: int, speed: float) -> None:
             pct = downloaded / total if total > 0 else 0
@@ -556,6 +572,7 @@ class GUIController:
                 if lib_frame.winfo_exists():
                     lib_frame.after(0, lib_frame.hide_vep_progress)
                 self.main_app.vep_cancel_event = None
+                proc_registry.unregister_event("vep-download")
 
                 if tab_key in self.main_app.pending_closure:
                     self.main_app.after(
@@ -600,6 +617,7 @@ class GUIController:
             tab_key=tab_key,
         )
         ce = threading.Event()
+        proc_registry.register_event(fn, ce)
         pv = ctk.DoubleVar(value=0)
         sv = ctk.StringVar(value="Waiting...")
         self.main_app.active_downloads[fn] = {
@@ -670,6 +688,7 @@ class GUIController:
             finally:
                 if fn in self.main_app.active_downloads:
                     del self.main_app.active_downloads[fn]
+                proc_registry.unregister_event(fn)
                 if self.main_app.winfo_exists():
                     self.main_app.after(0, self.main_app.refresh_all_frames)
                 if lib_frame.winfo_exists():

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from .commands import (
     align,
     bam,
+    deps,
     extract,
     info,
     lineage,
@@ -111,13 +112,23 @@ def main():
         default=os.environ.get("WGSE_FATHER_VCF"),
         help="Father VCF file path for trio analysis.",
     )
+    base_parser.add_argument(
+        "--parent-pid",
+        type=int,
+        help="Parent Process ID to monitor. If the parent dies, this process will exit.",
+    )
 
     # 2. Main parser
     parser = argparse.ArgumentParser(
         description=CLI_HELP["description"], parents=[base_parser]
     )
+    parser.add_argument(
+        "--full-help",
+        action="store_true",
+        help=CLI_HELP["arg_full_help"],
+    )
     subparsers = parser.add_subparsers(
-        dest="command", required=True, title="subcommands"
+        dest="command", required=False, title="subcommands"
     )
 
     # UI Commands
@@ -136,6 +147,7 @@ def main():
     # 3. Register all subcommands, passing the base_parser as a parent
     for cmd_module in [
         info,
+        deps,
         bam,
         extract,
         microarray,
@@ -152,18 +164,56 @@ def main():
 
     args = parser.parse_args()
 
+    if args.full_help:
+        parser.print_help()
+        print("\n" + "=" * 80)
+        print("SUBCOMMAND DETAILS")
+        print("=" * 80)
+        # Sort subcommands alphabetically for better readability
+        for name in sorted(subparsers.choices.keys()):
+            subparser = subparsers.choices[name]
+            print(f"\n--- {name} ---")
+            subparser.print_help()
+        sys.exit(0)
+
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
     # Handle signals for clean exit (allows finally blocks to run)
     import signal
 
+    from .core.utils import cleanup_processes
+
     def signal_handler(signum, frame):
-        logging.info(f"Received signal {signum}, exiting...")
+        logging.info(f"Received signal {signum}, cleaning up...")
+        cleanup_processes()
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
+
+    # Parental monitoring
+    if args.parent_pid:
+        import threading
+        import time
+
+        def monitor_parent():
+            while True:
+                try:
+                    # os.kill(pid, 0) is a standard way to check if a process is alive
+                    os.kill(args.parent_pid, 0)
+                except OSError:
+                    logging.warning(
+                        f"Parent process {args.parent_pid} disappeared, exiting..."
+                    )
+                    cleanup_processes()
+                    os._exit(
+                        1
+                    )  # Use os._exit to bypass any other cleanup and exit immediately
+                time.sleep(2)
+
+        monitor_thread = threading.Thread(target=monitor_parent, daemon=True)
+        monitor_thread.start()
 
     if args.outdir:
         os.makedirs(args.outdir, exist_ok=True)

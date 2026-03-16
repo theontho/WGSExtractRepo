@@ -1,5 +1,6 @@
 """Web-based Graphical User Interface for WGS Extract using NiceGUI."""
 
+import asyncio
 import logging
 
 from nicegui import ui
@@ -64,6 +65,10 @@ def main_page():
     sidebar()
     render_content()
 
+    # Trigger fast info on startup if path is already set (e.g. from .env)
+    if state.bam_path and not controller.info_data:
+        asyncio.create_task(controller.get_info_fast(state.bam_path))
+
 
 def header():
     with ui.header().classes("items-center justify-between bg-blue-900"):
@@ -98,6 +103,11 @@ def sidebar():
 
 def main():
     """Start the NiceGUI application."""
+    from nicegui import app
+
+    from wgsextract_cli.core.utils import cleanup_processes
+
+    app.on_shutdown(cleanup_processes)
     ui.run(title="WGS Extract Web GUI", port=8081, reload=False, dark=True)
 
 

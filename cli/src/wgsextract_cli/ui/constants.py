@@ -235,6 +235,7 @@ UI_METADATA: dict[str, dict[str, Any]] = {
         "commands": [
             {"label": "Run Align", "cmd": "align", "help": GUI_TOOLTIPS["align"]},
             {"label": "Unalign", "cmd": "unalign", "help": GUI_TOOLTIPS["unalign"]},
+            {"label": "Index", "cmd": "index", "help": GUI_TOOLTIPS["index"]},
             {"label": "FastQC", "cmd": "fastqc", "help": GUI_TOOLTIPS["fastqc"]},
             {"label": "FastP", "cmd": "fastp", "help": GUI_TOOLTIPS["fastp"]},
         ],

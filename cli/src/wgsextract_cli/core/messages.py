@@ -6,6 +6,7 @@ This file centralizes all messages to facilitate future localization.
 CLI_HELP = {
     "description": "WGS Extract Command-Line Interface (CLI)",
     "arg_debug": "Enable verbose debug logging. (Env: WGSE_DEBUG=1)",
+    "arg_full_help": "Print help info for all subcommands.",
     "arg_input": "Path to the input BAM/CRAM or FASTQ file. (Env: WGSE_INPUT)",
     "arg_outdir": "Destination directory for outputs. (Env: WGSE_OUTDIR)",
     "arg_ref": "Path to the reference genome FASTA. (Env: WGSE_REF)",
@@ -56,6 +57,7 @@ CLI_HELP = {
     "cmd_lineage-mt": "Predict your maternal haplogroup using Haplogrep. Requires a BAM with mitochondrial reads. (Time: 1-5 mins)",
     "cmd_fastqc": "The industry-standard quality check for raw reads. Produces a visual report of base quality, GC content, and adapter contamination. (Time: 30-60 mins)",
     "cmd_fastp": "An ultra-fast all-in-one pre-processor. Automatically trims adapters and filters low-quality reads while generating a QC report. (Time: 15-30 mins)",
+    "cmd_check-deps": "Verify that all required bioinformatics tools (samtools, bcftools, etc.) are installed and accessible in your system path.",
     "cmd_ref-identify": "Analyze your BAM header to determine exactly which reference genome was used for the original alignment. (Time: <1 min)",
     "cmd_ref-index": "Prepare a FASTA file for use by indexing it. This is required before you can align reads or call variants against it. (Time: 30-60 mins, Space: FASTA Size x 2)",
     "cmd_ref-download": "Download curated, standard-compliant reference genomes (hg19, hg38, T2T) optimized for use with this tool. (Time: 10-30 mins, Space: 3-5 GB)",
@@ -174,6 +176,7 @@ GUI_LABELS = {
     "btn_delete_gm": "Delete Gene Map",
     "btn_vep_dl": "Download VEP Cache",
     "btn_vep_verify": "Verify VEP Cache",
+    "fastq_bam": "FASTQ / BAM:",
 }
 # GUI Tooltips and Help Texts
 GUI_TOOLTIPS = {
@@ -250,6 +253,7 @@ GUI_TOOLTIPS = {
     "output_fmt_tip": "Choose whether to output a standard BAM or a more compressed CRAM file.",
     "vep_mgmt_tip": "VEP (Variant Effect Predictor) uses a large cache of genomic data to determine how variants (SNPs/InDels) might affect genes and proteins.",
     "ref_genomes_tip": "Baseline DNA sequences used for comparison during analysis.",
+    "fastq_input_tip": "Select FASTQ R1/R2 or Single-End for alignment or QC.",
 }
 
 # Auto-populate command tooltips from CLI_HELP

@@ -11,6 +11,101 @@ try:
 except ImportError:
     psutil = None
 
+import atexit
+import signal
+import threading
+import time
+
+
+class ProcessRegistry:
+    """
+    Central registry for tracking sub-processes and cancel events.
+    Enables reliable cleanup on application exit.
+    """
+
+    def __init__(self):
+        self.processes: dict[str, subprocess.Popen] = {}
+        self.events: dict[str, threading.Event] = {}
+        self._lock = threading.Lock()
+
+    def register_process(self, key: str, process: subprocess.Popen):
+        with self._lock:
+            self.processes[key] = process
+
+    def unregister_process(self, key: str):
+        with self._lock:
+            if key in self.processes:
+                del self.processes[key]
+
+    def register_event(self, key: str, event: threading.Event):
+        with self._lock:
+            self.events[key] = event
+
+    def unregister_event(self, key: str):
+        with self._lock:
+            if key in self.events:
+                del self.events[key]
+
+    def cleanup(self):
+        """Terminate all registered processes and set all events."""
+        with self._lock:
+            # 1. Signal all events
+            for event in self.events.values():
+                event.set()
+
+            # 2. Terminate all processes
+            if not self.processes:
+                return
+
+            logging.info(
+                f"Cleanup: Terminating {len(self.processes)} active processes..."
+            )
+
+            # Send termination signals
+            for key, proc in self.processes.items():
+                if proc.poll() is None:
+                    try:
+                        if os.name == "nt":
+                            # Windows: send CTRL_BREAK_EVENT to process group
+                            # Use getattr to avoid MyPy error on non-Windows
+                            proc.send_signal(
+                                getattr(signal, "CTRL_BREAK_EVENT", signal.SIGTERM)
+                            )
+                        else:
+                            # Unix: kill the process group
+                            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    except Exception as e:
+                        logging.debug(f"Failed to term process {key}: {e}")
+
+            # Brief wait for graceful exit
+            time.sleep(0.5)
+
+            # Force kill any still alive
+            for _key, proc in self.processes.items():
+                if proc.poll() is None:
+                    try:
+                        if os.name == "nt":
+                            proc.kill()
+                        else:
+                            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    except Exception:
+                        pass
+
+            self.processes.clear()
+
+
+# Global registry instance
+proc_registry = ProcessRegistry()
+
+
+def cleanup_processes():
+    """Entry point for atexit and signal handlers."""
+    proc_registry.cleanup()
+
+
+# Register for atexit
+atexit.register(cleanup_processes)
+
 
 def get_resource_defaults(threads_arg=None, memory_arg=None):
     """

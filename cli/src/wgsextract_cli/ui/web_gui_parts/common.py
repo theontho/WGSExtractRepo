@@ -8,6 +8,8 @@ from typing import Any
 
 from nicegui import events, ui
 
+from wgsextract_cli.core.messages import GUI_TOOLTIPS
+
 from .controller import controller
 from .state import state
 
@@ -211,37 +213,124 @@ def info_display():
     if not controller.info_data:
         return
 
-    with ui.card().classes("w-full bg-slate-800 p-4"):
-        with ui.grid(columns=2).classes("w-full gap-4"):
-            fstats = controller.info_data.get("file_stats", {})
-            sorted_str = "Sorted" if fstats.get("sorted") else "Unsorted"
-            indexed_str = "Indexed" if fstats.get("indexed") else "Unindexed"
+    data = controller.info_data
+    with ui.card().classes("w-full bg-slate-800 p-4 gap-4"):
+        with ui.row().classes("w-full justify-between items-center"):
+            ui.label("Sample Information").classes("text-lg font-bold")
+            if data.get("md5_signature"):
+                ui.label(f"MD5: {data['md5_signature'][:8]}...").classes(
+                    "text-xs text-slate-400"
+                )
+
+        with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-2"):
+            # Basic Info
+            fstats = data.get("file_stats", {})
             size_gb = fstats.get("size_gb", 0)
             size_str = (
                 f"{size_gb:.1f} GB" if isinstance(size_gb, int | float) else "0.0 GB"
             )
 
-            ui.label("Reference Model:")
-            ui.label(controller.info_data.get("ref_model_str", "Unknown")).classes(
-                "font-mono"
-            )
+            with ui.column().classes("gap-1"):
+                ui.label("Reference Model").classes("text-xs text-slate-400 uppercase")
+                ui.label(data.get("ref_model_str", "Unknown")).classes("font-mono")
 
-            ui.label("File Stats:")
-            ui.label(f"{sorted_str}, {indexed_str}, {size_str}").classes("font-mono")
+            with ui.column().classes("gap-1"):
+                ui.label("File Stats").classes("text-xs text-slate-400 uppercase")
+                ui.label(
+                    f"{'Sorted' if fstats.get('sorted') else 'Unsorted'}, {'Indexed' if fstats.get('indexed') else 'Unindexed'}, {size_str}"
+                ).classes("font-mono")
 
-            ui.label("Read Length:")
-            read_len_val = controller.info_data.get("avg_read_len", 0)
-            read_len = (
-                f"{read_len_val:.0f} bp"
-                if isinstance(read_len_val, int | float)
-                else "0 bp"
-            )
-            ui.label(read_len).classes("font-mono")
+            # Detailed Basic Info (if available)
+            if data.get("gender"):
+                with ui.column().classes("gap-1"):
+                    ui.label("Predicted Gender").classes(
+                        "text-xs text-slate-400 uppercase"
+                    )
+                    ui.label(data["gender"]).classes("font-mono")
 
-            ui.label("Sequencer:")
-            ui.label(controller.info_data.get("sequencer", "Unknown")).classes(
-                "font-mono"
+            if data.get("file_content"):
+                with ui.column().classes("gap-1"):
+                    ui.label("File Content").classes("text-xs text-slate-400 uppercase")
+                    ui.label(data["file_content"]).classes("font-mono")
+
+            read_len_val = data.get("avg_read_len", 0)
+            if read_len_val:
+                with ui.column().classes("gap-1"):
+                    ui.label("Read Length").classes("text-xs text-slate-400 uppercase")
+                    ui.label(f"{read_len_val:.0f} bp").classes("font-mono")
+
+            if data.get("sequencer"):
+                with ui.column().classes("gap-1"):
+                    ui.label("Sequencer").classes("text-xs text-slate-400 uppercase")
+                    ui.label(data["sequencer"]).classes("font-mono")
+
+        # Metrics (Mapped vs Raw)
+        metrics = data.get("metrics")
+        if metrics:
+            ui.separator().classes("my-2")
+            ui.label("Alignment Metrics").classes("text-md font-bold text-blue-300")
+            with ui.grid(columns=3).classes("w-full gap-4"):
+                with ui.column():
+                    ui.label("Metric").classes("text-xs font-bold text-slate-500")
+                    ui.label("Mapped").classes("text-sm")
+                    ui.label("Raw").classes("text-sm")
+
+                with ui.column():
+                    ui.label("Read Depth").classes("text-xs font-bold text-slate-500")
+                    ui.label(f"{metrics.get('ard_mapped', 0):.1f} x").classes(
+                        "font-mono"
+                    )
+                    ui.label(f"{metrics.get('ard_raw', 0):.1f} x").classes("font-mono")
+
+                with ui.column():
+                    ui.label("Gigabases").classes("text-xs font-bold text-slate-500")
+                    ui.label(f"{metrics.get('gbases_mapped', 0):.2f} G").classes(
+                        "font-mono"
+                    )
+                    ui.label(f"{metrics.get('gbases_raw', 0):.2f} G").classes(
+                        "font-mono"
+                    )
+
+        # Chromosome Table
+        if data.get("chrom_table_csv"):
+            import csv
+            import io
+
+            ui.separator().classes("my-2")
+            ui.label("Chromosome Statistics").classes(
+                "text-md font-bold text-green-300"
             )
+            si = io.StringIO(data["chrom_table_csv"])
+            reader = csv.DictReader(si)
+            rows = list(reader)
+
+            ui.aggrid(
+                {
+                    "columnDefs": [
+                        {"field": "Seq Name", "headerName": "Chrom", "width": 100},
+                        {"field": "Model Len", "headerName": "Length", "width": 120},
+                        {
+                            "field": "Model N Len",
+                            "headerName": "N Bases",
+                            "width": 100,
+                        },
+                        {
+                            "field": "# Segs Map",
+                            "headerName": "Mapped Reads",
+                            "width": 120,
+                        },
+                        {"field": "Map Gbases", "headerName": "Gbases", "width": 100},
+                        {"field": "Map ARD", "headerName": "Depth", "width": 80},
+                        {
+                            "field": "Breadth Coverage",
+                            "headerName": "Coverage",
+                            "width": 100,
+                        },
+                    ],
+                    "rowData": rows,
+                    "rowHeight": 30,
+                }
+            ).classes("w-full h-80 text-xs")
 
 
 def log_area():
@@ -383,6 +472,37 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
             "--format",
             state.pet_output_format.lower(),
         ]
+    elif cmd == "clear-cache":
+        out_dir = state.out_dir or os.path.dirname(os.path.abspath(input_path))
+        json_cache = os.path.join(
+            out_dir, f"{os.path.basename(input_path)}.wgse_info.json"
+        )
+        if os.path.exists(json_cache):
+            os.remove(json_cache)
+            ui.notify(f"Cleared info cache for {os.path.basename(input_path)}")
+            controller.info_data = {}
+            from .common import render_content_refresh
+
+            render_content_refresh()
+        else:
+            ui.notify("No cache file found to clear.")
+        return
+    elif cmd == "calculate-coverage":
+        command = bc + ["bam", "calculate-coverage", "--input", input_path]
+    elif cmd == "coverage-sample":
+        command = bc + ["bam", "coverage-sample", "--input", input_path]
+    elif cmd == "unalign":
+        command = bc + ["bam", "unalign", "--input", input_path]
+    elif cmd == "fastqc":
+        command = bc + ["qc", "fastqc", "--input", input_path]
+    elif cmd == "fastp":
+        command = bc + ["qc", "fastp", "--input", input_path]
+    elif cmd == "ref-gene-map":
+        command = bc + ["ref", "gene-map"]
+    elif cmd == "vep-verify":
+        command = bc + ["vep", "--verify-only", "--vep-cache", state.vep_cache_path]
+    elif cmd == "vcf-qc":
+        command = bc + ["vcf", "qc", "--input", input_path]
     else:
         ui.notify(f"Command {cmd} dispatch not fully implemented", type="warning")
         return
@@ -400,3 +520,11 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
     asyncio.create_task(
         controller.run_cmd(command, label=cmd_meta["label"], cmd_key=cmd)
     )
+
+
+def ui_command_button(cmd_meta: dict[str, Any]):
+    """Helper to create a command button with tooltip."""
+    btn = ui.button(cmd_meta["label"], on_click=lambda: run_generic_cmd(cmd_meta))
+    with btn:
+        add_tooltip(GUI_TOOLTIPS.get(cmd_meta["cmd"], ""))
+    return btn

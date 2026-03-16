@@ -236,7 +236,9 @@ class WGSExtractGUI(ctk.CTk):
 
     def _on_closing(self) -> None:
         """Handle the window closing event by cancelling all active processes."""
-        self.controller.cancel_all()
+        from wgsextract_cli.core.utils import cleanup_processes
+
+        cleanup_processes()
         self.destroy()
 
     def _setup_sidebar(self) -> None:

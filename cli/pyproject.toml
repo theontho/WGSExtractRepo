@@ -9,9 +9,7 @@ description = "A modern, standalone Command-Line Interface for WGS Extract."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-or-later"
-authors = [
-    { name = "WGS Extract Contributors" }
-]
+authors = [{ name = "WGS Extract Contributors" }]
 dependencies = [
     "python-dotenv", # Loads environment variables (e.g., WGSE_REF) from .env files
     "pyliftover",    # Performs hg38 to hg19 coordinate liftover for microarray simulations
@@ -36,9 +34,12 @@ wgsextract-cli = "wgsextract_cli.main:main"
 [dependency-groups]
 dev = [
     "pytest>=7.0",
+    "pytest-asyncio",
+    "playwright",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
+    "selenium>=4.41.0",
 ]
 
 [tool.ruff]
@@ -47,13 +48,13 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
 ]
 ignore = ["E501"] # Ignore long lines; common in bioinfo CLI tools
 
@@ -74,3 +75,7 @@ files = "src/wgsextract_cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/wgsextract_cli"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

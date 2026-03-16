@@ -65,7 +65,7 @@ def frame_gen():
                         ui.button(
                             cmd["label"],
                             on_click=lambda: asyncio.create_task(
-                                controller.get_info_fast(state.bam_path)
+                                controller.get_info_fast(state.bam_path, detailed=True)
                             ),
                         ).props("color=primary")
                     else:
