@@ -5,13 +5,15 @@ import subprocess
 import sys
 
 from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.gene_map import are_gene_maps_installed
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import (
     GENOME_DATA,
     download_and_process_genome,
     get_available_genomes,
+    get_genome_size,
     get_genome_status,
-    load_genomes_from_csv,
+    has_ref_ns,
 )
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
@@ -57,6 +59,13 @@ def register(subparsers, base_parser):
         help=CLI_HELP["cmd_ref-library"],
     )
     lib_parser.set_defaults(func=cmd_library)
+
+    liblist_parser = ref_subs.add_parser(
+        "library-list",
+        parents=[base_parser],
+        help="List all available reference genomes and their current status.",
+    )
+    liblist_parser.set_defaults(func=cmd_library_list)
 
     genemap_parser = ref_subs.add_parser(
         "gene-map", parents=[base_parser], help=CLI_HELP["cmd_ref-gene-map"]
@@ -227,20 +236,76 @@ def cmd_ref_verify(args):
     )
 
 
+def cmd_library_list(args):
+    """Non-interactive library status list."""
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib_dir = args.ref if args.ref else os.path.join(prog_root, "reference")
+    reflib_dir = os.path.abspath(reflib_dir)
+
+    genomes = get_available_genomes()
+
+    print(f"\nREFERENCE LIBRARY: {reflib_dir}")
+    print("-" * 80)
+    print(f"{'GENOME':<40} {'STATUS':<15} {'SIZE':<10} {'DETAILS'}")
+    print("-" * 80)
+
+    for g in genomes:
+        status = get_genome_status(g["final"], reflib_dir).upper()
+        size = get_genome_size(g["final"], reflib_dir)
+
+        details = []
+        if has_ref_ns(g["final"], reflib_dir):
+            details.append("N-counts")
+
+        # Check for VEP cache
+        bn = g["final"].upper()
+        species = ""
+        assembly = ""
+        if "38" in bn or "HG38" in bn or "GRCH38" in bn:
+            assembly = "GRCh38"
+            species = "homo_sapiens"
+        elif "37" in bn or "HG19" in bn or "GRCH37" in bn:
+            assembly = "GRCh37"
+            species = "homo_sapiens"
+        elif "GSD" in bn or "DOG" in bn:
+            species = "canis_lupus_familiaris"
+        elif "FCA126" in bn or "CAT" in bn:
+            species = "felis_catus"
+
+        if species:
+            vep_path = os.path.join(reflib_dir, "vep", species)
+            if os.path.exists(vep_path):
+                # If human, check for specific assembly
+                if species == "homo_sapiens" and assembly:
+                    # Look for any directory starting with [version]_[assembly]
+                    found_asm = False
+                    if os.path.isdir(vep_path):
+                        for d in os.listdir(vep_path):
+                            if assembly in d:
+                                found_asm = True
+                                break
+                    if found_asm:
+                        details.append(f"VEP-{assembly}")
+                else:
+                    details.append("VEP-Cache")
+
+        details_str = ", ".join(details)
+        print(f"{g['label']:<40} {status:<15} {size:<10} {details_str}")
+
+    print("-" * 80)
+    gm_installed = "INSTALLED" if are_gene_maps_installed(reflib_dir) else "MISSING"
+    print(f"{'Gene Maps (hg19/hg38)':<40} {gm_installed}")
+    print("-" * 80)
+
+
 def cmd_library(args):
     """Interactive library manager."""
     verify_dependencies(["curl", "samtools", "bcftools", "tabix", "bgzip", "htsfile"])
 
-    # Try to find seed_genomes.csv
-    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
-    csv_path = os.path.join(prog_root, "base_reference", "seed_genomes.csv")
-
-    genomes = load_genomes_from_csv(csv_path)
-    if not genomes:
-        # Fallback to hardcoded list if CSV missing
-        genomes = get_available_genomes()
+    genomes = get_available_genomes()
 
     # Determine reference library directory
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib_dir = args.ref if args.ref else os.path.join(prog_root, "reference")
     reflib_dir = os.path.abspath(reflib_dir)
 
