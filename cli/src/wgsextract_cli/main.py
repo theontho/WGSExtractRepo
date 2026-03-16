@@ -42,6 +42,20 @@ class EmojiFormatter(logging.Formatter):
         return super().format(record)
 
 
+def print_full_help(parser, prefix=""):
+    """Recursively print help for a parser and all its subcommands."""
+    if prefix:
+        print(f"\n{'=' * 20} {prefix.upper()} {'=' * 20}")
+    parser.print_help()
+
+    # Find subparsers
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for name, subparser in action.choices.items():
+                new_prefix = f"{prefix} {name}".strip()
+                print_full_help(subparser, new_prefix)
+
+
 def main():
     # Load environment variables
     if os.environ.get("WGSE_SKIP_DOTENV") != "1":
@@ -98,21 +112,6 @@ def main():
         help=CLI_HELP["arg_memory"],
     )
     base_parser.add_argument(
-        "--vcf-input",
-        default=os.environ.get("WGSE_INPUT_VCF"),
-        help="Input VCF file path.",
-    )
-    base_parser.add_argument(
-        "--mother",
-        default=os.environ.get("WGSE_MOTHER_VCF"),
-        help="Mother VCF file path for trio analysis.",
-    )
-    base_parser.add_argument(
-        "--father",
-        default=os.environ.get("WGSE_FATHER_VCF"),
-        help="Father VCF file path for trio analysis.",
-    )
-    base_parser.add_argument(
         "--parent-pid",
         type=int,
         help="Parent Process ID to monitor. If the parent dies, this process will exit.",
@@ -165,15 +164,7 @@ def main():
     args = parser.parse_args()
 
     if args.full_help:
-        parser.print_help()
-        print("\n" + "=" * 80)
-        print("SUBCOMMAND DETAILS")
-        print("=" * 80)
-        # Sort subcommands alphabetically for better readability
-        for name in sorted(subparsers.choices.keys()):
-            subparser = subparsers.choices[name]
-            print(f"\n--- {name} ---")
-            subparser.print_help()
+        print_full_help(parser)
         sys.exit(0)
 
     if args.debug:

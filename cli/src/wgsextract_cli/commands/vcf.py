@@ -58,6 +58,11 @@ def register(subparsers, base_parser):
         "annotate", parents=[base_parser], help=CLI_HELP["cmd_annotate"]
     )
     annotate_parser.add_argument(
+        "--vcf-input",
+        default=os.environ.get("WGSE_INPUT_VCF"),
+        help=CLI_HELP["arg_vcf_input"],
+    )
+    annotate_parser.add_argument(
         "--ann-vcf", help="Annotation VCF file (auto-resolved from --ref if possible)"
     )
     annotate_parser.add_argument("--cols", help="Columns to annotate (e.g. ID,INFO/HG)")
@@ -65,6 +70,11 @@ def register(subparsers, base_parser):
 
     filter_parser = vcf_subs.add_parser(
         "filter", parents=[base_parser], help=CLI_HELP["cmd_filter"]
+    )
+    filter_parser.add_argument(
+        "--vcf-input",
+        default=os.environ.get("WGSE_INPUT_VCF"),
+        help=CLI_HELP["arg_vcf_input"],
     )
     filter_parser.add_argument(
         "--expr", help="bcftools filter expression (e.g. 'QUAL>30')"
@@ -80,6 +90,21 @@ def register(subparsers, base_parser):
 
     trio_parser = vcf_subs.add_parser(
         "trio", parents=[base_parser], help=CLI_HELP["cmd_trio"]
+    )
+    trio_parser.add_argument(
+        "--vcf-input",
+        default=os.environ.get("WGSE_INPUT_VCF"),
+        help=CLI_HELP["arg_vcf_input"],
+    )
+    trio_parser.add_argument(
+        "--mother",
+        default=os.environ.get("WGSE_MOTHER_VCF"),
+        help=CLI_HELP["arg_mother"],
+    )
+    trio_parser.add_argument(
+        "--father",
+        default=os.environ.get("WGSE_FATHER_VCF"),
+        help=CLI_HELP["arg_father"],
     )
     trio_parser.add_argument("--proband", help="VCF file for the child")
     trio_parser.set_defaults(func=cmd_trio)
@@ -128,6 +153,11 @@ def register(subparsers, base_parser):
 
     qc_parser = vcf_subs.add_parser(
         "qc", parents=[base_parser], help=CLI_HELP["cmd_vcf-qc"]
+    )
+    qc_parser.add_argument(
+        "--vcf-input",
+        default=os.environ.get("WGSE_INPUT_VCF"),
+        help=CLI_HELP["arg_vcf_input"],
     )
     qc_parser.set_defaults(func=cmd_qc)
 
