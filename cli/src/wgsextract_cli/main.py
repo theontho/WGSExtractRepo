@@ -42,18 +42,37 @@ class EmojiFormatter(logging.Formatter):
         return super().format(record)
 
 
-def print_full_help(parser, prefix=""):
-    """Recursively print help for a parser and all its subcommands."""
-    if prefix:
-        print(f"\n{'=' * 20} {prefix.upper()} {'=' * 20}")
-    parser.print_help()
+def print_full_help(parser):
+    """Print a concise tree of all commands and subcommands."""
+    print("\n" + CLI_HELP["description"])
+    print("\nGLOBAL OPTIONS:")
+    for action in parser._actions:
+        if not isinstance(action, argparse._SubParsersAction) and action.dest != "help":
+            opts = ", ".join(action.option_strings)
+            if opts:
+                print(f"  {opts:<25} {action.help}")
 
-    # Find subparsers
+    print("\nCOMMAND TREE:")
+    _print_tree_recursive(parser, 0)
+
+
+def _print_tree_recursive(parser, indent):
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
-            for name, subparser in action.choices.items():
-                new_prefix = f"{prefix} {name}".strip()
-                print_full_help(subparser, new_prefix)
+            # Map command names to their help text from the parent's perspective
+            name_to_help = {}
+            for choice_action in action._choices_actions:
+                name_to_help[choice_action.dest] = choice_action.help
+
+            for name in sorted(action.choices.keys()):
+                subparser = action.choices[name]
+                help_text = name_to_help.get(name, "")
+                if not help_text and subparser.description:
+                    help_text = subparser.description.split("\n")[0]
+
+                indent_str = "  " * indent
+                print(f"{indent_str}- {name:<20} {help_text}")
+                _print_tree_recursive(subparser, indent + 1)
 
 
 def main():
@@ -142,6 +161,9 @@ def main():
             "wgsextract_cli.ui.web_gui", fromlist=["main"]
         ).main()
     )
+
+    help_parser = subparsers.add_parser("help", help="Show this concise command tree.")
+    help_parser.set_defaults(func=lambda args: print_full_help(parser))
 
     # 3. Register all subcommands, passing the base_parser as a parent
     for cmd_module in [
