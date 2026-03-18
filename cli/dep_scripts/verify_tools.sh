@@ -46,13 +46,13 @@ echo "Verifying optional tools..."
 for tool in "${optional_tools[@]}"; do
     FOUND=false
     # Check current shell, wgse env, or vep_env
-    if command -v "$tool" >/dev/null 2>&1; then 
+    if command -v "$tool" >/dev/null 2>&1; then
         FOUND=true
         CMD="$tool"
-    elif conda run -n wgse command -v "$tool" >/dev/null 2>&1; then 
+    elif conda run -n wgse command -v "$tool" >/dev/null 2>&1; then
         FOUND=true
         CMD="conda run -n wgse $tool"
-    elif conda run -n vep_env command -v "$tool" >/dev/null 2>&1; then 
+    elif conda run -n vep_env command -v "$tool" >/dev/null 2>&1; then
         FOUND=true
         CMD="conda run -n vep_env $tool"
     fi

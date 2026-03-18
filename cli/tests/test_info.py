@@ -19,7 +19,13 @@ class TestInfoCommand(unittest.TestCase):
     def setUp(self):
         os.environ["WGSE_SKIP_DOTENV"] = "1"
         # Clear any other potentially interfering env vars
-        self.env_vars = ["WGSE_INPUT", "WGSE_OUTDIR", "WGSE_REF", "WGSE_THREADS", "WGSE_MEMORY"]
+        self.env_vars = [
+            "WGSE_INPUT",
+            "WGSE_OUTDIR",
+            "WGSE_REF",
+            "WGSE_THREADS",
+            "WGSE_MEMORY",
+        ]
         self.old_env = {v: os.environ.get(v) for v in self.env_vars}
         for v in self.env_vars:
             if v in os.environ:
@@ -41,7 +47,15 @@ class TestInfoCommand(unittest.TestCase):
     @patch("wgsextract_cli.commands.info.parse_idxstats")
     @patch("wgsextract_cli.commands.info.os.path.exists")
     def test_info_fast_mode(
-        self, mock_exists, mock_idxstats, mock_body, mock_stats, mock_sorted, mock_md5, mock_header, mock_verify
+        self,
+        mock_exists,
+        mock_idxstats,
+        mock_body,
+        mock_stats,
+        mock_sorted,
+        mock_md5,
+        mock_header,
+        mock_verify,
     ):
         mock_header.return_value = "@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:1\tLN:248956422"
         mock_md5.return_value = "bd894134bddba260df88a90123a2ee9c"  # hg38

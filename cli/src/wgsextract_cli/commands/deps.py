@@ -5,10 +5,15 @@ from wgsextract_cli.core.messages import CLI_HELP
 
 
 def register(subparsers, base_parser):
-    parser = subparsers.add_parser(
-        "check-deps", parents=[base_parser], help=CLI_HELP["cmd_check-deps"]
+    deps_parser = subparsers.add_parser(
+        "deps", parents=[base_parser], help=CLI_HELP["cmd_deps"]
     )
-    parser.set_defaults(func=run)
+    deps_subparsers = deps_parser.add_subparsers(dest="subcommand", required=True)
+
+    check_parser = deps_subparsers.add_parser(
+        "check", parents=[base_parser], help=CLI_HELP["cmd_check-deps"]
+    )
+    check_parser.set_defaults(func=run)
 
 
 def run(args):

@@ -11,7 +11,7 @@ A completely independent, modern command-line interface for the WGS Extract appl
 
 ## Dependencies
 
-The `wgsextract-cli` relies on several industry-standard bioinformatics tools. 
+The `wgsextract-cli` relies on several industry-standard bioinformatics tools.
 
 > ⚠️ **Platform Support Note**: macOS instructions have been verified on Apple Silicon. Windows (WSL2/Conda) and Linux instructions are currently **unverified** and provided as a best-effort guide.
 

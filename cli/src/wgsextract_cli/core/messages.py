@@ -52,6 +52,10 @@ CLI_HELP = {
     "cmd_trio": "Analyze inheritance patterns. Compares a child's VCF with their parents to identify de novo (new) mutations or inherited conditions. (Time: 5-10 mins)",
     "cmd_vcf-qc": "Generate statistical reports for your VCF file to check the quality and distribution of your variant calls. (Time: 1-5 mins)",
     "cmd_vep-run": "Ensembl Variant Effect Predictor. Predicts the functional impact of your variants (e.g., if a mutation likely breaks a gene or causes a specific disease). (Time: 15-60 mins)",
+    "arg_vcf_type": "Type of variants in the VCF (snp-indel, sv, cnv). Affects VEP parameters.",
+    "arg_add_chr": "Add 'chr' prefix to numeric chromosomes in VCF before running VEP.",
+    "arg_vep_cache_version": "VEP cache version to use (default: 115).",
+    "arg_force": "Force re-running VEP even if output already exists.",
     "cmd_vep-download": "Download the VEP cache (standard GRCh37/38) to your local machine for faster, offline annotation. (Time: 1-3 hours, Space: 20 GB)",
     "cmd_vep-verify": "Check your existing VEP cache for missing files or corruption. (Time: 5-10 mins)",
     "cmd_microarray": "Simulate a consumer microarray (like 23andMe or AncestryDNA) from your WGS data. (Time: 10-30 mins)",
@@ -94,6 +98,7 @@ Available formats:
     "arg_se": "Single-End FASTQ file",
     "arg_long_read": "Use minimap2 for long-read alignment",
     "cmd_bam_mgmt": "BAM/CRAM management commands.",
+    "cmd_deps": "Manage system dependencies.",
 }
 
 # GUI Labels and Titles
@@ -415,6 +420,10 @@ LOG_MESSAGES = {
     "vep_calling_pre": "Input is BAM/CRAM. Performing variant calling first...",
     "vep_using_cache": "Using VEP cache at {path}",
     "vep_no_cache_warn": "VEP cache not found at {path}. Attempting slow online mode.",
+    "vep_preprocessing_chr": "Preprocessing VCF to add 'chr' prefix: {input} -> {output}",
+    "vep_skipping_exists": "Skipping {input}, output already exists at {output}. Use --force to re-run.",
+    "vep_batch_summary": "VEP Batch Summary:",
+    "vep_batch_item": "{filename:<30} | {status:<10} | {duration:<10}",
     "vep_running": "Running VEP: {command}",
     "vep_complete": "VEP analysis complete. Results saved to {path}",
     "util_auto_resolved": "Auto-resolved {type}: {path}",

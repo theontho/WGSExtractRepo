@@ -5,7 +5,7 @@ from nicegui import ui
 from wgsextract_cli.core.messages import GUI_LABELS, GUI_TOOLTIPS
 from wgsextract_cli.ui.constants import UI_METADATA
 
-from .common import run_generic_cmd, ui_row_dir, ui_row_input, ui_command_button
+from .common import ui_command_button, ui_row_dir, ui_row_input
 from .state import state
 
 
@@ -36,10 +36,12 @@ def frame_fastq():
         for cmd in UI_METADATA["fastq"]["commands"]:
             # Disable Unalign if input is not BAM/CRAM
             disabled = not is_bam and cmd["cmd"] == "unalign"
-            
+
             # Use our unified command button helper
-            btn = ui_command_button(cmd).props(f"outline {'disabled' if disabled else ''}")
-            
+            btn = ui_command_button(cmd).props(
+                f"outline {'disabled' if disabled else ''}"
+            )
+
             if disabled:
                 with btn:
                     with ui.tooltip():

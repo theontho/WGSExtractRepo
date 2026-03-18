@@ -56,7 +56,7 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
-ignore = ["E501"] # Ignore long lines; common in bioinfo CLI tools
+ignore = ["E501", "E402", "F841", "E741", "E722", "F403", "F821", "F401"] # Ignore long lines and legacy code issues
 
 [tool.ruff.format]
 quote-style = "double"

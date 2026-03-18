@@ -5,42 +5,77 @@ import subprocess
 import sys
 from typing import Any
 
-# Define mandatory and optional tools based on verify_tools.sh
+# Define mandatory and optional tools
 MANDATORY_TOOLS = [
     "samtools",
     "bcftools",
     "tabix",
     "bgzip",
     "bwa",
+    "python3",
+    "gzip",
+    "tar",
+]
+
+OPTIONAL_TOOLS = [
     "minimap2",
     "fastp",
     "fastqc",
     "delly",
     "freebayes",
-]
-
-OPTIONAL_TOOLS = [
     "vep",
     "gatk",
     "run_deepvariant",
     "dv_call_variants.py",
     "curl",
+    "wget",
+    "java",
+    "yleaf",
+    "haplogrep",
+    "htsfile",
 ]
 
-# Conda environments to check if a tool is not in the primary PATH
-CONDA_ENVS = ["wgse", "vep_env"]
 
-
-def check_dependencies(tool_list):
+def get_repo_root():
     """
-    Checks if all required tools or JAR files are available.
+    Attempts to find the repository root by looking for common markers.
+    Defaults to 4 levels up from this file if no markers are found.
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # Check for pyproject.toml or .git in parents
+    probe = current_dir
+    while probe != os.path.dirname(probe):  # stop at filesystem root
+        if os.path.exists(os.path.join(probe, "pyproject.toml")) or os.path.exists(
+            os.path.join(probe, ".git")
+        ):
+            # If we found it in 'cli/', the real repo root is one level up
+            if os.path.basename(probe) == "cli":
+                return os.path.dirname(probe)
+            return probe
+        probe = os.path.dirname(probe)
+
+    # Fallback to hardcoded relative path if markers not found
+    return os.path.abspath(os.path.join(current_dir, "../../../.."))
+
+
+def get_jar_dir():
+    """Returns the directory where JAR tools are expected to live."""
+    # Allow override via environment variable
+    env_path = os.environ.get("WGSE_JAR_DIR")
+    if env_path and os.path.isdir(env_path):
+        return env_path
+
+    return os.path.join(get_repo_root(), "jartools")
+
+
+def check_dependencies(tool_list, jar_dir=None):
+    """
+    Checks if all required tools or JAR files are available in the PATH.
     Returns a list of missing tools.
     """
     missing = []
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.abspath(os.path.join(current_dir, "../../../.."))
-    jar_dir = os.path.join(repo_root, "jartools")
+    if jar_dir is None:
+        jar_dir = get_jar_dir()
 
     for tool in tool_list:
         if tool.endswith(".jar"):
@@ -48,62 +83,61 @@ def check_dependencies(tool_list):
                 missing.append(f"{tool} (in {jar_dir})")
         else:
             if shutil.which(tool) is None:
-                # Check conda environments
-                found_in_conda = False
-                for env in CONDA_ENVS:
-                    if (
-                        subprocess.run(
-                            ["conda", "run", "-n", env, "command", "-v", tool],
-                            capture_output=True,
-                        ).returncode
-                        == 0
-                    ):
-                        found_in_conda = True
-                        break
-                if not found_in_conda:
-                    missing.append(tool)
+                missing.append(tool)
     return missing
 
 
-def verify_dependencies(tool_list):
+def verify_dependencies(tool_list, optional_list=None):
     """
     Checks if all required tools or JAR files are available.
-    Exits gracefully if a tool is missing.
+    Exits gracefully if a tool is missing with a helpful message.
     """
+    if optional_list is None:
+        optional_list = OPTIONAL_TOOLS
+
     missing = check_dependencies(tool_list)
 
     if missing:
-        logging.error("Fatal Error: Missing required tools or JAR files.")
+        is_optional = all(tool in optional_list for tool in missing)
+        if is_optional:
+            logging.error("Required optional tool(s) missing for this feature:")
+        else:
+            logging.error("Fatal Error: Missing required core tools or JAR files.")
+
         for t in missing:
             logging.error(f" - {t}")
+
+        if is_optional:
+            logging.info(
+                "\nPlease install the missing tools using your system package manager "
+                "(e.g., brew, apt, conda) or follow the project installation guide."
+            )
+        else:
+            logging.error(
+                "\nPlease ensure all mandatory tools are installed and in your PATH."
+            )
+
         sys.exit(1)
 
 
 def get_jar_path(jar_name):
     """Returns absolute path to a JAR file in jartools/."""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    repo_root = os.path.abspath(os.path.join(current_dir, "../../../.."))
-    path = os.path.join(repo_root, "jartools", jar_name)
+    path = os.path.join(get_jar_dir(), jar_name)
     if os.path.exists(path):
         return path
     return None
 
 
-def get_tool_version(tool, conda_env=None):
-    """Attempt to get the version of a tool."""
-    base_cmd = [tool]
-    if conda_env:
-        base_cmd = ["conda", "run", "-n", conda_env, tool]
-
+def get_tool_version(tool):
+    """Attempt to get the version of a tool by running it."""
     try:
         # 1. Try --version first (standard)
         res = subprocess.run(
-            base_cmd + ["--version"], capture_output=True, text=True, timeout=5
+            [tool, "--version"], capture_output=True, text=True, timeout=5
         )
         output = (res.stdout or res.stderr).strip()
 
         if res.returncode == 0 and output and not output.startswith("[main]"):
-            # Success, parse output
             lines = [
                 line.strip()
                 for line in output.splitlines()
@@ -112,12 +146,11 @@ def get_tool_version(tool, conda_env=None):
             if lines:
                 return lines[0]
 
-        # 2. Fallback for older tools (samtools 0.1.x, bwa, etc.) that use bare command or --help
-        # and for tools like VEP that don't support --version
-        res = subprocess.run(base_cmd, capture_output=True, text=True, timeout=5)
+        # 2. Fallback for tools that use bare command or --help
+        res = subprocess.run([tool], capture_output=True, text=True, timeout=5)
         output = (res.stdout or res.stderr).strip()
 
-        # Check for dyld/library errors first in the fallback output too
+        # Check for dyld/library errors
         failure_keywords = [
             "Library not loaded",
             "not found",
@@ -126,10 +159,8 @@ def get_tool_version(tool, conda_env=None):
             "bad interpreter",
         ]
         if any(kw.lower() in output.lower() for kw in failure_keywords):
-            # Only return error if it's a real system error, not just "command not found"
-            # (which shouldn't happen here as we check which/conda run first)
             if "not found" in output.lower() and tool.lower() not in output.lower():
-                pass  # might be a tool message
+                pass
             else:
                 return f"Error: {output.splitlines()[0]}"
 
@@ -139,22 +170,17 @@ def get_tool_version(tool, conda_env=None):
             if "version:" in line_l:
                 return line.strip()
             if tool.lower() in line_l and any(c.isdigit() for c in line):
-                # e.g. "samtools 1.23" or "bcftools 1.23"
-                if len(line.strip()) < 50:  # Avoid long descriptive lines
+                if len(line.strip()) < 50:
                     return line.strip()
 
-        # Specific fallback for VEP
-        if tool == "vep":
-            for line in output.splitlines():
-                if "ensembl-vep" in line.lower():
-                    return line.strip()
-            # If we don't find ensembl-vep line, look for the first line with a colon after "Versions:"
-            found_versions = False
-            for line in output.splitlines():
-                if "versions:" in line.lower():
-                    found_versions = True
-                    continue
-                if found_versions and ":" in line:
+        # Generalized fallback for tools like VEP or others with multi-line help
+        if not output:
+            return "Available"
+
+        # Check first 5 lines for anything that looks like a version string
+        for line in output.splitlines()[:5]:
+            if any(word in line.lower() for word in ["version", "release", "v[0-9]"]):
+                if len(line.strip()) < 60:
                     return line.strip()
 
         return "Available"
@@ -162,48 +188,52 @@ def get_tool_version(tool, conda_env=None):
         return f"Error: {str(e)}"
 
 
-def check_all_dependencies():
+def get_tool_path(tool):
+    """Returns the path to a tool if it exists in the system PATH."""
+    return shutil.which(tool)
+
+
+def check_all_dependencies(mandatory=None, optional=None):
     """
-    Performs a comprehensive dependency check and returns results.
+    Performs a simple dependency check and returns results.
     """
+    if mandatory is None:
+        mandatory = MANDATORY_TOOLS
+    if optional is None:
+        optional = OPTIONAL_TOOLS
+
     results: dict[str, list[dict[str, Any]]] = {"mandatory": [], "optional": []}
 
-    for tool in MANDATORY_TOOLS:
+    # Python Version Check
+    py_version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    results["mandatory"].append(
+        {
+            "name": "Python Runtime",
+            "path": sys.executable,
+            "version": f"Python {py_version} (Required >= 3.11)",
+        }
+    )
+
+    for tool in mandatory:
+        if tool == "python3":
+            continue  # Already checked above as Runtime
         path = shutil.which(tool)
-        version = None
-        env_found = None
-
-        if path:
-            version = get_tool_version(tool)
-        else:
-            # Check conda environments
-            for env in CONDA_ENVS:
-                check = subprocess.run(
-                    ["conda", "run", "-n", env, "which", tool], capture_output=True
-                )
-                if check.returncode == 0:
-                    path = check.stdout.decode().strip()
-                    env_found = env
-                    version = get_tool_version(tool, conda_env=env)
-                    break
-
-        # Consider it broken/missing if there's an execution error
+        version = get_tool_version(tool) if path else None
         is_broken = version and version.startswith("Error:")
 
         results["mandatory"].append(
             {
                 "name": tool,
                 "path": path if not is_broken else None,
-                "version": f"{version} [conda:{env_found}]"
-                if env_found and version
-                else version,
+                "version": version,
             }
         )
 
-    for tool in OPTIONAL_TOOLS:
+    for tool in optional:
         path = shutil.which(tool)
-        version = None
-        env_found = None
+        version = get_tool_version(tool) if path else None
 
         display_name = tool
         if tool == "run_deepvariant":
@@ -211,29 +241,13 @@ def check_all_dependencies():
         elif tool == "dv_call_variants.py":
             display_name = f"{tool} (Bioconda)"
 
-        if path:
-            version = get_tool_version(tool)
-        else:
-            # Check conda environments
-            for env in CONDA_ENVS:
-                check = subprocess.run(
-                    ["conda", "run", "-n", env, "which", tool], capture_output=True
-                )
-                if check.returncode == 0:
-                    path = check.stdout.decode().strip()
-                    env_found = env
-                    version = get_tool_version(tool, conda_env=env)
-                    break
-
         is_broken = version and version.startswith("Error:")
 
         results["optional"].append(
             {
                 "name": display_name,
                 "path": path if not is_broken else None,
-                "version": f"{version} [conda:{env_found}]"
-                if env_found and version
-                else version,
+                "version": version,
             }
         )
 

@@ -17,7 +17,7 @@
   <g filter="url(#shadow)">
     <!-- DNA directly in the mathematical center -->
     <text x="256" y="256" font-size="240" text-anchor="middle" dominant-baseline="central" font-family="'Apple Color Emoji', 'Segoe UI Emoji', sans-serif">🧬</text>
-    
+
     <!-- Toolbox nested in the bottom right corner -->
     <text x="380" y="380" font-size="160" text-anchor="middle" dominant-baseline="central" font-family="'Apple Color Emoji', 'Segoe UI Emoji', sans-serif">🧰</text>
   </g>
