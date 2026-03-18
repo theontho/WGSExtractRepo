@@ -1,17 +1,16 @@
 #!/bin/bash
 
-# Configuration for Nura VEP Run
-PERSON="mahyar"
-GENOMES_DIR="/Users/mac/Documents/genetics/genomes/"
+PERSON="byron"
+GENOMES_DIR="${HOME}/Documents/genetics/genomes"
 BASE_DIR="${GENOMES_DIR}/${PERSON}"
 INPUT_DIR="${BASE_DIR}/vcf"
 OUTPUT_DIR="${BASE_DIR}/vep_output"
-FASTA="/Users/mac/Documents/genetics/WGSExtract/WGSExtractv4/reference/genomes/hs38DH.fa.gz"
-CACHE_DIR="/Users/mac/.vep"
+FASTA="${HOME}/Documents/genetics/WGSExtract/WGSExtractv4/reference/genomes/hs38DH.fa.gz"
+CACHE_DIR="${HOME}/.vep"
 CACHE_VERSION="115"
 THREADS="4"
 
-echo "Starting VEP Batch Processing for Mahyar..."
+echo "Starting VEP Batch Processing for ${PERSON}..."
 echo "Input:  $INPUT_DIR"
 echo "Output: $OUTPUT_DIR"
 echo "------------------------------------------------------------"

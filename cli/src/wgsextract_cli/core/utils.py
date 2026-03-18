@@ -404,6 +404,49 @@ def get_vcf_samples(vcf_path: str) -> list[str]:
         return []
 
 
+def get_vcf_chr_name(vcf_path, target_chr):
+    """
+    Identifies the chromosome name used in a VCF for a target (MT or Y).
+    """
+    try:
+        result = subprocess.run(
+            ["bcftools", "index", "-s", vcf_path],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        vcf_chroms = [line.split("\t")[0] for line in result.stdout.strip().split("\n")]
+    except Exception:
+        return target_chr
+
+    if target_chr.upper() in ["M", "MT", "CHRM", "CHRMT"]:
+        for c in ["chrM", "chrMT", "MT", "M"]:
+            if c in vcf_chroms:
+                return c
+    elif target_chr.upper() in ["Y", "CHRY"]:
+        for c in ["chrY", "Y"]:
+            if c in vcf_chroms:
+                return c
+
+    return target_chr
+
+
+def get_vcf_build(vcf_path):
+    """Detects genome build (hg19/hg38) from VCF header."""
+    try:
+        res = subprocess.run(
+            ["bcftools", "view", "-h", vcf_path], capture_output=True, text=True
+        )
+        header = res.stdout.upper()
+        if "38" in header or "HG38" in header or "GRCH38" in header:
+            return "hg38"
+        if "37" in header or "HG19" in header or "GRCH37" in header:
+            return "hg19"
+    except Exception:
+        pass
+    return None
+
+
 def normalize_vcf_chromosomes(vcf_path: str, target_chroms: list[str]) -> str:
     """
     Checks if VCF chromosomes match target_chroms style (e.g., '1' vs 'chr1').
@@ -471,6 +514,12 @@ def normalize_vcf_chromosomes(vcf_path: str, target_chroms: list[str]) -> str:
 
 def get_bam_header(bam_path, cram_opt=None):
     """Fetch BAM/CRAM header using samtools view -H."""
+    if not bam_path or not os.path.exists(bam_path):
+        return ""
+
+    if not bam_path.lower().endswith((".bam", ".cram")):
+        return ""
+
     # Attempt 1: As provided
     if cram_opt is None:
         cram_opt = []
