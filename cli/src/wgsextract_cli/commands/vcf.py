@@ -110,7 +110,7 @@ def register(subparsers, base_parser):
     trio_parser.set_defaults(func=cmd_trio)
     trio_parser.add_argument(
         "--mode",
-        choices=["denovo", "recessive", "comphet"],
+        choices=["denovo", "recessive", "comphet", "all"],
         default="denovo",
         help="Inheritance mode to filter for",
     )
@@ -506,6 +506,11 @@ def get_gaps_bed(ref_path):
 
 
 def cmd_trio(args):
+    from wgsextract_cli.core.utils import (
+        get_vcf_samples,
+        normalize_vcf_chromosomes,
+    )
+
     verify_dependencies(["bcftools", "tabix"])
 
     proband = args.proband if args.proband else args.vcf_input
@@ -522,18 +527,26 @@ def cmd_trio(args):
         return
 
     outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(proband))
-    out_vcf = os.path.join(outdir, f"trio_{args.mode}.vcf.gz")
 
-    logging.info(
-        LOG_MESSAGES["vcf_trio_analysis"].format(mode=args.mode, output=out_vcf)
-    )
-
-    # 1. Prepare and Merge the three VCFs
+    # 1. Prepare and Normalize
     p_vcf = ensure_vcf_prepared(proband)
     m_vcf = ensure_vcf_prepared(mother)
     f_vcf = ensure_vcf_prepared(father)
 
-    merged_vcf = os.path.join(outdir, "merged_trio.vcf.gz")
+    # Get chrom style from proband
+    try:
+        res = subprocess.run(
+            ["bcftools", "index", "-s", p_vcf], capture_output=True, text=True
+        )
+        target_chroms = [l.split("\t")[0] for l in res.stdout.strip().split("\n")]
+    except Exception:
+        target_chroms = ["chr1"]  # Default to chr
+
+    m_vcf_norm = normalize_vcf_chromosomes(m_vcf, target_chroms)
+    f_vcf_norm = normalize_vcf_chromosomes(f_vcf, target_chroms)
+
+    # 2. Merge
+    merged_vcf = os.path.join(outdir, "merged_trio_tmp.vcf.gz")
     try:
         subprocess.run(
             [
@@ -544,38 +557,128 @@ def cmd_trio(args):
                 "-o",
                 merged_vcf,
                 p_vcf,
-                m_vcf,
-                f_vcf,
+                m_vcf_norm,
+                f_vcf_norm,
             ],
             check=True,
         )
+        ensure_vcf_indexed(merged_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"❌: VCF merge failed: {e}")
         return
 
-    # 2. Apply Inheritance Filters
-    # [0] = proband, [1] = mother, [2] = father
-    filter_expr = ""
-    if args.mode == "denovo":
-        # Child is het, parents are ref
-        filter_expr = 'GT[0]="het" && GT[1]="ref" && GT[2]="ref"'
-    elif args.mode == "recessive":
-        # Child is hom-alt, parents are het
-        filter_expr = 'GT[0]="hom" && GT[1]="het" && GT[2]="het"'
-    elif args.mode == "comphet":
-        # Simplified: Child is het, one parent is het, other is ref
-        filter_expr = 'GT[0]="het" && ( (GT[1]="het" && GT[2]="ref") || (GT[1]="ref" && GT[2]="het") )'
+    # 3. Identify sample order
+    samples = get_vcf_samples(merged_vcf)
+    # Map roles to indices
+    p_idx, m_idx, f_idx = 0, 1, 2  # Defaults based on merge order
 
-    try:
-        subprocess.run(
-            ["bcftools", "view", "-i", filter_expr, "-Oz", "-o", out_vcf, merged_vcf],
-            check=True,
+    def find_sample_idx(path, default):
+        s_list = get_vcf_samples(path)
+        if not s_list:
+            return default
+        name = s_list[0]
+        try:
+            return samples.index(name)
+        except ValueError:
+            # Try fuzzy match
+            for i, s in enumerate(samples):
+                if name in s or s in name:
+                    return i
+            return default
+
+    p_idx = find_sample_idx(p_vcf, 0)
+    m_idx = find_sample_idx(m_vcf_norm, 1)
+    f_idx = find_sample_idx(f_vcf_norm, 2)
+
+    modes = [args.mode] if args.mode != "all" else ["denovo", "recessive", "comphet"]
+
+    for mode in modes:
+        out_vcf = os.path.join(outdir, f"trio_{mode}.vcf.gz")
+        logging.info(
+            LOG_MESSAGES["vcf_trio_analysis"].format(mode=mode, output=out_vcf)
         )
-        ensure_vcf_indexed(out_vcf)
-        logging.info(LOG_MESSAGES["vcf_trio_complete"].format(output=out_vcf))
-    finally:
-        if os.path.exists(merged_vcf):
-            os.remove(merged_vcf)
+
+        filter_expr = ""
+        if mode == "denovo":
+            # Child is het, parents are ref OR missing
+            filter_expr = f'GT[{p_idx}]="het" && (GT[{m_idx}]="ref" || GT[{m_idx}]=".") && (GT[{f_idx}]="ref" || GT[{f_idx}]=".")'
+        elif mode == "recessive":
+            # Child is hom-alt, parents are het
+            filter_expr = f'GT[{p_idx}]="hom" && GT[{m_idx}]="het" && GT[{f_idx}]="het"'
+        elif mode == "comphet":
+            # Simplified: Child is het, one parent is het, other is ref/missing
+            filter_expr = f'GT[{p_idx}]="het" && ( (GT[{m_idx}]="het" && (GT[{f_idx}]="ref" || GT[{f_idx}]=".")) || ((GT[{m_idx}]="ref" || GT[{m_idx}]=".") && GT[{f_idx}]="het") )'
+
+        try:
+            subprocess.run(
+                [
+                    "bcftools",
+                    "view",
+                    "-i",
+                    filter_expr,
+                    "-Oz",
+                    "-o",
+                    out_vcf,
+                    merged_vcf,
+                ],
+                check=True,
+            )
+            ensure_vcf_indexed(out_vcf)
+            logging.info(LOG_MESSAGES["vcf_trio_complete"].format(output=out_vcf))
+
+            # Basic summary
+            try:
+                # Count total
+                total_res = subprocess.run(
+                    ["bcftools", "view", "-H", out_vcf], capture_output=True, text=True
+                )
+                total_count = total_res.stdout.count("\n")
+
+                # Check if CSQ exists in header
+                has_csq = False
+                header_res = subprocess.run(
+                    ["bcftools", "view", "-h", out_vcf], capture_output=True, text=True
+                )
+                if "ID=CSQ" in header_res.stdout:
+                    has_csq = True
+
+                summary_msg = (
+                    f"✅: {mode.upper()} results: {total_count} total variants"
+                )
+
+                if has_csq:
+                    # Count high impact
+                    high_res = subprocess.run(
+                        ["bcftools", "view", "-H", "-i", 'CSQ~"HIGH"', out_vcf],
+                        capture_output=True,
+                        text=True,
+                    )
+                    high_count = high_res.stdout.count("\n")
+                    summary_msg += f", {high_count} HIGH impact"
+
+                logging.info(summary_msg)
+            except Exception:
+                pass
+
+        except subprocess.CalledProcessError as e:
+            logging.error(f"❌: Filtering for {mode} failed: {e}")
+
+    # Cleanup
+    if os.path.exists(merged_vcf):
+        os.remove(merged_vcf)
+        if os.path.exists(merged_vcf + ".tbi"):
+            os.remove(merged_vcf + ".tbi")
+        if os.path.exists(merged_vcf + ".csi"):
+            os.remove(merged_vcf + ".csi")
+
+    if m_vcf_norm != m_vcf and os.path.exists(m_vcf_norm):
+        os.remove(m_vcf_norm)
+        if os.path.exists(m_vcf_norm + ".tbi"):
+            os.remove(m_vcf_norm + ".tbi")
+    if f_vcf_norm != f_vcf and os.path.exists(f_vcf_norm):
+        os.remove(f_vcf_norm)
+        if os.path.exists(f_vcf_norm + ".tbi"):
+            os.remove(f_vcf_norm + ".tbi")
 
 
 def cmd_qc(args):

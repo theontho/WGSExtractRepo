@@ -389,6 +389,86 @@ def ensure_vcf_prepared(vcf_path: str) -> str:
     return usable_path
 
 
+def get_vcf_samples(vcf_path: str) -> list[str]:
+    """Returns a list of sample names in the VCF file."""
+    try:
+        result = subprocess.run(
+            ["bcftools", "query", "-l", vcf_path],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip().split("\n")
+    except Exception as e:
+        logging.debug(f"Failed to get samples from {vcf_path}: {e}")
+        return []
+
+
+def normalize_vcf_chromosomes(vcf_path: str, target_chroms: list[str]) -> str:
+    """
+    Checks if VCF chromosomes match target_chroms style (e.g., '1' vs 'chr1').
+    If not, creates a temporary normalized VCF and returns its path.
+    Otherwise returns original path.
+    """
+    try:
+        # Get first few chroms to check style
+        result = subprocess.run(
+            ["bcftools", "index", "-s", vcf_path],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        vcf_chroms = [line.split("\t")[0] for line in result.stdout.strip().split("\n")]
+    except Exception:
+        return vcf_path
+
+    vcf_has_chr = any(c.startswith("chr") for c in vcf_chroms)
+    target_has_chr = any(c.startswith("chr") for c in target_chroms)
+
+    if vcf_has_chr == target_has_chr:
+        return vcf_path
+
+    # Need normalization
+    import tempfile
+
+    fd, map_path = tempfile.mkstemp(suffix=".txt")
+    try:
+        with os.fdopen(fd, "w") as f:
+            for i in range(1, 23):
+                if target_has_chr:
+                    f.write(f"{i} chr{i}\n")
+                else:
+                    f.write(f"chr{i} {i}\n")
+            if target_has_chr:
+                f.write("X chrX\nY chrY\nMT chrM\nM chrM\n")
+            else:
+                f.write("chrX X\nchrY Y\nchrM MT\nchrMT MT\n")
+
+        out_vcf = vcf_path.replace(".vcf.gz", ".norm.vcf.gz")
+        if out_vcf == vcf_path:
+            out_vcf = vcf_path + ".norm.vcf.gz"
+
+        logging.info(f"ℹ️: Normalizing chromosomes for {os.path.basename(vcf_path)}...")
+        subprocess.run(
+            [
+                "bcftools",
+                "annotate",
+                "--rename-chrs",
+                map_path,
+                "-Oz",
+                "-o",
+                out_vcf,
+                vcf_path,
+            ],
+            check=True,
+        )
+        subprocess.run(["bcftools", "index", out_vcf], check=True)
+        return out_vcf
+    finally:
+        if os.path.exists(map_path):
+            os.remove(map_path)
+
+
 def get_bam_header(bam_path, cram_opt=None):
     """Fetch BAM/CRAM header using samtools view -H."""
     # Attempt 1: As provided
