@@ -134,6 +134,55 @@ def get_available_genomes():
     if os.path.exists(csv_path):
         _GENOME_DATA_CACHE = load_genomes_from_csv(csv_path)
 
+    # Hardcoded fallback and MD5 source
+    core_genomes = [
+        {
+            "code": "hg38",
+            "source": "NIH",
+            "final": "hg38.fa.gz",
+            "url": "https://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz",
+            "label": "hg38 (Nebula) (NIH) (Rec)",
+            "description": "hg38 No Alt (1K Genome; @US NIH)",
+            "md5": "bd894134bddba260df88a90123a2ee9c",
+        },
+        {
+            "code": "hg19",
+            "source": "NIH",
+            "final": "hg19.fa.gz",
+            "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hg19.fa.gz",
+            "label": "hg19 (Yoruba) (NIH) (Rec)",
+            "description": "hg19 (1K Genome; @US NIH)",
+            "md5": "ee4efe40ebd6f9468dab89963dcc5b65",
+        },
+        {
+            "code": "T2Tv20",
+            "source": "AWS",
+            "final": "chm13v2.0.fa.gz",
+            "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz",
+            "label": "T2T_v2.0 (PGP/HPP chrN) (Rec)",
+            "description": "T2T v2.0 (chm13 v1.1; HG002 Y v2.7; UCSC SN; @AWS)",
+            "md5": "7cee777f1939f4028926017158ed5512",
+        },
+        {
+            "code": "hs37d5",
+            "source": "NIH",
+            "final": "hs37d5.fa.gz",
+            "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz",
+            "label": "hs37d5 (Dante) (NIH) (Rec)",
+            "description": "hs37d5 (1K Genome; @US NIH)",
+            "md5": "5a23f5a85bd78221010561466907bf7d",
+        },
+    ]
+
+    if not _GENOME_DATA_CACHE:
+        _GENOME_DATA_CACHE = core_genomes
+    else:
+        # Merge MD5s from core into CSV-loaded data
+        for cg in core_genomes:
+            for g in _GENOME_DATA_CACHE:
+                if g["code"] == cg["code"] and not g.get("md5"):
+                    g["md5"] = cg["md5"]
+
     pet_genomes = [
         {
             "code": "UU_Cfam_GSD_1.0",
@@ -154,28 +203,6 @@ def get_available_genomes():
             "md5": "d271b9b06c5270d2d662534df8a4fcd9",
         },
     ]
-
-    if not _GENOME_DATA_CACHE:
-        _GENOME_DATA_CACHE = [
-            {
-                "code": "T2Tv20",
-                "source": "AWS",
-                "final": "chm13v2.0.fa.gz",
-                "url": "https://s3-us-west-2.amazonaws.com/human-pangenomics/T2T/CHM13/assemblies/analysis_set/chm13v2.0.fa.gz",
-                "label": "T2T_v2.0 (PGP/HPP chrN) (Rec)",
-                "description": "T2T v2.0 (chm13 v1.1; HG002 Y v2.7; UCSC SN; @AWS)",
-                "md5": "7cee777f1939f4028926017158ed5512",
-            },
-            {
-                "code": "hs37d5",
-                "source": "NIH",
-                "final": "hs37d5.fa.gz",
-                "url": "https://ftp.ncbi.nlm.nih.gov/1000genomes/ftp/technical/reference/phase2_reference_assembly_sequence/hs37d5.fa.gz",
-                "label": "hs37d5 (Dante) (NIH) (Rec)",
-                "description": "hs37d5 (1K Genome; @US NIH)",
-                "md5": "5a23f5a85bd78221010561466907bf7d",
-            },
-        ]
 
     # Append pet genomes if not already present
     for pg in pet_genomes:

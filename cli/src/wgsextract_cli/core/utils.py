@@ -666,11 +666,21 @@ def calculate_bam_md5(bam_path, cram_opt=None, header=None):
     """
     Calculates MD5 signature from BAM header @SQ lines.
     It takes SN and LN, upcases SN, sorts ASCII-wise, and hashes.
+    If a @CO line with MD5: exists, it returns that instead.
     """
     if header is None:
         header = get_bam_header(bam_path, cram_opt)
     if not header:
         return "00000000000000000000000000000000"
+
+    # Check for embedded MD5 signature in comments or read groups first
+    for line in header.splitlines():
+        if (line.startswith("@CO") or line.startswith("@RG")) and "MD5:" in line:
+            parts = line.split("MD5:")
+            if len(parts) > 1:
+                sig = parts[1].strip().split()[0]
+                if len(sig) == 32:
+                    return sig
 
     sq_lines = [line for line in header.splitlines() if line.startswith("@SQ")]
 

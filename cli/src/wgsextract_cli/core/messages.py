@@ -51,6 +51,7 @@ CLI_HELP = {
     "cmd_filter": "Filter your results. Use this to focus on specific genes of interest or to remove low-quality 'noisy' variant calls. (Time: <1 min)",
     "cmd_trio": "Analyze inheritance patterns. Compares a child's VCF with their parents to identify de novo (new) mutations or inherited conditions. (Time: 5-10 mins)",
     "cmd_vcf-qc": "Generate statistical reports for your VCF file to check the quality and distribution of your variant calls. (Time: 1-5 mins)",
+    "cmd_fake-data": "Generate minimal fake BAM, CRAM, and VCF files for testing purposes.",
     "cmd_vep-run": "Ensembl Variant Effect Predictor. Predicts the functional impact of your variants (e.g., if a mutation likely breaks a gene or causes a specific disease). (Time: 15-60 mins)",
     "arg_vcf_type": "Type of variants in the VCF (snp-indel, sv, cnv). Affects VEP parameters.",
     "arg_add_chr": "Add 'chr' prefix to numeric chromosomes in VCF before running VEP.",

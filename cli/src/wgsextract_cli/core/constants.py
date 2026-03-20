@@ -115,6 +115,7 @@ REFERENCE_MODELS = {
         "MT",
         "GCF_018350175.1_F.catus_Fca126_mat1.0_genomic.fna.gz",
     ],
+    "7cee777f1939f4028926017158ed5512": ["T2Tv2.0", "rCRS", "chm13v2.0.fa.gz"],
 }
 
 # New approach: Use SN count from BAM header to identify likely reference

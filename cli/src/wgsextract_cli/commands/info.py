@@ -668,6 +668,10 @@ def run(args):
         if hasattr(args, "outdir") and args.outdir
         else os.path.dirname(os.path.abspath(args.input))
     )
+    # Ensure outdir exists if explicitly provided
+    if hasattr(args, "outdir") and args.outdir:
+        os.makedirs(outdir, exist_ok=True)
+
     logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     json_cache = os.path.join(outdir, f"{os.path.basename(args.input)}.wgse_info.json")
 
@@ -752,6 +756,10 @@ def run(args):
             if any(x in bn for x in ["38", "HG38", "GRCH38"]):
                 ref_model_name = "hg38"
             elif any(x in bn for x in ["37", "HG19", "GRCH37"]):
+                ref_model_name = "hg19"
+            elif any(x in bn for x in ["T2T", "CHM13"]):
+                ref_model_name = "t2t"
+            elif "19" in bn:
                 ref_model_name = "hg19"
 
         ref_model_str = (
