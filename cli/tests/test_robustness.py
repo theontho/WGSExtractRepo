@@ -105,9 +105,10 @@ class TestRobustness(unittest.TestCase):
             ["--input", self.dummy_dir, "bam", "unalign", "--r1", "r1", "--r2", "r2"],
         )
 
-    def test_12_bam_subset(self):
+    def test_12_extract_bam_subset(self):
         self.run_robust(
-            "bam subset", ["--input", self.dummy_dir, "bam", "subset", "-f", "0.1"]
+            "extract bam-subset",
+            ["--input", self.dummy_dir, "extract", "bam-subset", "-f", "0.1"],
         )
 
     def test_13_extract_mito(self):
@@ -158,20 +159,22 @@ class TestRobustness(unittest.TestCase):
             ["--input", self.dummy_dir, "vcf", "filter", "--expr", "QUAL>30"],
         )
 
-    def test_20_vcf_qc(self):
-        self.run_robust("vcf qc", ["--input", self.dummy_dir, "vcf", "qc"])
+    def test_20_qc_vcf(self):
+        self.run_robust("qc vcf", ["--input", self.dummy_dir, "qc", "vcf"])
 
     def test_21_microarray(self):
         self.run_robust("microarray", ["--input", self.dummy_dir, "microarray"])
 
     def test_22_lineage_mtdna(self):
         self.run_robust(
-            "lineage mt-dna", ["--input", self.dummy_dir, "lineage", "mt-dna"]
+            "lineage mt-haplogroup",
+            ["--input", self.dummy_dir, "lineage", "mt-haplogroup"],
         )
 
     def test_23_lineage_ydna(self):
         self.run_robust(
-            "lineage y-dna", ["--input", self.dummy_dir, "lineage", "y-dna"]
+            "lineage y-haplogroup",
+            ["--input", self.dummy_dir, "lineage", "y-haplogroup"],
         )
 
     def test_24_repair_bam(self):
@@ -201,19 +204,35 @@ class TestRobustness(unittest.TestCase):
             ["--input", self.dummy_dir, "qc", "coverage-wes", "--bed", self.dummy_dir],
         )
 
-    def test_30_ref_identify(self):
-        self.run_robust("ref identify", ["--input", self.dummy_dir, "ref", "identify"])
+    def test_30_pet_align(self):
+        self.run_robust(
+            "pet-align",
+            [
+                "--input",
+                self.dummy_dir,
+                "pet-align",
+                "--r1",
+                self.dummy_dir,
+                "--species",
+                "dog",
+                "--ref",
+                self.dummy_dir,
+            ],
+        )
 
-    def test_31_ref_download(self):
+    def test_31_bam_identify(self):
+        self.run_robust("bam identify", ["--input", self.dummy_dir, "bam", "identify"])
+
+    def test_32_ref_download(self):
         self.run_robust(
             "ref download",
             ["ref", "download", "--url", "http://fake", "--out", self.dummy_dir],
         )
 
-    def test_32_ref_index(self):
+    def test_33_ref_index(self):
         self.run_robust("ref index", ["--ref", self.dummy_dir, "ref", "index"])
 
-    def test_33_align(self):
+    def test_34_align(self):
         self.run_robust("align", ["align", "--r1", self.dummy_dir])
 
 

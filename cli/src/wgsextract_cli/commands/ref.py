@@ -26,11 +26,6 @@ def register(subparsers, base_parser):
     parser = subparsers.add_parser("ref", help="Reference Data Management commands.")
     ref_subs = parser.add_subparsers(dest="ref_cmd", required=True)
 
-    ident_parser = ref_subs.add_parser(
-        "identify", parents=[base_parser], help=CLI_HELP["cmd_ref-identify"]
-    )
-    ident_parser.set_defaults(func=cmd_identify)
-
     dl_parser = ref_subs.add_parser(
         "download", parents=[base_parser], help=CLI_HELP["cmd_ref-download"]
     )
@@ -74,28 +69,6 @@ def register(subparsers, base_parser):
         "--delete", action="store_true", help="Delete gene maps instead of downloading"
     )
     genemap_parser.set_defaults(func=cmd_gene_map)
-
-
-def cmd_identify(args):
-    verify_dependencies(["samtools"])
-    log_dependency_info(["samtools"])
-    if not args.input:
-        logging.error(LOG_MESSAGES["input_required"])
-        return
-
-    if not verify_paths_exist({"--input": args.input}):
-        return
-
-    logging.debug(f"Input file: {os.path.abspath(args.input)}")
-
-    # Auto-resolve ref if a directory was provided
-    resolved_ref = resolve_reference(args.ref, "")
-    logging.debug(f"Resolved reference: {resolved_ref}")
-
-    md5_sig = calculate_bam_md5(args.input, resolved_ref)
-    logging.info(
-        LOG_MESSAGES["ref_md5_signature"].format(input=args.input, sig=md5_sig)
-    )
 
 
 def cmd_download(args):

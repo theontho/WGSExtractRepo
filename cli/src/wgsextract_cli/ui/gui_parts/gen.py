@@ -133,7 +133,7 @@ class GenericFrame(ScrollableBaseFrame):
 
             # Get commands to extract labels and help
             custom_cmd = next(c for c in meta["commands"] if c["cmd"] == "custom")
-            subset_cmd = next(c for c in meta["commands"] if c["cmd"] == "subset")
+            subset_cmd = next(c for c in meta["commands"] if c["cmd"] == "bam-subset")
 
             self.region_entry = self.create_entry(
                 self,
@@ -150,16 +150,20 @@ class GenericFrame(ScrollableBaseFrame):
                 self,
                 GUI_LABELS["extra_label"],
                 button_text=subset_cmd["label"],
-                command=lambda: self.handle_button_click("subset"),
+                command=lambda: self.handle_button_click("bam-subset"),
                 info_text=GUI_TOOLTIPS["extra_tip"],
             )
-            self.cmd_buttons["subset"] = self.extra_entry.action_button
-            ToolTip(self.cmd_buttons["subset"], subset_cmd["help"])
-            cmds_to_hide.add("subset")
+            self.cmd_buttons["bam-subset"] = self.extra_entry.action_button
+            ToolTip(self.cmd_buttons["bam-subset"], subset_cmd["help"])
+            cmds_to_hide.add("bam-subset")
 
         elif key == "anc":
-            y_cmd = next(c for c in meta["commands"] if c["cmd"] == "lineage-y")
-            mt_cmd = next(c for c in meta["commands"] if c["cmd"] == "lineage-mt")
+            y_cmd = next(
+                c for c in meta["commands"] if c["cmd"] == "lineage-y-haplogroup"
+            )
+            mt_cmd = next(
+                c for c in meta["commands"] if c["cmd"] == "lineage-mt-haplogroup"
+            )
 
             self.yleaf_path = self.create_file_selector(
                 self,
@@ -171,24 +175,26 @@ class GenericFrame(ScrollableBaseFrame):
                 self,
                 GUI_LABELS["pos_file"],
                 button_text=y_cmd["label"],
-                command=lambda: self.handle_button_click("lineage-y"),
+                command=lambda: self.handle_button_click("lineage-y-haplogroup"),
                 info_text="Yleaf position file (e.g., data/yleaf/pos.txt).",
             )
-            self.cmd_buttons["lineage-y"] = self.yleaf_pos.action_button
-            ToolTip(self.cmd_buttons["lineage-y"], y_cmd["help"])
-            cmds_to_hide.add("lineage-y")
+            self.cmd_buttons["lineage-y-haplogroup"] = self.yleaf_pos.action_button
+            ToolTip(self.cmd_buttons["lineage-y-haplogroup"], y_cmd["help"])
+            cmds_to_hide.add("lineage-y-haplogroup")
 
             self.haplogrep_path = self.create_file_selector(
                 self,
                 GUI_LABELS["haplogrep_path"],
                 variable=self.main_app.haplogrep_path_var,
                 button_text=mt_cmd["label"],
-                command=lambda: self.handle_button_click("lineage-mt"),
+                command=lambda: self.handle_button_click("lineage-mt-haplogroup"),
                 info_text="Path to the Haplogrep jar or executable for mitochondrial lineage.",
             )
-            self.cmd_buttons["lineage-mt"] = self.haplogrep_path.action_button
-            ToolTip(self.cmd_buttons["lineage-mt"], mt_cmd["help"])
-            cmds_to_hide.add("lineage-mt")
+            self.cmd_buttons[
+                "lineage-mt-haplogroup"
+            ] = self.haplogrep_path.action_button
+            ToolTip(self.cmd_buttons["lineage-mt-haplogroup"], mt_cmd["help"])
+            cmds_to_hide.add("lineage-mt-haplogroup")
 
         elif key == "vcf":
             trio_cmd = next(c for c in meta["commands"] if c["cmd"] == "trio")

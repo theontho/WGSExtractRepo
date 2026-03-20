@@ -370,29 +370,35 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
         "unsort",
         "to-cram",
         "to-bam",
-        "subset",
-        "mt-extract",
         "repair-ftdna-bam",
+        "identify",
     ]:
         command = bc + ["bam", cmd, "--input", input_path]
         if cmd == "to-cram" and state.cram_version:
             command.extend(["--cram-version", state.cram_version])
-        if cmd == "subset" and state.extract_region:
-            command.extend(["--region", state.extract_region])
-        if cmd == "subset" and state.extract_extra:
-            command.extend(["--extra", state.extract_extra])
     elif cmd in [
         "mito-fasta",
+        "mt-bam",
         "mito-vcf",
         "ydna-bam",
         "ydna-vcf",
         "y-mt-extract",
         "unmapped",
         "custom",
+        "bam-subset",
     ]:
         command = bc + ["extract", cmd, "--input", input_path]
         if cmd == "custom" and state.extract_region:
             command.extend(["--region", state.extract_region])
+        if cmd == "bam-subset" and state.extract_region:
+            command.extend(["--region", state.extract_region])
+        if cmd == "bam-subset" and state.extract_extra:
+            # For bam-subset, the 'extra' is the fraction
+            val = state.extract_extra
+            if val.replace(".", "").isdigit():
+                command.extend(["--fraction", val])
+            else:
+                command.append(val)
     elif cmd in [
         "snp",
         "indel",
@@ -434,10 +440,10 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
                 command.extend(["--region", state.vcf_region])
     elif cmd == "microarray":
         command = bc + ["microarray", "--input", input_path, "--ref", state.ref_path]
-    elif cmd == "lineage-y":
+    elif cmd == "lineage-y-haplogroup":
         command = bc + [
             "lineage",
-            "y-dna",
+            "y-haplogroup",
             "--input",
             input_path,
             "--yleaf-path",
@@ -445,10 +451,10 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
         ]
         if state.yleaf_pos:
             command.extend(["--yleaf-pos", state.yleaf_pos])
-    elif cmd == "lineage-mt":
+    elif cmd == "lineage-mt-haplogroup":
         command = bc + [
             "lineage",
-            "mt-dna",
+            "mt-haplogroup",
             "--input",
             input_path,
             "--haplogrep-path",
@@ -456,12 +462,11 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
         ]
     elif cmd == "align":
         command = bc + ["align", "--r1", state.fastq_path, "--ref", state.ref_path]
-    elif cmd == "pet-analysis":
+    elif cmd == "pet-align":
         pet_type = "Dog" if "Dog" in state.pet_species else "Cat"
         command = bc + [
-            "pet",
-            "align",
-            "--pet-type",
+            "pet-align",
+            "--species",
             pet_type.lower(),
             "--r1",
             state.pet_fastq_r1,
@@ -470,7 +475,7 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
             "--ref",
             state.pet_ref_fasta,
             "--format",
-            state.pet_output_format.lower(),
+            state.pet_output_format.upper(),
         ]
     elif cmd == "clear-cache":
         out_dir = state.out_dir or os.path.dirname(os.path.abspath(input_path))
@@ -502,7 +507,7 @@ def run_generic_cmd(cmd_meta: dict[str, Any]):
     elif cmd == "vep-verify":
         command = bc + ["vep", "--verify-only", "--vep-cache", state.vep_cache_path]
     elif cmd == "vcf-qc":
-        command = bc + ["vcf", "qc", "--input", input_path]
+        command = bc + ["qc", "vcf", "--input", input_path]
     else:
         ui.notify(f"Command {cmd} dispatch not fully implemented", type="warning")
         return

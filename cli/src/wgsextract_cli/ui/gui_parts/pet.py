@@ -147,8 +147,8 @@ class PetFrame(ScrollableBaseFrame):
             self.main_app.pet_ref_fasta_var.set(final_path)
 
     def handle_button_click(self, cmd_key: str) -> None:
-        """Handle pet analysis button click with custom parameters."""
-        if cmd_key == "pet-analysis":
+        """Handle pet align button click with custom parameters."""
+        if cmd_key == "pet-align":
             label = self.pet_type_var.get()
             pet_type = "Dog" if "Dog" in label else "Cat"
 
@@ -187,7 +187,7 @@ class PetFrame(ScrollableBaseFrame):
                 "r2": self.fastq_r2.get(),
                 "format": self.output_format_var.get(),
             }
-            self.main_app.controller.run_pet_analysis(self, extra_args)
+            self.main_app.controller.run_pet_align(self, extra_args)
         else:
             super().handle_button_click(cmd_key)
 

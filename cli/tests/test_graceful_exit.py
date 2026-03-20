@@ -99,8 +99,8 @@ class TestGracefulExit(unittest.TestCase):
     def test_11_bam_unalign(self):
         self.check_command(["bam", "unalign"])
 
-    def test_12_bam_subset(self):
-        self.check_command(["bam", "subset"])
+    def test_12_extract_bam_subset(self):
+        self.check_command(["extract", "bam-subset"])
 
     def test_13_extract_mito(self):
         self.check_command(["extract", "mito"])
@@ -123,17 +123,17 @@ class TestGracefulExit(unittest.TestCase):
     def test_19_vcf_filter(self):
         self.check_command(["vcf", "filter"])
 
-    def test_20_vcf_qc(self):
-        self.check_command(["vcf", "qc"])
+    def test_20_qc_vcf(self):
+        self.check_command(["qc", "vcf"])
 
     def test_21_microarray(self):
         self.check_command(["microarray"])
 
     def test_22_lineage_mtdna(self):
-        self.check_command(["lineage", "mt-dna"])
+        self.check_command(["lineage", "mt-haplogroup"])
 
     def test_23_lineage_ydna(self):
-        self.check_command(["lineage", "y-dna"])
+        self.check_command(["lineage", "y-haplogroup"])
 
     def test_24_repair_bam(self):
         self.check_command(["repair", "ftdna-bam"])
@@ -153,16 +153,19 @@ class TestGracefulExit(unittest.TestCase):
     def test_29_qc_cov_wes(self):
         self.check_command(["qc", "coverage-wes"])
 
-    def test_30_ref_identify(self):
-        self.check_command(["ref", "identify"])
+    def test_30_pet_align(self):
+        self.check_command(["pet-align"])
 
-    def test_31_ref_download(self):
+    def test_31_bam_identify(self):
+        self.check_command(["bam", "identify"])
+
+    def test_32_ref_download(self):
         self.check_command(["ref", "download"])
 
-    def test_32_ref_index(self):
+    def test_33_ref_index(self):
         self.check_command(["ref", "index"])
 
-    def test_33_align(self):
+    def test_34_align(self):
         self.check_command(["align"])
 
 

@@ -25,7 +25,7 @@ def register(subparsers, base_parser):
     lin_subs = parser.add_subparsers(dest="lin_cmd", required=True)
 
     ydna_parser = lin_subs.add_parser(
-        "y-dna", parents=[base_parser], help=CLI_HELP["cmd_lineage-y"]
+        "y-haplogroup", parents=[base_parser], help=CLI_HELP["cmd_lineage-y-haplogroup"]
     )
     ydna_parser.add_argument(
         "--yleaf-path", help="Path to yleaf.py (optional if in PATH)"
@@ -37,7 +37,9 @@ def register(subparsers, base_parser):
     ydna_parser.set_defaults(func=cmd_ydna)
 
     mtdna_parser = lin_subs.add_parser(
-        "mt-dna", parents=[base_parser], help=CLI_HELP["cmd_lineage-mt"]
+        "mt-haplogroup",
+        parents=[base_parser],
+        help=CLI_HELP["cmd_lineage-mt-haplogroup"],
     )
     mtdna_parser.add_argument(
         "--haplogrep-path",
@@ -130,6 +132,10 @@ def cmd_ydna(args):
     if not args.yleaf_path:
         verify_dependencies(["yleaf"])
     log_dependency_info(["yleaf"])
+
+    if not args.input:
+        logging.error(LOG_MESSAGES["input_required"])
+        return
 
     yleaf_path = args.yleaf_path or get_tool_path("yleaf")
 
@@ -277,6 +283,10 @@ def cmd_mtdna(args):
     if not args.haplogrep_path:
         verify_dependencies(["haplogrep", "bcftools"])
     log_dependency_info(["haplogrep", "bcftools"])
+
+    if not args.input:
+        logging.error(LOG_MESSAGES["input_required"])
+        return
 
     haplogrep_path = args.haplogrep_path or get_tool_path("haplogrep")
 

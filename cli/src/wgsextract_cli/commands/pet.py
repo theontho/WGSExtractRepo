@@ -11,7 +11,7 @@ from wgsextract_cli.core.utils import get_resource_defaults, run_command
 
 def register(subparsers, base_parser):
     parser = subparsers.add_parser(
-        "pet-analysis", parents=[base_parser], help=CLI_HELP["cmd_pet-analysis"]
+        "pet-align", parents=[base_parser], help=CLI_HELP["cmd_pet-align"]
     )
     parser.add_argument("--r1", required=True, help=CLI_HELP["arg_r1"])
     parser.add_argument("--r2", help=CLI_HELP["arg_r2"])

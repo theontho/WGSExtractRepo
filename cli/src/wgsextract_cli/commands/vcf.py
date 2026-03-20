@@ -151,16 +151,6 @@ def register(subparsers, base_parser):
     )
     deepvariant_parser.set_defaults(func=cmd_deepvariant)
 
-    qc_parser = vcf_subs.add_parser(
-        "qc", parents=[base_parser], help=CLI_HELP["cmd_vcf-qc"]
-    )
-    qc_parser.add_argument(
-        "--vcf-input",
-        default=os.environ.get("WGSE_INPUT_VCF"),
-        help=CLI_HELP["arg_vcf_input"],
-    )
-    qc_parser.set_defaults(func=cmd_qc)
-
 
 def get_base_args(args):
     verify_dependencies(["bcftools", "tabix"])
@@ -696,34 +686,6 @@ def cmd_trio(args):
         os.remove(f_vcf_norm)
         if os.path.exists(f_vcf_norm + ".tbi"):
             os.remove(f_vcf_norm + ".tbi")
-
-
-def cmd_qc(args):
-    verify_dependencies(["bcftools"])
-    log_dependency_info(["bcftools"])
-    input_file = args.vcf_input if args.vcf_input else args.input
-    if not input_file:
-        logging.error("--input is required.")
-        return
-
-    if not verify_paths_exist({"--input": input_file}):
-        return
-
-    logging.debug(f"Input file: {os.path.abspath(input_file)}")
-
-    outdir = (
-        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
-    )
-    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
-    base_name = os.path.basename(input_file)
-    out_stats = os.path.join(outdir, f"{base_name}.vcfstats.txt")
-
-    logging.info(LOG_MESSAGES["vcf_stats"].format(input=input_file, output=out_stats))
-    try:
-        with open(out_stats, "w") as f:
-            subprocess.run(["bcftools", "stats", input_file], stdout=f, check=True)
-    except subprocess.CalledProcessError as e:
-        logging.error(f"VCF stats failed: {e}")
 
 
 def cmd_cnv(args):

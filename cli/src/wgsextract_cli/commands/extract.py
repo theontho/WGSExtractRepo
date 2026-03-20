@@ -27,17 +27,38 @@ def register(subparsers, base_parser):
         "mito-fasta", parents=[base_parser], help=CLI_HELP["cmd_mito-fasta"]
     )
     mito_fasta_parser.set_defaults(func=cmd_mito_fasta)
+    ext_subs.add_parser("mito", parents=[mito_fasta_parser], add_help=False)
 
     mito_vcf_parser = ext_subs.add_parser(
         "mito-vcf", parents=[base_parser], help=CLI_HELP["cmd_mito-vcf"]
     )
     mito_vcf_parser.set_defaults(func=cmd_mito_vcf)
 
+    mt_bam_parser = ext_subs.add_parser(
+        "mt-bam", parents=[base_parser], help=CLI_HELP["cmd_mt-bam"]
+    )
+    mt_bam_parser.set_defaults(func=cmd_mt_bam)
+
+    subset_parser = ext_subs.add_parser(
+        "bam-subset", parents=[base_parser], help=CLI_HELP["cmd_bam-subset"]
+    )
+    subset_parser.add_argument(
+        "--fraction",
+        "-f",
+        required=True,
+        type=float,
+        help=CLI_HELP["arg_fraction"],
+    )
+    subset_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    subset_parser.set_defaults(func=cmd_bam_subset)
+
     # Y-DNA commands
     y_bam_parser = ext_subs.add_parser(
         "ydna-bam", parents=[base_parser], help=CLI_HELP["cmd_ydna-bam"]
     )
     y_bam_parser.set_defaults(func=cmd_ydna_bam)
+    ext_subs.add_parser("y", parents=[y_bam_parser], add_help=False)
+    ext_subs.add_parser("ydna", parents=[y_bam_parser], add_help=False)
 
     y_vcf_parser = ext_subs.add_parser(
         "ydna-vcf", parents=[base_parser], help=CLI_HELP["cmd_ydna-vcf"]
@@ -207,6 +228,60 @@ def cmd_mito_vcf(args):
 
     except Exception as e:
         logging.error(f"Mito VCF extraction failed: {e}")
+
+
+def cmd_mt_bam(args):
+    verify_dependencies(["samtools"])
+    base = get_base_args(args)
+    if not base:
+        return
+    threads, outdir, cram_opt, resolved_ref = base
+
+    mt_chr = get_chr_name(args.input, "MT", cram_opt)
+
+    out_file = os.path.join(
+        outdir,
+        os.path.basename(args.input).replace(".bam", "").replace(".cram", "")
+        + "_mtDNA.bam",
+    )
+
+    logging.info(LOG_MESSAGES["extracting_mt"].format(mt_chr=mt_chr, output=out_file))
+    try:
+        run_command(
+            ["samtools", "view", "-bh"]
+            + cram_opt
+            + ["-@", threads, "-o", out_file, args.input, mt_chr]
+        )
+        run_command(["samtools", "index", "-f", out_file])
+    except Exception as e:
+        logging.error(f"mtDNA extraction failed: {e}")
+
+
+def cmd_bam_subset(args):
+    verify_dependencies(["samtools"])
+    base = get_base_args(args)
+    if not base:
+        return
+    threads, outdir, cram_opt, resolved_ref = base
+
+    out_file = os.path.join(
+        outdir,
+        os.path.basename(args.input).replace(".bam", "").replace(".cram", "")
+        + "_subset.bam",
+    )
+    logging.info(
+        LOG_MESSAGES["subsetting_file"].format(fraction=args.fraction, output=out_file)
+    )
+    try:
+        region_args = [args.region] if args.region else []
+        run_command(
+            ["samtools", "view", "-bh", "-s", str(args.fraction)]
+            + cram_opt
+            + ["-o", out_file, args.input]
+            + region_args
+        )
+    except Exception as e:
+        logging.error(f"Subsetting failed: {e}")
 
 
 def cmd_ydna_bam(args):

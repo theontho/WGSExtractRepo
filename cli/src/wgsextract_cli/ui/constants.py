@@ -127,8 +127,8 @@ UI_METADATA: dict[str, dict[str, Any]] = {
             },
             {
                 "label": "MT-only BAM",
-                "cmd": "mt-extract",
-                "help": GUI_TOOLTIPS["mt-extract"],
+                "cmd": "mt-bam",
+                "help": GUI_TOOLTIPS["mt-bam"],
             },
             {
                 "label": "MT-only VCF",
@@ -150,7 +150,11 @@ UI_METADATA: dict[str, dict[str, Any]] = {
                 "cmd": "y-mt-extract",
                 "help": GUI_TOOLTIPS["y-mt-extract"],
             },
-            {"label": "BAM Subset", "cmd": "subset", "help": GUI_TOOLTIPS["subset"]},
+            {
+                "label": "BAM Subset",
+                "cmd": "bam-subset",
+                "help": GUI_TOOLTIPS["bam-subset"],
+            },
             {
                 "label": "Unmapped",
                 "cmd": "unmapped",
@@ -180,13 +184,13 @@ UI_METADATA: dict[str, dict[str, Any]] = {
         "commands": [
             {
                 "label": "Run Yleaf",
-                "cmd": "lineage-y",
-                "help": GUI_TOOLTIPS["lineage-y"],
+                "cmd": "lineage-y-haplogroup",
+                "help": GUI_TOOLTIPS["lineage-y-haplogroup"],
             },
             {
                 "label": "Run Haplogrep",
-                "cmd": "lineage-mt",
-                "help": GUI_TOOLTIPS["lineage-mt"],
+                "cmd": "lineage-mt-haplogroup",
+                "help": GUI_TOOLTIPS["lineage-mt-haplogroup"],
             },
         ],
     },
@@ -220,7 +224,6 @@ UI_METADATA: dict[str, dict[str, Any]] = {
                 "cmd": "trio",
                 "help": GUI_TOOLTIPS["trio"],
             },
-            {"label": "VCF QC", "cmd": "vcf-qc", "help": GUI_TOOLTIPS["vcf-qc"]},
             {"label": "Run VEP", "cmd": "vep-run", "help": GUI_TOOLTIPS["vep-run"]},
             {
                 "label": "Repair FTDNA VCF",
@@ -238,6 +241,7 @@ UI_METADATA: dict[str, dict[str, Any]] = {
             {"label": "Index", "cmd": "index", "help": GUI_TOOLTIPS["index"]},
             {"label": "FastQC", "cmd": "fastqc", "help": GUI_TOOLTIPS["fastqc"]},
             {"label": "FastP", "cmd": "fastp", "help": GUI_TOOLTIPS["fastp"]},
+            {"label": "VCF QC", "cmd": "vcf-qc", "help": GUI_TOOLTIPS["vcf-qc"]},
         ],
     },
     "pet": {
@@ -246,8 +250,8 @@ UI_METADATA: dict[str, dict[str, Any]] = {
         "commands": [
             {
                 "label": "Align Pet FASTQ",
-                "cmd": "pet-analysis",
-                "help": GUI_TOOLTIPS["pet-analysis"],
+                "cmd": "pet-align",
+                "help": GUI_TOOLTIPS["pet-align"],
             },
         ],
     },

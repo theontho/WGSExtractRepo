@@ -290,10 +290,10 @@ class TestE2EBase(unittest.TestCase):
 
     # --- NEW FEATURES ---
 
-    def test_31_bam_mt_extract(self):
+    def test_31_extract_mt_bam(self):
         self.run_real(
-            "31 bam mt-extract",
-            ["bam", "mt-extract", "--input", INPUT_PATH, "--ref", REF_PATH],
+            "31 extract mt-bam",
+            ["extract", "mt-bam", "--input", INPUT_PATH, "--ref", REF_PATH],
             "ButtonMitoBAM",
         )
 

@@ -68,23 +68,10 @@ def register(subparsers, base_parser):
     unalign_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
     unalign_parser.set_defaults(func=cmd_unalign)
 
-    subset_parser = bam_subs.add_parser(
-        "subset", parents=[base_parser], help=CLI_HELP["cmd_subset"]
+    identify_parser = bam_subs.add_parser(
+        "identify", parents=[base_parser], help=CLI_HELP["cmd_bam-identify"]
     )
-    subset_parser.add_argument(
-        "--fraction",
-        "-f",
-        required=True,
-        type=float,
-        help=CLI_HELP["arg_fraction"],
-    )
-    subset_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
-    subset_parser.set_defaults(func=cmd_subset)
-
-    mtextract_parser = bam_subs.add_parser(
-        "mt-extract", parents=[base_parser], help=CLI_HELP["cmd_mt-extract"]
-    )
-    mtextract_parser.set_defaults(func=cmd_mtextract)
+    identify_parser.set_defaults(func=cmd_identify)
 
 
 def get_base_args(args):
@@ -120,6 +107,28 @@ def get_base_args(args):
 
     cram_opt = ["-T", resolved_ref] if resolved_ref else []
     return threads, memory, outdir, cram_opt, resolved_ref
+
+
+def cmd_identify(args):
+    verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
+    if not args.input:
+        logging.error(LOG_MESSAGES["input_required"])
+        return
+
+    if not verify_paths_exist({"--input": args.input}):
+        return
+
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+
+    # Auto-resolve ref if a directory was provided
+    resolved_ref = resolve_reference(args.ref, "")
+    logging.debug(f"Resolved reference: {resolved_ref}")
+
+    md5_sig = calculate_bam_md5(args.input, resolved_ref)
+    logging.info(
+        LOG_MESSAGES["ref_md5_signature"].format(input=args.input, sig=md5_sig)
+    )
 
 
 def cmd_sort(args):
@@ -390,59 +399,3 @@ def cmd_unalign(args):
             p3.communicate()
         except Exception as e:
             logging.error(f"Unalign failed: {e}")
-
-
-def cmd_subset(args):
-    verify_dependencies(["samtools"])
-    log_dependency_info(["samtools"])
-    base = get_base_args(args)
-    if not base:
-        return
-    threads, memory, outdir, cram_opt, resolved_ref = base
-
-    out_file = os.path.join(
-        outdir,
-        os.path.basename(args.input).replace(".bam", "").replace(".cram", "")
-        + "_subset.bam",
-    )
-    logging.info(
-        LOG_MESSAGES["subsetting_file"].format(fraction=args.fraction, output=out_file)
-    )
-    try:
-        region_args = [args.region] if args.region else []
-        run_command(
-            ["samtools", "view", "-bh", "-s", str(args.fraction)]
-            + cram_opt
-            + ["-o", out_file, args.input]
-            + region_args
-        )
-    except Exception as e:
-        logging.error(f"Subsetting failed: {e}")
-
-
-def cmd_mtextract(args):
-    verify_dependencies(["samtools"])
-    log_dependency_info(["samtools"])
-    base = get_base_args(args)
-    if not base:
-        return
-    threads, memory, outdir, cram_opt, resolved_ref = base
-
-    mt_chr = get_chr_name(args.input, "MT", cram_opt)
-
-    out_file = os.path.join(
-        outdir,
-        os.path.basename(args.input).replace(".bam", "").replace(".cram", "")
-        + "_mtDNA.bam",
-    )
-
-    logging.info(LOG_MESSAGES["extracting_mt"].format(mt_chr=mt_chr, output=out_file))
-    try:
-        run_command(
-            ["samtools", "view", "-bh"]
-            + cram_opt
-            + ["-@", threads, "-o", out_file, args.input, mt_chr]
-        )
-        run_command(["samtools", "index", "-f", out_file])
-    except Exception as e:
-        logging.error(f"mtDNA extraction failed: {e}")

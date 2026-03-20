@@ -927,8 +927,8 @@ class GUIController:
 
             threading.Thread(target=run, daemon=True).start()
 
-    def run_pet_analysis(self, frame: Any, extra_args: dict[str, str]) -> None:
-        """Execute the pet-analysis command."""
+    def run_pet_align(self, frame: Any, extra_args: dict[str, str]) -> None:
+        """Execute the pet-align command."""
         ref_fasta = self.main_app.pet_ref_fasta_var.get()
         out_dir = self.main_app.out_dir_var.get()
 
@@ -945,7 +945,7 @@ class GUIController:
             sys.executable,
             "-m",
             "wgsextract_cli.main",
-            "pet-analysis",
+            "pet-align",
             "--r1",
             extra_args["r1"],
             "--species",
@@ -961,11 +961,11 @@ class GUIController:
             cmd.extend(["--outdir", out_dir])
 
         label = "Pet Analysis"
-        btn = frame.cmd_buttons.get("pet-analysis")
+        btn = frame.cmd_buttons.get("pet-align")
         if btn:
             label = btn.cget("text")
 
-        self.run_cmd(cmd, cmd_key="pet-analysis", frame=frame, label=label)
+        self.run_cmd(cmd, cmd_key="pet-align", frame=frame, label=label)
 
     def run_dispatch(self, cmd: str, frame: Any, label: str | None = None) -> None:
         """
@@ -1048,8 +1048,7 @@ class GUIController:
             "to-cram",
             "to-bam",
             "unalign",
-            "subset",
-            "mt-extract",
+            "identify",
         ]:
             c = bc + ["bam", cmd, "--input", bam_val]
             if ref_val:
@@ -1076,17 +1075,10 @@ class GUIController:
             if (
                 region
                 and region.get()
-                and cmd in ["sort", "to-cram", "to-bam", "unalign", "subset"]
+                and cmd in ["sort", "to-cram", "to-bam", "unalign"]
             ):
                 c.extend(["-r", region.get()])
 
-            extra = getattr(frame, "extra_entry", None)
-            if cmd == "subset" and extra and extra.get():
-                val = extra.get()
-                if val.replace(".", "").isdigit():
-                    c.extend(["-f", val])
-                else:
-                    c.append(val)
             self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
         elif cmd.startswith("repair-"):
@@ -1106,26 +1098,37 @@ class GUIController:
             "custom",
             "mito-fasta",
             "mito-vcf",
+            "mt-bam",
+            "bam-subset",
             "ydna-bam",
             "ydna-vcf",
             "y-mt-extract",
         ]:
             c = bc + ["extract"]
+            sub = (
+                "mito-fasta" if cmd == "mito" else "ydna-bam" if cmd == "ydna" else cmd
+            )
+            c.extend([sub, "--input", bam_val])
+
             region = getattr(frame, "region_entry", None)
-            if cmd == "custom" and region:
-                c.extend(["--input", bam_val, "-r", region.get()])
-            else:
-                sub = (
-                    "mito-fasta"
-                    if cmd == "mito"
-                    else "ydna-bam"
-                    if cmd == "ydna"
-                    else cmd
-                )
-                c.extend([sub, "--input", bam_val])
+            if region and region.get() and cmd in ["custom", "bam-subset"]:
+                c.extend(["-r", region.get()])
+
+            if cmd == "bam-subset":
+                extra = getattr(frame, "extra_entry", None)
+                if extra and extra.get():
+                    val = extra.get()
+                    if val.replace(".", "").isdigit():
+                        c.extend(["-f", val])
+                    else:
+                        c.append(val)
+
             out_dir = getattr(frame, "out_dir", None)
             if out_dir and out_dir.get():
                 c.extend(["--outdir", out_dir.get()])
+            elif self.main_app.out_dir_var.get():
+                c.extend(["--outdir", self.main_app.out_dir_var.get()])
+
             self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
 
         elif cmd in [
@@ -1139,7 +1142,6 @@ class GUIController:
             "annotate",
             "filter",
             "trio",
-            "vcf-qc",
             "vep-run",
             "vep-verify",
         ]:
@@ -1172,12 +1174,12 @@ class GUIController:
                 label=label,
             )
 
-        elif cmd == "lineage-y":
+        elif cmd == "lineage-y-haplogroup":
             self.run_cmd(
                 bc
                 + [
                     "lineage",
-                    "y-dna",
+                    "y-haplogroup",
                     "--input",
                     bam_val,
                     "--yleaf-path",
@@ -1190,12 +1192,12 @@ class GUIController:
                 label=label,
             )
 
-        elif cmd == "lineage-mt":
+        elif cmd == "lineage-mt-haplogroup":
             self.run_cmd(
                 bc
                 + [
                     "lineage",
-                    "mt-dna",
+                    "mt-haplogroup",
                     "--input",
                     bam_val,
                     "--haplogrep-path",
@@ -1226,11 +1228,17 @@ class GUIController:
                 label=label,
             )
 
+        elif cmd == "vcf-qc":
+            self.run_cmd(
+                bc + ["qc", "vcf", "--input", vcf_val or bam_val],
+                cmd_key=cmd,
+                frame=frame,
+                label=label,
+            )
+
         elif cmd.startswith("ref-"):
             sub = cmd.replace("ref-", "")
             c = bc + ["ref", sub]
-            if sub == "identify":
-                c += ["--input", bam_val]
             if sub not in ["download", "download-genes"] and ref_val:
                 c += ["--ref", ref_val]
             self.run_cmd(c, cmd_key=cmd, frame=frame, label=label)
@@ -1247,13 +1255,7 @@ class GUIController:
         label: str | None = None,
     ) -> None:
         """Helper to handle VCF and VEP command dispatching."""
-        sub = (
-            "qc"
-            if cmd == "vcf-qc"
-            else cmd.replace("vep-", "")
-            if "vep-" in cmd
-            else cmd
-        )
+        sub = cmd.replace("vep-", "") if "vep-" in cmd else cmd
         c = bc + ["vep" if "vep-" in cmd else "vcf", sub]
 
         # Determine which input to use
@@ -1285,7 +1287,7 @@ class GUIController:
         elif sub in calling_actions:
             c += ["--input", bam_val]
         else:
-            # Annotate, Filter, QC use VCF
+            # Annotate, Filter use VCF
             c += ["--input", vcf_val]
 
         if cmd == "vep-verify" and ref_val:
@@ -1379,8 +1381,8 @@ class GUIController:
             "to-cram",
             "to-bam",
             "unalign",
-            "subset",
-            "mt-extract",
+            "bam-subset",
+            "mt-bam",
             "mito-fasta",
             "mito-vcf",
             "ydna-bam",
@@ -1399,8 +1401,8 @@ class GUIController:
             "gatk",
             "deepvariant",
             "microarray",
-            "lineage-y",
-            "lineage-mt",
+            "lineage-y-haplogroup",
+            "lineage-mt-haplogroup",
         ]
 
         vcf_cmds = ["repair-ftdna-vcf", "annotate", "filter", "trio", "vcf-qc"]
@@ -1452,7 +1454,7 @@ class GUIController:
                     )
                 )
 
-        if cmd == "lineage-y":
+        if cmd == "lineage-y-haplogroup":
             if not getattr(frame, "yleaf_path", None) or not frame.yleaf_path.get():
                 errors.append(
                     GUI_MESSAGES["error_input_required"].format(
@@ -1466,7 +1468,7 @@ class GUIController:
                     )
                 )
 
-        if cmd == "lineage-mt":
+        if cmd == "lineage-mt-haplogroup":
             if (
                 not getattr(frame, "haplogrep_path", None)
                 or not frame.haplogrep_path.get()

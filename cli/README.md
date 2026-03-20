@@ -140,19 +140,20 @@ wgsextract-cli info --detailed
 ### Module Mode (Advanced)
 ```bash
 # From project root
-PYTHONPATH=cli/src uv run python -m wgsextract_cli.main ref identify
+PYTHONPATH=cli/src uv run python -m wgsextract_cli.main bam identify
 ```
 
 ### All Subcommands (34 Combinations)
 *   `info`: plain, `--detailed`, `calculate-coverage`, `coverage-sample`
-*   `bam`: `sort`, `index`, `unindex`, `unsort`, `to-cram`, `to-bam`, `unalign`, `subset`
-*   `extract`: `mito`, `ydna`, `unmapped`
-*   `vcf`: `snp`, `indel`, `annotate`, `filter`, `qc`
+*   `bam`: `sort`, `index`, `unindex`, `unsort`, `to-cram`, `to-bam`, `unalign`, `identify`
+*   `extract`: `mt-bam`, `mito-fasta`, `mito-vcf`, `ydna-bam`, `ydna-vcf`, `y-mt-extract`, `bam-subset`, `unmapped`, `custom`
+*   `vcf`: `snp`, `indel`, `annotate`, `filter`, `sv`, `cnv`, `freebayes`, `gatk`, `deepvariant`, `trio`, `vep-run`
 *   `microarray`: Generate simulation kit
-*   `lineage`: `mt-dna` (Haplogrep), `y-dna` (Yleaf)
+*   `lineage`: `mt-haplogroup` (Haplogrep), `y-haplogroup` (Yleaf)
 *   `repair`: `ftdna-bam`, `ftdna-vcf`
-*   `qc`: `fastp`, `fastqc`, `coverage-wgs`, `coverage-wes`
-*   `ref`: `identify`, `download`, `index`
+*   `qc`: `fastp`, `fastqc`, `vcf`, `coverage-wgs`, `coverage-wes`
+*   `pet-align`: Species-specific alignment and calling
+*   `ref`: `download`, `index`
 *   `align`: FASTQ to BAM/CRAM alignment
 
 ## Testing Suite

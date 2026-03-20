@@ -2,6 +2,12 @@ The cli re-implementaiton in the cli/ directory is a completely independent reim
 
 We do not want to manage installing dependencies for users, just validate that they are installed before running the feature. You can add library dependencies as part of the pyproject.toml file.
 
+In general, test and run the code you write.  You are not done if all you do is edit code.  Make sure to test small test genome extraction versions and then full genome versions once the small extraction works. Issues often pop up in full genome runs that don't show up in small test data runs.
+
+You have a large budget and a lot of time to do things correctly.  Favor 'the best practice' or 'correct' way over trying to achieve a solution quickly.  This does not mean doing something in an overly verbose way is "correct", conciseness is it's own virtue.
+
+When outputting test run results, put it in a gitignored out/ or tmp/ dir instead of in the repo root or similar.
+
 ## Python Formatting & Linting
 
 - **Always** run `uv run ruff check --fix {file_path}` and `uv run ruff format {file_path}` after editing a Python file in this directory.

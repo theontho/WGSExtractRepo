@@ -260,7 +260,8 @@ class TestCLISmoke(unittest.TestCase):
 
     def test_12_bam_subset(self):
         self.run_sub(
-            "bam subset", ["bam", "subset", "--input", INPUT_PATH, "-f", "0.1"]
+            "extract bam-subset",
+            ["extract", "bam-subset", "--input", INPUT_PATH, "-f", "0.1"],
         )
 
     # --- EXTRACT ---
@@ -310,9 +311,6 @@ class TestCLISmoke(unittest.TestCase):
             ["vcf", "filter", "--input", self.dummy_vcf, "--expr", "QUAL>30"],
         )
 
-    def test_20_vcf_qc(self):
-        self.run_sub("vcf qc", ["vcf", "qc", "--input", self.dummy_vcf])
-
     # --- MICROARRAY / LINEAGE ---
     def test_21_microarray(self):
         self.run_sub(
@@ -321,10 +319,10 @@ class TestCLISmoke(unittest.TestCase):
 
     def test_22_lineage_mtdna(self):
         self.run_sub(
-            "lineage mt-dna",
+            "lineage mt-haplogroup",
             [
                 "lineage",
-                "mt-dna",
+                "mt-haplogroup",
                 "--input",
                 self.dummy_vcf,
                 "--haplogrep-path",
@@ -334,10 +332,10 @@ class TestCLISmoke(unittest.TestCase):
 
     def test_23_lineage_ydna(self):
         self.run_sub(
-            "lineage y-dna",
+            "lineage y-haplogroup",
             [
                 "lineage",
-                "y-dna",
+                "y-haplogroup",
                 "--input",
                 INPUT_PATH,
                 "--yleaf-path",
@@ -366,9 +364,26 @@ class TestCLISmoke(unittest.TestCase):
     def test_27_qc_fastqc(self):
         self.run_sub("qc fastqc", ["qc", "fastqc", "--input", INPUT_PATH])
 
+    def test_28_qc_vcf(self):
+        self.run_sub("qc vcf", ["qc", "vcf", "--input", self.dummy_vcf])
+
+    def test_29_pet_align(self):
+        self.run_sub(
+            "pet-align",
+            [
+                "pet-align",
+                "--r1",
+                self.dummy_fastq,
+                "--species",
+                "dog",
+                "--ref",
+                REF_PATH,
+            ],
+        )
+
     # --- REF / ALIGN ---
-    def test_30_ref_identify(self):
-        self.run_sub("ref identify", ["ref", "identify", "--input", INPUT_PATH])
+    def test_30_bam_identify(self):
+        self.run_sub("bam identify", ["bam", "identify", "--input", INPUT_PATH])
 
     def test_31_ref_download(self):
         self.run_sub(
@@ -438,8 +453,8 @@ class TestCLISmoke(unittest.TestCase):
 
     def test_41_bam_mt_extract(self):
         self.run_sub(
-            "bam mt-extract",
-            ["bam", "mt-extract", "--input", INPUT_PATH, "--ref", REF_PATH],
+            "extract mt-bam",
+            ["extract", "mt-bam", "--input", INPUT_PATH, "--ref", REF_PATH],
         )
 
     def test_42_ref_download_genes(self):
