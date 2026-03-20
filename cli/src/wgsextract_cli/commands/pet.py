@@ -4,7 +4,7 @@ import logging
 import os
 import subprocess
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import get_resource_defaults, run_command
 
@@ -26,6 +26,12 @@ def register(subparsers, base_parser):
 
 def run(args):
     verify_dependencies(["bwa", "samtools", "bcftools"])
+    log_dependency_info(["bwa", "samtools", "bcftools"])
+
+    logging.debug(f"Input file (R1): {os.path.abspath(args.r1)}")
+    if args.r2:
+        logging.debug(f"Input file (R2): {os.path.abspath(args.r2)}")
+
     threads, _ = get_resource_defaults(args.threads, None)
 
     if not args.ref:
@@ -42,6 +48,8 @@ def run(args):
         ref_file = args.ref
     else:
         ref_file = os.path.join(args.ref, "genomes", ref_map[args.species])
+
+    logging.debug(f"Resolved reference: {ref_file}")
 
     if not os.path.exists(ref_file):
         logging.error(f"Reference genome for {args.species} not found at {ref_file}")
@@ -62,6 +70,7 @@ def run(args):
             return
 
     outdir = args.outdir if args.outdir else os.getcwd()
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     base_name = os.path.basename(args.r1).split(".")[0]
     out_bam = os.path.join(outdir, f"{base_name}_{args.species}.bam")
     if args.format == "CRAM":

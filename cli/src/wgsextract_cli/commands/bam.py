@@ -3,7 +3,7 @@ import os
 import subprocess
 import tempfile
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
@@ -95,14 +95,18 @@ def get_base_args(args):
     if not verify_paths_exist({"--input": args.input}):
         return None
 
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+
     threads, memory = get_resource_defaults(args.threads, args.memory)
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     try:
         md5_sig = calculate_bam_md5(args.input, None)
         resolved_ref = resolve_reference(args.ref, md5_sig)
+        logging.debug(f"Resolved reference: {resolved_ref}")
     except Exception as e:
         logging.error(f"Failed to initialize reference resolution: {e}")
         return None
@@ -120,6 +124,7 @@ def get_base_args(args):
 
 def cmd_sort(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -181,6 +186,7 @@ def cmd_sort(args):
 
 def cmd_index(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     if not args.input:
         logging.error(LOG_MESSAGES["input_required"])
         return
@@ -222,6 +228,7 @@ def cmd_unindex(args):
 
 def cmd_unsort(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -259,6 +266,7 @@ def cmd_unsort(args):
 
 def cmd_tocram(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -293,6 +301,7 @@ def cmd_tocram(args):
 
 def cmd_tobam(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -321,6 +330,7 @@ def cmd_tobam(args):
 
 def cmd_unalign(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -384,6 +394,7 @@ def cmd_unalign(args):
 
 def cmd_subset(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -411,6 +422,7 @@ def cmd_subset(args):
 
 def cmd_mtextract(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     base = get_base_args(args)
     if not base:
         return

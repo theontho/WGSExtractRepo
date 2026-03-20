@@ -201,8 +201,9 @@ class TestE2EBase(unittest.TestCase):
 
     def test_00_help(self):
         start = time.perf_counter()
-        with patch.object(sys, "argv", ["wgsextract-cli", "--help"]), redirect_stdout(
-            io.StringIO()
+        with (
+            patch.object(sys, "argv", ["wgsextract-cli", "--help"]),
+            redirect_stdout(io.StringIO()),
         ):
             try:
                 main()

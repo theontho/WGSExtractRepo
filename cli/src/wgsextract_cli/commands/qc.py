@@ -1,7 +1,7 @@
 import logging
 import os
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     get_resource_defaults,
@@ -30,8 +30,14 @@ def register(subparsers, base_parser):
 
 def cmd_fastp(args):
     verify_dependencies(["fastp"])
+    log_dependency_info(["fastp"])
     threads, _ = get_resource_defaults(args.threads, None)
     outdir = args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.r1))
+
+    logging.debug(f"Input file (R1): {os.path.abspath(args.r1)}")
+    if args.r2:
+        logging.debug(f"Input file (R2): {os.path.abspath(args.r2)}")
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     base_name = os.path.basename(args.r1).split(".")[0]
     out_r1 = os.path.join(outdir, f"{base_name}_fp_1.fastq.gz")
@@ -64,10 +70,14 @@ def cmd_fastp(args):
 
 def cmd_fastqc(args):
     verify_dependencies(["fastqc"])
+    log_dependency_info(["fastqc"])
     threads, _ = get_resource_defaults(args.threads, None)
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     )
+
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     logging.info(LOG_MESSAGES["running_fastqc"].format(input=args.input))
     try:

@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import tempfile
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import download_file
 from wgsextract_cli.core.utils import (
@@ -326,6 +326,7 @@ def cmd_vep(args):
         input_files = [args.input]
 
     verify_dependencies(["vep", "tabix", "bcftools"])
+    log_dependency_info(["vep", "tabix", "bcftools"])
     threads, _ = get_resource_defaults(args.threads, None)
 
     batch_stats = []
@@ -343,6 +344,9 @@ def cmd_vep(args):
             else os.path.dirname(os.path.abspath(current_input))
         )
         os.makedirs(outdir, exist_ok=True)
+
+        logging.debug(f"Input file: {os.path.abspath(current_input)}")
+        logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
         # Output path determination
         base_name = os.path.basename(current_input).split(".")[0]
@@ -376,6 +380,7 @@ def cmd_vep(args):
         md5_sig = calculate_bam_md5(current_input, None) if is_bam else None
         lib = ReferenceLibrary(args.ref, md5_sig)
         resolved_ref = lib.fasta
+        logging.debug(f"Resolved reference: {resolved_ref}")
 
         if is_bam and not resolved_ref:
             logging.error(

@@ -148,16 +148,21 @@ class TestCLISmoke(unittest.TestCase):
             patch(f"wgsextract_cli.commands.{c}.verify_dependencies") for c in cmds
         ]
 
-        with patch("subprocess.Popen", side_effect=popen_side_effect), patch(
-            "subprocess.run"
-        ) as mock_run, patch("os.path.exists", side_effect=exists_side_effect), patch(
-            "os.path.isfile", side_effect=isfile_side_effect
-        ), patch("os.path.getsize", return_value=1024), patch("os.remove"), patch(
-            "sys.stdin", io.StringIO("")
-        ), patch("wgsextract_cli.core.dependencies.verify_dependencies"), patch(
-            "wgsextract_cli.commands.info.run_full_coverage"
-        ), patch("wgsextract_cli.commands.info.run_sampled_coverage"), patch(
-            "wgsextract_cli.commands.info.calculate_bam_md5", return_value="dummy_md5"
+        with (
+            patch("subprocess.Popen", side_effect=popen_side_effect),
+            patch("subprocess.run") as mock_run,
+            patch("os.path.exists", side_effect=exists_side_effect),
+            patch("os.path.isfile", side_effect=isfile_side_effect),
+            patch("os.path.getsize", return_value=1024),
+            patch("os.remove"),
+            patch("sys.stdin", io.StringIO("")),
+            patch("wgsextract_cli.core.dependencies.verify_dependencies"),
+            patch("wgsextract_cli.commands.info.run_full_coverage"),
+            patch("wgsextract_cli.commands.info.run_sampled_coverage"),
+            patch(
+                "wgsextract_cli.commands.info.calculate_bam_md5",
+                return_value="dummy_md5",
+            ),
         ):
             # Activate sub-module patches
             for p in patches:
@@ -166,9 +171,11 @@ class TestCLISmoke(unittest.TestCase):
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             try:
                 full_args = ["wgsextract-cli", "--outdir", self.test_dir] + args
-                with patch.object(sys, "argv", full_args), redirect_stdout(
-                    io.StringIO()
-                ), redirect_stderr(io.StringIO()):
+                with (
+                    patch.object(sys, "argv", full_args),
+                    redirect_stdout(io.StringIO()),
+                    redirect_stderr(io.StringIO()),
+                ):
                     main()
                 success = True
             except SystemExit as e:
@@ -189,9 +196,11 @@ class TestCLISmoke(unittest.TestCase):
 
     def test_00_help(self):
         try:
-            with patch.object(
-                sys, "argv", ["wgsextract-cli", "--help"]
-            ), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with (
+                patch.object(sys, "argv", ["wgsextract-cli", "--help"]),
+                redirect_stdout(io.StringIO()),
+                redirect_stderr(io.StringIO()),
+            ):
                 main()
             self.record_result("help", True)
         except SystemExit as e:

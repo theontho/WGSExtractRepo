@@ -2,7 +2,11 @@ import logging
 import os
 import subprocess
 
-from wgsextract_cli.core.dependencies import get_tool_path, verify_dependencies
+from wgsextract_cli.core.dependencies import (
+    get_tool_path,
+    log_dependency_info,
+    verify_dependencies,
+)
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     ReferenceLibrary,
@@ -125,11 +129,15 @@ def cmd_ydna(args):
     # Check dependencies
     if not args.yleaf_path:
         verify_dependencies(["yleaf"])
+    log_dependency_info(["yleaf"])
 
     yleaf_path = args.yleaf_path or get_tool_path("yleaf")
 
     if not verify_paths_exist({"--input": args.input, "--yleaf-path": yleaf_path}):
         return
+
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+    logging.debug(f"Output directory: {os.path.abspath(args.outdir)}")
 
     # Build detection for -rg
     build = None
@@ -145,8 +153,8 @@ def cmd_ydna(args):
         logging.warning(f"Build {build} not supported by Yleaf, defaulting to hg38")
         build = "hg38"
 
-    # Update yleaf config before running
     if args.ref:
+        logging.debug(f"Resolved reference: {args.ref}")
         update_yleaf_config(yleaf_path, args.ref, build)
 
     logging.info(LOG_MESSAGES["running_yleaf"].format(input=args.input))
@@ -268,6 +276,7 @@ def cmd_mtdna(args):
     # Check dependencies
     if not args.haplogrep_path:
         verify_dependencies(["haplogrep", "bcftools"])
+    log_dependency_info(["haplogrep", "bcftools"])
 
     haplogrep_path = args.haplogrep_path or get_tool_path("haplogrep")
 
@@ -279,6 +288,8 @@ def cmd_mtdna(args):
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     )
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     out_file = os.path.join(outdir, "haplogrep_results.txt")
 
     input_file = args.input
@@ -302,6 +313,8 @@ def cmd_mtdna(args):
                     "Reference genome required to call mitochondrial variants."
                 )
                 return
+
+            logging.debug(f"Resolved reference: {lib.fasta}")
 
             cram_opt = ["-T", lib.fasta] if input_file.lower().endswith(".cram") else []
             chr_m = get_chr_name(input_file, "MT", cram_opt)

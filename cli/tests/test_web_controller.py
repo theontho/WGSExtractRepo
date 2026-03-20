@@ -82,9 +82,12 @@ class TestWebController(unittest.IsolatedAsyncioTestCase):
 
     def test_set_tab(self):
         """Test tab switching."""
-        with patch(
-            "wgsextract_cli.ui.web_gui_parts.common.render_content_refresh"
-        ) as mock_refresh, patch("nicegui.ui.update") as mock_update:
+        with (
+            patch(
+                "wgsextract_cli.ui.web_gui_parts.common.render_content_refresh"
+            ) as mock_refresh,
+            patch("nicegui.ui.update") as mock_update,
+        ):
             self.controller.set_tab("vcf")
             self.assertEqual(state.active_tab, "vcf")
             mock_refresh.assert_called_once()

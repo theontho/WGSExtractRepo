@@ -15,7 +15,7 @@ from wgsextract_cli.core.constants import (
     REFGEN_BY_SNCOUNT,
     SEQUENCERS,
 )
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
@@ -616,13 +616,14 @@ def run_sampled_coverage(input_p, ref_p, idx_stats, out_p, region=None):
 def run(args):
     start_time = time.time()
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     if not args.input:
         return logging.error("--input required.")
 
     if not verify_paths_exist({"--input": args.input}):
         return
 
-    logging.debug(f"Starting analysis for: {args.input}")
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
 
     # Fetch header once to avoid redundant subprocess calls
     t0 = time.time()
@@ -667,6 +668,7 @@ def run(args):
         if hasattr(args, "outdir") and args.outdir
         else os.path.dirname(os.path.abspath(args.input))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     json_cache = os.path.join(outdir, f"{os.path.basename(args.input)}.wgse_info.json")
 
     data = {}

@@ -8,7 +8,7 @@ fi
 
 INPUT_FILE="${WGSE_INPUT}"
 REF_DIR="${WGSE_REF}"
-OUT_DIR="full_smoke_out_cram"
+OUT_DIR="out/full_smoke_out_cram"
 
 # Clean up previous runs
 rm -rf "$OUT_DIR"

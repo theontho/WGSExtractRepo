@@ -8,7 +8,7 @@ fi
 # Configuration
 INPUT_CRAM="${WGSE_INPUT:-/Users/mac/Documents/genetics/genomes/mahyar/cram/Mahyar_McDonald_NU-NKQA-0638.cram}"
 REF_PATH="/Users/mac/Documents/genetics/cli_out/hs38_temp.fa"
-OUTDIR="benchmark_results_haplogrep"
+OUTDIR="out/benchmark_results_haplogrep"
 
 # Path to the specific conda environment for Haplogrep
 CONDA_ENV_PATH="/opt/homebrew/Caskroom/miniconda/base/envs/wgse"

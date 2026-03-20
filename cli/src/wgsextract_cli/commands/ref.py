@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.gene_map import are_gene_maps_installed
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import (
@@ -78,6 +78,7 @@ def register(subparsers, base_parser):
 
 def cmd_identify(args):
     verify_dependencies(["samtools"])
+    log_dependency_info(["samtools"])
     if not args.input:
         logging.error(LOG_MESSAGES["input_required"])
         return
@@ -85,8 +86,11 @@ def cmd_identify(args):
     if not verify_paths_exist({"--input": args.input}):
         return
 
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+
     # Auto-resolve ref if a directory was provided
     resolved_ref = resolve_reference(args.ref, "")
+    logging.debug(f"Resolved reference: {resolved_ref}")
 
     md5_sig = calculate_bam_md5(args.input, resolved_ref)
     logging.info(
@@ -105,6 +109,7 @@ def cmd_download(args):
 
 def cmd_index(args):
     verify_dependencies(["samtools", "bwa"])
+    log_dependency_info(["samtools", "bwa"])
     if not args.ref:
         logging.error("--ref is required.")
         return
@@ -112,6 +117,7 @@ def cmd_index(args):
     if not verify_paths_exist({"--ref": args.ref}):
         return
 
+    logging.debug(f"Resolved reference: {os.path.abspath(args.ref)}")
     logging.info(LOG_MESSAGES["ref_indexing"].format(path=args.ref))
     try:
         # 1. samtools faidx
@@ -161,12 +167,14 @@ def cmd_count_ns(args):
 
 def cmd_ref_verify(args):
     verify_dependencies(["gzip", "samtools"])
+    log_dependency_info(["gzip", "samtools"])
     if not args.ref:
         logging.error("--ref is required.")
         return
 
     # Auto-resolve ref if a directory was provided
     resolved_ref = resolve_reference(args.ref, "")
+    logging.debug(f"Resolved reference: {resolved_ref}")
     if not os.path.exists(resolved_ref):
         logging.error(f"Reference file not found: {resolved_ref}")
         return
@@ -300,7 +308,9 @@ def cmd_library_list(args):
 
 def cmd_library(args):
     """Interactive library manager."""
-    verify_dependencies(["curl", "samtools", "bcftools", "tabix", "bgzip", "htsfile"])
+    deps = ["curl", "samtools", "bcftools", "tabix", "bgzip", "htsfile"]
+    verify_dependencies(deps)
+    log_dependency_info(deps)
 
     genomes = get_available_genomes()
 

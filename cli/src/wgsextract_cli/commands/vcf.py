@@ -342,13 +342,17 @@ def cmd_indel(args):
 
 def cmd_annotate(args):
     verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
     input_file = args.vcf_input if args.vcf_input else args.input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
+    logging.debug(f"Input file: {os.path.abspath(input_file)}")
+
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     out_vcf = os.path.join(outdir, "annotated.vcf.gz")
 
     ann_vcf = args.ann_vcf
@@ -407,6 +411,7 @@ def cmd_annotate(args):
 
 def cmd_filter(args):
     verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
     input_file = args.vcf_input if args.vcf_input else args.input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
@@ -414,14 +419,18 @@ def cmd_filter(args):
     if not verify_paths_exist({"--input": input_file}):
         return
 
+    logging.debug(f"Input file: {os.path.abspath(input_file)}")
+
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     out_vcf = os.path.join(outdir, "filtered.vcf.gz")
 
     # Resolve reference if needed for gap filtering or gene resolution
     md5_sig = calculate_bam_md5(input_file, None)
     lib = ReferenceLibrary(args.ref, md5_sig)
+    logging.debug(f"Resolved reference: {lib.fasta}")
 
     # Gene-based region resolution
     region = args.region
@@ -691,6 +700,7 @@ def cmd_trio(args):
 
 def cmd_qc(args):
     verify_dependencies(["bcftools"])
+    log_dependency_info(["bcftools"])
     input_file = args.vcf_input if args.vcf_input else args.input
     if not input_file:
         logging.error("--input is required.")
@@ -699,9 +709,12 @@ def cmd_qc(args):
     if not verify_paths_exist({"--input": input_file}):
         return
 
+    logging.debug(f"Input file: {os.path.abspath(input_file)}")
+
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
     base_name = os.path.basename(input_file)
     out_stats = os.path.join(outdir, f"{base_name}.vcfstats.txt")
 

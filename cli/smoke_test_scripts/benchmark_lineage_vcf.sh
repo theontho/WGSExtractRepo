@@ -10,7 +10,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/b
 
 # Configuration - Using VCF instead of CRAM
 INPUT_VCF="${WGSE_INPUT_VCF:-/Users/mac/Documents/genetics/genomes/mahyar/vcf/Mahyar_McDonald_NU-NKQA-0638.vcf.gz}"
-OUTDIR="benchmark_results_vcf"
+OUTDIR="out/benchmark_results_vcf"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

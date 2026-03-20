@@ -11,7 +11,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/b
 # Configuration
 REF_PATH="/Users/mac/Documents/genetics/cli_out/hs38_temp.fa"
 INPUT_CRAM="${WGSE_INPUT:-/Users/mac/Documents/genetics/genomes/mahyar/cram/Mahyar_McDonald_NU-NKQA-0638.cram}"
-OUTDIR="benchmark_results"
+OUTDIR="out/benchmark_results"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

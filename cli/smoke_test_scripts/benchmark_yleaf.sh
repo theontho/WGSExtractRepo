@@ -8,7 +8,7 @@ fi
 # Configuration
 INPUT_VCF="${WGSE_INPUT_VCF:-/Users/mac/Documents/genetics/genomes/mahyar/vcf/Mahyar_McDonald_NU-NKQA-0638.vcf.gz}"
 REF_ROOT="/Users/mac/src/WGSExtractRepo2/reference"
-OUTDIR="benchmark_results_yleaf"
+OUTDIR="out/benchmark_results_yleaf"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"
