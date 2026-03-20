@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import sys
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     ReferenceLibrary,
@@ -163,6 +163,9 @@ def register(subparsers, base_parser):
 
 
 def get_base_args(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+
     # Support multiple input argument names for different VCF commands
     input_file = (
         getattr(args, "vcf_input", None)
@@ -173,11 +176,15 @@ def get_base_args(args):
     if not input_file:
         logging.error(LOG_MESSAGES["input_required"])
         return None
+
+    logging.debug(f"Input file: {os.path.abspath(input_file)}")
+
     threads, _ = get_resource_defaults(args.threads, None)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     md5_sig = calculate_bam_md5(input_file, None)
     lib = ReferenceLibrary(args.ref, md5_sig)
@@ -187,6 +194,7 @@ def get_base_args(args):
             args.ploidy_file = lib.ploidy_file
 
     resolved_ref = lib.fasta
+    logging.debug(f"Resolved reference: {resolved_ref}")
 
     paths_to_check = {"--input": input_file}
     if resolved_ref:

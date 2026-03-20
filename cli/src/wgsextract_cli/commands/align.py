@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
@@ -38,16 +38,21 @@ def run(args):
 
 def align_bwa(args):
     verify_dependencies(["bwa", "samtools"])
+    log_dependency_info(["bwa", "samtools"])
     threads, _ = get_resource_defaults(args.threads, None)
 
     # Use --input's path if outdir not set, or r1's path
     input_path = args.input if args.input else args.r1
+    logging.debug(f"Input file: {os.path.abspath(input_path)}")
+
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_path))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     md5_sig = calculate_bam_md5(input_path, None) if args.input else None
     resolved_ref = resolve_reference(args.ref, md5_sig)
+    logging.debug(f"Resolved reference: {resolved_ref}")
 
     if not resolved_ref or not os.path.isfile(resolved_ref):
         logging.error(LOG_MESSAGES["ref_required_for"].format(task="BWA alignment"))
@@ -100,15 +105,19 @@ def align_bwa(args):
 
 def align_minimap2(args):
     verify_dependencies(["minimap2", "samtools"])
+    log_dependency_info(["minimap2", "samtools"])
     threads, _ = get_resource_defaults(args.threads, None)
 
     input_path = args.input if args.input else args.r1
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_path))
     )
+    logging.debug(f"Input file: {os.path.abspath(input_path)}")
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     md5_sig = calculate_bam_md5(input_path, None) if args.input else None
     resolved_ref = resolve_reference(args.ref, md5_sig)
+    logging.debug(f"Resolved reference: {resolved_ref}")
 
     if not resolved_ref or not os.path.isfile(resolved_ref):
         logging.error(

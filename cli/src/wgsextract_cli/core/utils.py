@@ -161,14 +161,32 @@ class ReferenceLibrary:
             self._resolve_sidecars(root_path)
 
     def _resolve(self, skip_full_search):
+        from wgsextract_cli.core.constants import REFERENCE_MODELS
+
         # 1. Try known filenames for this MD5
-        if self.md5 and self.md5 in REF_GENOME_FILENAMES:
-            for fname in REF_GENOME_FILENAMES[self.md5]:
-                path = os.path.join(self.root, "genomes", fname)
-                if os.path.exists(path):
-                    self.fasta = path
-                    self._resolve_sidecars(path)
-                    return
+        if self.md5 and self.md5 in REFERENCE_MODELS:
+            # REFERENCE_MODELS values are [build_code, mito, filename]
+            model_info = REFERENCE_MODELS[self.md5]
+            build_code = model_info[0]
+            fname = model_info[2]
+
+            # Try filenames: the one in the model, and the build code with extensions
+            potential_fnames = [
+                fname,
+                f"{build_code}.fa.gz",
+                f"{build_code}.fasta.gz",
+                f"{build_code}.fa",
+                f"{build_code}.fasta",
+                f"{build_code}.fna.gz",
+            ]
+
+            for f in potential_fnames:
+                for sub in ["genomes", ""]:
+                    path = os.path.join(self.root, sub, f)
+                    if os.path.exists(path):
+                        self.fasta = path
+                        self._resolve_sidecars(path)
+                        return
 
         # 2. If skip_full_search is True, don't walk the directory
         if skip_full_search:
@@ -186,6 +204,17 @@ class ReferenceLibrary:
                     return
 
     def _resolve_sidecars(self, fasta_path):
+        # Deduce build early so it can be used for sidecars
+        bn = os.path.basename(fasta_path).upper()
+        if "38" in bn or "HG38" in bn or "GRCH38" in bn:
+            self.build = "hg38"
+        elif "37" in bn or "HG19" in bn or "GRCH37" in bn:
+            self.build = "hg19"
+        elif "DOG" in bn:
+            self.build = "dog"
+        elif "CAT" in bn:
+            self.build = "cat"
+
         base = os.path.splitext(fasta_path)[0]
         if base.endswith(".fa") or base.endswith(".fasta") or base.endswith(".fna"):
             base = os.path.splitext(base)[0]
@@ -200,8 +229,15 @@ class ReferenceLibrary:
 
         # Look for chain files in root or same dir
         d = os.path.dirname(fasta_path)
-        for c in ["hg38ToHg19.over.chain.gz", "GRCh38ToGRCh37.over.chain.gz"]:
+        chains = ["hg38ToHg19.over.chain.gz", "GRCh38ToGRCh37.over.chain.gz"]
+        for c in chains:
+            # Try same dir as fasta
             potential = os.path.join(d, c)
+            if os.path.exists(potential):
+                self.liftover_chain = potential
+                break
+            # Try reference root
+            potential = os.path.join(self.root, c)
             if os.path.exists(potential):
                 self.liftover_chain = potential
                 break
@@ -212,24 +248,55 @@ class ReferenceLibrary:
             if os.path.exists(potential):
                 self.ploidy_file = potential
                 break
+        if not self.ploidy_file:
+            # Check microarray subfolder
+            micro_dir = os.path.join(self.root, "microarray")
+            for p in ["ploidy.txt", "ploidy"]:
+                potential = os.path.join(micro_dir, p)
+                if os.path.exists(potential):
+                    self.ploidy_file = potential
+                    break
 
-        # Annotation VCFs
-        for v in ["All_SNPs.vcf.gz", "common_all.vcf.gz"]:
+        # Annotation VCFs / Microarray Tab files
+        potential_vcf_names = ["All_SNPs.vcf.gz", "common_all.vcf.gz"]
+        if self.build:
+            # e.g. All_SNPs_hg38_ref.tab.gz
+            build_suffix = self.build.lower()  # hg38 or hg19
+            # GRCh38 mapping
+            alt_build = (
+                "grch38"
+                if build_suffix == "hg38"
+                else "grch37"
+                if build_suffix == "hg19"
+                else None
+            )
+
+            potential_vcf_names.extend(
+                [
+                    f"All_SNPs_{build_suffix}_ref.tab.gz",
+                    f"All_SNPs_{build_suffix.upper()}_ref.tab.gz",
+                ]
+            )
+            if alt_build:
+                potential_vcf_names.extend(
+                    [
+                        f"All_SNPs_{alt_build.lower()}_ref.tab.gz",
+                        f"All_SNPs_{alt_build.upper()}_ref.tab.gz",
+                        f"All_SNPs_{alt_build.capitalize()}_ref.tab.gz",
+                    ]
+                )
+
+        for v in potential_vcf_names:
+            # Check same dir as fasta
             potential = os.path.join(d, v)
             if os.path.exists(potential):
                 self.ref_vcf_tab = potential
                 break
-
-        # Deduce build
-        bn = os.path.basename(fasta_path).upper()
-        if "38" in bn or "HG38" in bn or "GRCH38" in bn:
-            self.build = "hg38"
-        elif "37" in bn or "HG19" in bn or "GRCH37" in bn:
-            self.build = "hg19"
-        elif "DOG" in bn:
-            self.build = "dog"
-        elif "CAT" in bn:
-            self.build = "cat"
+            # Check microarray subfolder
+            potential = os.path.join(self.root, "microarray", v)
+            if os.path.exists(potential):
+                self.ref_vcf_tab = potential
+                break
 
 
 def resolve_reference(ref_path, md5_sig):
@@ -521,24 +588,38 @@ def get_bam_header(bam_path, cram_opt=None):
         return ""
 
     # Attempt 1: As provided
-    if cram_opt is None:
-        cram_opt = []
     cmd = ["samtools", "view", "-H"]
-    if cram_opt:
+
+    # If it's a CRAM and we have a reference, use -T
+    is_cram = bam_path.lower().endswith(".cram")
+
+    if is_cram and cram_opt:
         if isinstance(cram_opt, list):
             cmd.extend(cram_opt)
-        else:
+        elif os.path.isfile(cram_opt):
             cmd.extend(["-T", cram_opt])
+        else:
+            # Maybe it's a directory, samtools -T needs a file.
+            # ReferenceLibrary.fasta usually is the file.
+            cmd.extend(["-T", cram_opt])
+
     cmd.append(bam_path)
 
     try:
         result = run_command(cmd, capture_output=True)
         return result.stdout
     except Exception as e:
-        # Attempt 2: If it's a CRAM and we had a reference, try WITHOUT it.
-        # Sometimes samtools fails on CRAM header even with -T if the ref is a dir or wrong.
-        # But often the header can be read without -T.
-        if bam_path.lower().endswith(".cram") and cram_opt:
+        # Attempt 2: Try bcftools view -h (often more robust for CRAM)
+        try:
+            logging.debug("Header fetch with samtools failed, trying bcftools...")
+            bcftools_cmd = ["bcftools", "view", "-h", bam_path]
+            result = run_command(bcftools_cmd, capture_output=True)
+            return result.stdout
+        except Exception:
+            pass
+
+        # Attempt 3: If it's a CRAM and we had a reference, try WITHOUT it.
+        if is_cram:
             try:
                 logging.debug(LOG_MESSAGES["util_header_retry"])
                 result = run_command(

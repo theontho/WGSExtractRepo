@@ -65,11 +65,13 @@ def liftover_hg38_to_hg19(input_txt, output_txt, chain_file, templates_dir=None)
 
     # Use a temporary file for unsorted liftover results
     tmp_txt = output_txt + ".tmp"
+    headers = []
 
     with open(tmp_txt, "w") as f_sink:
         with open(input_txt) as f_source:
             for line in f_source:
                 if line.startswith("#"):
+                    headers.append(line)
                     continue
 
                 parts = line.strip().split("\t")
@@ -104,14 +106,7 @@ def liftover_hg38_to_hg19(input_txt, output_txt, chain_file, templates_dir=None)
             f"Liftover partially failed: {bad_chrom} to AltContig, {bad_pos} not in new model"
         )
 
-    # Now sort the temporary file and add the header if templates_dir is provided
-    header = []
-    if templates_dir:
-        head_v3 = os.path.join(templates_dir, "head", "23andMe_V3.txt")
-        if os.path.exists(head_v3):
-            with open(head_v3) as f_h:
-                header = f_h.readlines()
-
+    # Now sort the temporary file and add the header
     data = []
     with open(tmp_txt) as f:
         for line in f:
@@ -120,7 +115,31 @@ def liftover_hg38_to_hg19(input_txt, output_txt, chain_file, templates_dir=None)
     data.sort(key=lambda x: (chr_to_int(x[1]), int(x[2])))
 
     with open(output_txt, "w") as f:
-        f.writelines(header)
+        # 1. Use preserved headers from source if any
+        if headers:
+            f.writelines(headers)
+        # 2. Fallback: If no headers and templates_dir provided, try finding 23andMe_V3 head
+        elif templates_dir:
+            # Check various template paths
+            potential_heads = [
+                os.path.join(
+                    templates_dir,
+                    "microarray",
+                    "raw_file_templates",
+                    "head",
+                    "23andMe_V3.txt",
+                ),
+                os.path.join(
+                    templates_dir, "raw_file_templates", "head", "23andMe_V3.txt"
+                ),
+                os.path.join(templates_dir, "head", "23andMe_V3.txt"),
+            ]
+            for h_path in potential_heads:
+                if os.path.exists(h_path):
+                    with open(h_path) as f_h:
+                        f.writelines(f_h.readlines())
+                    break
+
         for parts in data:
             f.write("\t".join(parts) + "\n")
 
@@ -137,6 +156,7 @@ def get_template_format(format_name):
         "23andMe_V5": {"suffix": ".txt", "parts": 2},
         "Ancestry_V1": {"suffix": ".txt", "parts": 4},
         "Ancestry_V2": {"suffix": ".txt", "parts": 5},
+        "FTDNA_V2": {"suffix": ".csv", "parts": 1},
         "FTDNA_V3": {"suffix": ".csv", "parts": 3},
         "MyHeritage_V1": {"suffix": ".csv", "parts": 1},
         "MyHeritage_V2": {"suffix": ".csv", "parts": 1},
@@ -196,7 +216,9 @@ def convert_to_vendor_format(format_name, combined_kit_txt, output_path, templat
         fmt_info = {"suffix": ".txt", "parts": 1}
 
     # Resolve the actual templates root
-    if os.path.isdir(os.path.join(templates_dir, "raw_file_templates")):
+    if os.path.isdir(os.path.join(templates_dir, "microarray", "raw_file_templates")):
+        templates_root = os.path.join(templates_dir, "microarray", "raw_file_templates")
+    elif os.path.isdir(os.path.join(templates_dir, "raw_file_templates")):
         templates_root = os.path.join(templates_dir, "raw_file_templates")
     elif os.path.basename(templates_dir.rstrip(os.sep)) == "raw_file_templates":
         templates_root = templates_dir

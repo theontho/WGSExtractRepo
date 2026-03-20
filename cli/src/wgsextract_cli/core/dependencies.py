@@ -90,7 +90,7 @@ def check_dependencies(tool_list, jar_dir=None):
 def verify_dependencies(tool_list, optional_list=None):
     """
     Checks if all required tools or JAR files are available.
-    Exits gracefully if a tool is missing with a helpful message.
+    Exits gracefully if a tool is missing or version is too old.
     """
     if optional_list is None:
         optional_list = OPTIONAL_TOOLS
@@ -118,6 +118,27 @@ def verify_dependencies(tool_list, optional_list=None):
             )
 
         sys.exit(1)
+
+    # Version Validation for critical tools
+    for tool in ["bcftools", "samtools"]:
+        if tool in tool_list:
+            version_str = get_tool_version(tool)
+            # Handle version strings like "bcftools 1.12" or "Version: 0.1.19"
+            import re
+
+            match = re.search(r"(\d+)\.(\d+)", version_str)
+            if match:
+                major = int(match.group(1))
+                if major < 1:
+                    logging.error(
+                        f"Fatal Error: {tool} version {version_str} is too old."
+                    )
+                    logging.error(f"This tool requires {tool} version 1.0 or newer.")
+                    logging.info(
+                        f"\nYour current path for {tool} is: {shutil.which(tool)}"
+                    )
+                    logging.info("Please update your conda environment or system path.")
+                    sys.exit(1)
 
 
 def get_jar_path(jar_name):
@@ -252,3 +273,14 @@ def check_all_dependencies(mandatory=None, optional=None):
         )
 
     return results
+
+
+def log_dependency_info(tool_list):
+    """Logs the path and version for a list of tools for diagnostic purposes."""
+    for tool in tool_list:
+        path = shutil.which(tool)
+        if path:
+            version = get_tool_version(tool)
+            logging.debug(f"Dependency: {tool} -> {path} ({version})")
+        else:
+            logging.debug(f"Dependency: {tool} -> NOT FOUND")

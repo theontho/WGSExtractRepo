@@ -42,6 +42,85 @@ def register(subparsers, base_parser):
     mtdna_parser.set_defaults(func=cmd_mtdna)
 
 
+def update_yleaf_config(yleaf_path, ref_path, build):
+    """
+    Attempts to update yleaf's config.txt to point to the local reference library.
+    """
+    try:
+        if not yleaf_path or not ref_path:
+            return
+
+        # 1. Identify where config.txt lives.
+        # It usually lives in the same folder as Yleaf.py in site-packages
+        # or relative to the executable if it's a wrapper.
+        yleaf_dir = None
+        if os.path.isfile(yleaf_path):
+            # Check if it's in a bin folder of a conda env
+            if "/bin/yleaf" in yleaf_path:
+                # Look for site-packages path
+                env_root = yleaf_path.split("/bin/yleaf")[0]
+                # Walk to find yleaf/config.txt
+                for d, _, files in os.walk(env_root):
+                    if "config.txt" in files and "yleaf" in d:
+                        yleaf_dir = d
+                        break
+            else:
+                yleaf_dir = os.path.dirname(yleaf_path)
+
+        if not yleaf_dir:
+            return
+
+        config_path = os.path.join(yleaf_dir, "config.txt")
+        if not os.path.exists(config_path):
+            # Try one level up if in a sub-package
+            config_path = os.path.join(os.path.dirname(yleaf_dir), "config.txt")
+            if not os.path.exists(config_path):
+                return
+
+        # 2. Resolve the actual FASTA file from the reference library
+        lib = ReferenceLibrary(ref_path)
+        # Search explicitly for the build requested if not direct file
+        fasta_path = None
+        if os.path.isfile(ref_path):
+            fasta_path = ref_path
+        else:
+            # Look for hg38 or hg19 specific fasta in the root
+            for f in os.listdir(ref_path):
+                f_up = f.upper()
+                if build.upper() in f_up and f.endswith(
+                    (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")
+                ):
+                    fasta_path = os.path.join(ref_path, f)
+                    break
+
+        if not fasta_path:
+            fasta_path = lib.fasta
+
+        if not fasta_path:
+            return
+
+        # 3. Read and update the config
+        with open(config_path) as f:
+            lines = f.readlines()
+
+        new_lines = []
+        for line in lines:
+            if build == "hg19" and line.startswith("full hg19 genome fasta location"):
+                new_lines.append(f"full hg19 genome fasta location = {fasta_path}\n")
+            elif build == "hg38" and line.startswith("full hg38 genome fasta location"):
+                new_lines.append(f"full hg38 genome fasta location = {fasta_path}\n")
+            else:
+                new_lines.append(line)
+
+        with open(config_path, "w") as f:
+            f.writelines(new_lines)
+
+        logging.info(f"Updated yleaf config.txt to use reference: {fasta_path}")
+
+    except Exception as e:
+        logging.debug(f"Failed to update yleaf config: {e}")
+
+
 def cmd_ydna(args):
     # Check dependencies
     if not args.yleaf_path:
@@ -66,7 +145,12 @@ def cmd_ydna(args):
         logging.warning(f"Build {build} not supported by Yleaf, defaulting to hg38")
         build = "hg38"
 
+    # Update yleaf config before running
+    if args.ref:
+        update_yleaf_config(yleaf_path, args.ref, build)
+
     logging.info(LOG_MESSAGES["running_yleaf"].format(input=args.input))
+    temp_vcf = None
     try:
         # Check if yleaf_path is a python script or a wrapper
         cmd = [yleaf_path]
@@ -75,19 +159,61 @@ def cmd_ydna(args):
 
         # Map input type to flag (Yleaf 3.2.1 style)
         input_ext = args.input.lower()
+        input_file = args.input
         if input_ext.endswith(".bam"):
             input_flag = "-bam"
         elif input_ext.endswith(".cram"):
             input_flag = "-cram"
         elif input_ext.endswith((".vcf", ".vcf.gz")):
             input_flag = "-vcf"
+            # Filter VCF to main Y chromosome to avoid "Multiple Y-chromosome annotations" error
+            chr_y = get_vcf_chr_name(args.input, "Y")
+            logging.info(f"Filtering VCF to {chr_y} for Yleaf...")
+
+            # Use a space-free path in /tmp to avoid shell quoting bugs in Yleaf
+            import tempfile
+
+            temp_dir = tempfile.mkdtemp(prefix="yleaf_")
+            temp_vcf = os.path.join(temp_dir, "input.vcf.gz")
+
+            run_command(
+                ["bcftools", "view", "-r", chr_y, "-Oz", "-o", temp_vcf, args.input]
+            )
+            # Force lowercase 'chry' in both header and body using sed for maximum compatibility
+            # because some bcftools versions might handle --rename-chrs differently with temp files.
+            # We use a temp file for sed output then move it back.
+            sed_vcf = temp_vcf + ".sed.gz"
+            sed_cmd = (
+                f"bgzip -dc {temp_vcf} | sed 's/^{chr_y}/chry/' | bgzip -c > {sed_vcf}"
+            )
+            subprocess.run(sed_cmd, shell=True, check=True, executable="/bin/bash")
+            os.rename(sed_vcf, temp_vcf)
+            run_command(["bcftools", "index", "-t", temp_vcf])
+
+            input_file = temp_vcf
+            logging.debug(f"Created shell-safe temp_vcf at: {temp_vcf}")
         elif input_ext.endswith((".fastq", ".fastq.gz", ".fq", ".fq.gz")):
             input_flag = "-fastq"
         else:
             # Fallback to -input for older versions
             input_flag = "-input"
 
-        final_cmd = cmd + [input_flag, args.input, "-rg", build, "-o", args.outdir]
+        # Use absolute path for outdir to be safe
+        outdir_abs = os.path.abspath(args.outdir)
+        os.makedirs(outdir_abs, exist_ok=True)
+
+        threads, _ = get_resource_defaults(args.threads, None)
+        final_cmd = cmd + [
+            input_flag,
+            input_file,
+            "-rg",
+            build,
+            "-o",
+            outdir_abs,
+            "-force",
+            "-t",
+            str(threads),
+        ]
 
         # Add reference for CRAM if available
         if input_flag == "-cram":
@@ -95,6 +221,9 @@ def cmd_ydna(args):
             lib = ReferenceLibrary(args.ref, md5_sig)
             if lib.fasta:
                 final_cmd.extend(["-cr", lib.fasta])
+            elif args.ref and os.path.isfile(args.ref):
+                # If --ref is a direct file, use it as the CRAM reference
+                final_cmd.extend(["-cr", args.ref])
 
         # Add -pos if provided (legacy)
         if args.pos_file:
@@ -104,11 +233,35 @@ def cmd_ydna(args):
         if args.extra_args:
             import shlex
 
-            final_cmd.extend(shlex.split(args.extra_args))
+            extra = shlex.split(args.extra_args)
+            # Remove -force from extra if it's already there to avoid duplicates
+            # though Yleaf likely doesn't mind
+            final_cmd.extend([a for a in extra if a != "-force"])
 
-        run_command(final_cmd)
+        # Execute and WAIT explicitly
+        logging.debug(f"Executing: {' '.join(final_cmd)}")
+        result = subprocess.run(final_cmd, check=True)
+        logging.debug(f"Yleaf execution finished with return code {result.returncode}")
+
     except Exception as e:
         logging.error(f"Yleaf failed: {e}")
+    finally:
+        if temp_vcf and os.path.exists(temp_vcf):
+            try:
+                # If we used a temp_dir in /tmp, remove the whole thing
+                temp_dir = os.path.dirname(temp_vcf)
+                if "/yleaf_" in temp_dir:
+                    import shutil
+
+                    shutil.rmtree(temp_dir)
+                else:
+                    os.remove(temp_vcf)
+                    if os.path.exists(temp_vcf + ".tbi"):
+                        os.remove(temp_vcf + ".tbi")
+                    if os.path.exists(temp_vcf + ".csi"):
+                        os.remove(temp_vcf + ".csi")
+            except Exception:
+                pass
 
 
 def cmd_mtdna(args):

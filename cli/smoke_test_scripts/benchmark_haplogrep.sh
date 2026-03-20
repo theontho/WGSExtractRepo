@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Load environment variables for data paths
+if [ -f .env.local ]; then
+    export $(grep -v '^#' .env.local | xargs)
+fi
+
+# Configuration
+INPUT_CRAM="${WGSE_INPUT:-/Users/mac/Documents/genetics/genomes/mahyar/cram/Mahyar_McDonald_NU-NKQA-0638.cram}"
+REF_PATH="/Users/mac/Documents/genetics/cli_out/hs38_temp.fa"
+OUTDIR="benchmark_results_haplogrep"
+
+# Path to the specific conda environment for Haplogrep
+CONDA_ENV_PATH="/opt/homebrew/Caskroom/miniconda/base/envs/wgse"
+export PATH="$CONDA_ENV_PATH/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# Ensure output directory is clean
+rm -rf "$OUTDIR"
+mkdir -p "$OUTDIR"
+
+echo "--------------------------------------------------------"
+echo "  WGS Extract CLI: mt-DNA (Haplogrep) Benchmark"
+echo "  Input: $(basename "$INPUT_CRAM")"
+echo "  Env:   $CONDA_ENV_PATH"
+echo "--------------------------------------------------------"
+
+start_time=$(date +%s)
+
+# Run the mt-dna command
+uv run wgsextract lineage mt-dna \
+    --input "$INPUT_CRAM" \
+    --ref "$REF_PATH" \
+    --outdir "$OUTDIR" \
+    --debug
+
+end_time=$(date +%s)
+runtime=$((end_time - start_time))
+
+echo ""
+echo "========================================================"
+echo "Haplogrep Runtime: ${runtime} seconds"
+echo "Results saved to:  $OUTDIR"
+if [ -f "$OUTDIR/haplogrep_results.txt" ]; then
+    echo "Haplogroup:        $(tail -n 1 "$OUTDIR/haplogrep_results.txt" | cut -f2)"
+fi
+echo "========================================================"

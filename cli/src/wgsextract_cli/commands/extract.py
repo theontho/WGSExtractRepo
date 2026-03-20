@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 
-from wgsextract_cli.core.dependencies import verify_dependencies
+from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
@@ -66,6 +66,9 @@ def register(subparsers, base_parser):
 
 
 def get_base_args(args):
+    verify_dependencies(["samtools", "bcftools", "tabix"])
+    log_dependency_info(["samtools", "bcftools", "tabix"])
+
     if not args.input:
         logging.error(LOG_MESSAGES["input_required"])
         return None
@@ -73,13 +76,17 @@ def get_base_args(args):
     if not verify_paths_exist({"--input": args.input}):
         return None
 
+    logging.debug(f"Input file: {os.path.abspath(args.input)}")
+
     threads, _ = get_resource_defaults(args.threads, None)
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
     )
+    logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     md5_sig = calculate_bam_md5(args.input, None)
     resolved_ref = resolve_reference(args.ref, md5_sig)
+    logging.debug(f"Resolved reference: {resolved_ref}")
 
     paths_to_check = {}
     if resolved_ref:
