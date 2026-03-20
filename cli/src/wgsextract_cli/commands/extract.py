@@ -27,7 +27,6 @@ def register(subparsers, base_parser):
         "mito-fasta", parents=[base_parser], help=CLI_HELP["cmd_mito-fasta"]
     )
     mito_fasta_parser.set_defaults(func=cmd_mito_fasta)
-    ext_subs.add_parser("mito", parents=[mito_fasta_parser], add_help=False)
 
     mito_vcf_parser = ext_subs.add_parser(
         "mito-vcf", parents=[base_parser], help=CLI_HELP["cmd_mito-vcf"]
@@ -57,8 +56,6 @@ def register(subparsers, base_parser):
         "ydna-bam", parents=[base_parser], help=CLI_HELP["cmd_ydna-bam"]
     )
     y_bam_parser.set_defaults(func=cmd_ydna_bam)
-    ext_subs.add_parser("y", parents=[y_bam_parser], add_help=False)
-    ext_subs.add_parser("ydna", parents=[y_bam_parser], add_help=False)
 
     y_vcf_parser = ext_subs.add_parser(
         "ydna-vcf", parents=[base_parser], help=CLI_HELP["cmd_ydna-vcf"]

@@ -2,6 +2,7 @@ import hashlib
 import logging
 import os
 import subprocess
+import tempfile
 
 from wgsextract_cli.core.constants import REF_GENOME_FILENAMES
 from wgsextract_cli.core.messages import LOG_MESSAGES
@@ -148,114 +149,61 @@ class ReferenceLibrary:
         self.dict_file = None
         self.fai = None
         self.liftover_chain = None
-        self.ploidy_file = None
         self.ref_vcf_tab = None
+        self.ploidy_file = None
         self.build = None
-        self.vep_cache = None
 
-        if root_path and os.path.isdir(root_path):
-            self.vep_cache = os.path.join(root_path, "vep")
-            self._resolve(skip_full_search)
-        elif root_path and os.path.isfile(root_path):
-            self.fasta = root_path
-            self._resolve_sidecars(root_path)
-
-    def _resolve(self, skip_full_search):
-        from wgsextract_cli.core.constants import REFERENCE_MODELS
-
-        # 1. Try known filenames for this MD5
-        if self.md5 and self.md5 in REFERENCE_MODELS:
-            # REFERENCE_MODELS values are [build_code, mito, filename]
-            model_info = REFERENCE_MODELS[self.md5]
-            build_code = model_info[0]
-            fname = model_info[2]
-
-            # Try filenames: the one in the model, and the build code with extensions
-            potential_fnames = [
-                fname,
-                f"{build_code}.fa.gz",
-                f"{build_code}.fasta.gz",
-                f"{build_code}.fa",
-                f"{build_code}.fasta",
-                f"{build_code}.fna.gz",
-            ]
-
-            for f in potential_fnames:
-                for sub in ["genomes", ""]:
-                    path = os.path.join(self.root, sub, f)
-                    if os.path.exists(path):
-                        self.fasta = path
-                        self._resolve_sidecars(path)
-                        return
-
-        # 2. If skip_full_search is True, don't walk the directory
-        if skip_full_search:
+        if not root_path:
             return
 
-        # 3. Fallback: Search for any .fa/.fasta/.fna file
-        for d, _, files in os.walk(self.root):
-            for f in files:
-                if f.endswith(
-                    (".fa", ".fasta", ".fna", ".fa.gz", ".fasta.gz", ".fna.gz")
-                ):
-                    path = os.path.join(d, f)
-                    self.fasta = path
-                    self._resolve_sidecars(path)
-                    return
+        if os.path.isfile(root_path):
+            self.fasta = root_path
+            d = os.path.dirname(root_path)
+            self.root = d
+        else:
+            d = root_path
 
-    def _resolve_sidecars(self, fasta_path):
-        # Deduce build early so it can be used for sidecars
-        bn = os.path.basename(fasta_path).upper()
-        if "38" in bn or "HG38" in bn or "GRCH38" in bn:
+        # Look for Fasta
+        if not self.fasta:
+            for f in REF_GENOME_FILENAMES:
+                potential = os.path.join(d, f)
+                if os.path.exists(potential):
+                    self.fasta = potential
+                    break
+
+        if not self.fasta:
+            return
+
+        # Resolve associated files
+        self.fai = self.fasta + ".fai"
+        if not os.path.exists(self.fai):
+            self.fai = None
+
+        # Build identification from path
+        if "hg38" in d.lower() or "grch38" in d.lower():
             self.build = "hg38"
-        elif "37" in bn or "HG19" in bn or "GRCH37" in bn:
+        elif "hg19" in d.lower() or "grch37" in d.lower():
             self.build = "hg19"
-        elif "DOG" in bn:
-            self.build = "dog"
-        elif "CAT" in bn:
-            self.build = "cat"
 
-        base = os.path.splitext(fasta_path)[0]
-        if base.endswith(".fa") or base.endswith(".fasta") or base.endswith(".fna"):
-            base = os.path.splitext(base)[0]
+        # Look for .dict
+        self.dict_file = (
+            self.fasta.replace(".fa.gz", ".dict")
+            .replace(".fasta.gz", ".dict")
+            .replace(".fa", ".dict")
+            .replace(".fasta", ".dict")
+        )
+        if not os.path.exists(self.dict_file):
+            self.dict_file = None
 
-        for ext in [".dict", ".fna.dict", ".fa.dict", ".fasta.dict"]:
-            if os.path.exists(base + ext):
-                self.dict_file = base + ext
-                break
-
-        if os.path.exists(fasta_path + ".fai"):
-            self.fai = fasta_path + ".fai"
-
-        # Look for chain files in root or same dir
-        d = os.path.dirname(fasta_path)
-        chains = ["hg38ToHg19.over.chain.gz", "GRCh38ToGRCh37.over.chain.gz"]
-        for c in chains:
-            # Try same dir as fasta
-            potential = os.path.join(d, c)
-            if os.path.exists(potential):
-                self.liftover_chain = potential
-                break
-            # Try reference root
-            potential = os.path.join(self.root, c)
-            if os.path.exists(potential):
-                self.liftover_chain = potential
-                break
-
-        # Ploidy files
-        for p in ["ploidy.txt", "ploidy"]:
-            potential = os.path.join(d, p)
+        # Look for ploidy
+        if self.build:
+            ploidy_name = f"ploidy_{self.build}.txt"
+            potential = os.path.join(d, ploidy_name)
             if os.path.exists(potential):
                 self.ploidy_file = potential
-                break
-        if not self.ploidy_file:
-            # Check microarray subfolder
-            micro_dir = os.path.join(self.root, "microarray")
-            for p in ["ploidy.txt", "ploidy"]:
-                potential = os.path.join(micro_dir, p)
-                if os.path.exists(potential):
-                    self.ploidy_file = potential
-                    break
+
+        if skip_full_search:
+            return
 
         # Annotation VCFs / Microarray Tab files
         potential_vcf_names = ["All_SNPs.vcf.gz", "common_all.vcf.gz"]
@@ -308,295 +256,175 @@ def resolve_reference(ref_path, md5_sig):
 def calculate_bsd_sum(file_path):
     """
     Calculates BSD-style checksum and 1K block count.
-    Matches the 'sum' command (without -s) on many systems and Ensembl CHECKSUMS.
+    Used for local file comparison.
     """
     checksum = 0
+    blocks = 0
     with open(file_path, "rb") as f:
-        while True:
-            chunk = f.read(8192)
-            if not chunk:
-                break
+        while chunk := f.read(1024):
+            blocks += 1
             for byte in chunk:
                 checksum = (checksum >> 1) + ((checksum & 1) << 15)
                 checksum += byte
                 checksum &= 0xFFFF
-
-    size = os.path.getsize(file_path)
-    blocks = (size + 1023) // 1024
     return checksum, blocks
 
 
-def verify_paths_exist(paths_dict):
-    """
-    Verify that multiple paths exist and are files.
-    paths_dict: { '--arg-name': 'path/to/file' }
-    """
-    for arg, path in paths_dict.items():
-        if path:
-            if not os.path.exists(path):
-                logging.error(
-                    LOG_MESSAGES["util_required_file_not_found"].format(
-                        arg=arg, path=path
-                    )
-                )
-                return False
-            if os.path.isdir(path):
-                logging.error(
-                    LOG_MESSAGES["util_required_file_is_dir"].format(arg=arg, path=path)
-                )
-                return False
-    return True
+def run_command(cmd, capture_output=False, check=True):
+    """Helper to run subprocess with logging and registry."""
+    cmd_str = " ".join(cmd)
+    logging.debug(f"Running: {cmd_str}")
 
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE if capture_output else None,
+        stderr=subprocess.PIPE if capture_output else None,
+        text=True,
+    )
 
-def run_command(cmd_list, capture_output=False, check=True, **kwargs):
-    """Run a command securely via subprocess."""
+    proc_registry.register_process(cmd_str, process)
     try:
-        return subprocess.run(
-            cmd_list, capture_output=capture_output, text=True, check=check, **kwargs
-        )
-    except subprocess.CalledProcessError as e:
-        logging.error(
-            LOG_MESSAGES["util_command_failed"].format(command=" ".join(cmd_list))
-        )
-        if e.stderr:
-            logging.error(e.stderr)
-        raise
+        stdout, stderr = process.communicate()
+        if check and process.returncode != 0:
+            logging.error(f"Command failed: {cmd_str}")
+            if stderr:
+                logging.error(stderr)
+            raise subprocess.CalledProcessError(process.returncode, cmd, stdout, stderr)
+        return subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
+    finally:
+        proc_registry.unregister_process(cmd_str)
+
+
+def verify_paths_exist(paths_dict):
+    """Validate that required files exist before starting a command."""
+    all_exist = True
+    for label, path in paths_dict.items():
+        if not path or not os.path.exists(path):
+            logging.error(LOG_MESSAGES["file_not_found"].format(label=label, path=path))
+            all_exist = False
+    return all_exist
 
 
 def ensure_vcf_indexed(vcf_path):
-    """
-    Checks if a VCF/BCF file is indexed (.tbi or .csi).
-    If not, and the file is bgzipped, it creates the index automatically.
-    """
-    if not vcf_path or not os.path.exists(vcf_path):
-        return False
+    """Ensure VCF has a .tbi index, creating it if needed."""
+    if not vcf_path.endswith(".gz"):
+        # We can't index plain VCF easily with tabix
+        return
 
-    # Standard index extensions
-    indices = [vcf_path + ".tbi", vcf_path + ".csi"]
+    index_path = vcf_path + ".tbi"
+    if not os.path.exists(index_path):
+        logging.info(LOG_MESSAGES["vcf_indexing"].format(path=vcf_path))
+        subprocess.run(["tabix", "-p", "vcf", vcf_path], check=True)
+
+
+def ensure_vcf_prepared(vcf_path):
+    """Ensure VCF is bgzipped and indexed, returns path to .gz file."""
     if vcf_path.endswith(".gz"):
-        indices.append(vcf_path[:-3] + ".tbi")
-        indices.append(vcf_path[:-3] + ".csi")
-
-    if any(os.path.exists(i) for i in indices):
-        return True
-
-    # Check if bgzipped (magic bytes 1f 8b 08)
-    is_bgzipped = False
-    try:
-        with open(vcf_path, "rb") as f:
-            header = f.read(3)
-            if header == b"\x1f\x8b\x08":
-                is_bgzipped = True
-    except Exception:
-        pass
-
-    if is_bgzipped:
-        logging.info(LOG_MESSAGES["util_auto_indexing_vcf"].format(path=vcf_path))
-        try:
-            # Try tbi first, fall back to csi if needed (csi supports larger chromosomes)
-            subprocess.run(["tabix", "-p", "vcf", vcf_path], check=True)
-            return True
-        except subprocess.CalledProcessError:
-            try:
-                subprocess.run(["bcftools", "index", vcf_path], check=True)
-                return True
-            except Exception as e:
-                logging.warning(
-                    LOG_MESSAGES["util_auto_indexing_failed"].format(
-                        path=vcf_path, error=e
-                    )
-                )
-    else:
-        logging.debug(LOG_MESSAGES["util_skipping_auto_index"].format(path=vcf_path))
-
-    return False
-
-
-def ensure_vcf_prepared(vcf_path: str) -> str:
-    """
-    Ensures a VCF is bgzipped and indexed.
-    Returns the path to the usable (bgzipped) VCF file.
-    """
-    if not vcf_path or not os.path.exists(vcf_path):
+        ensure_vcf_indexed(vcf_path)
         return vcf_path
 
-    # Check if already bgzipped
-    is_bgzipped = False
+    # Need to bgzip
+    gz_path = vcf_path + ".gz"
+    if os.path.exists(gz_path):
+        # Check if gz is newer than raw
+        if os.path.getmtime(gz_path) > os.path.getmtime(vcf_path):
+            ensure_vcf_indexed(gz_path)
+            return gz_path
+
+    logging.info(f"Compressing VCF: {vcf_path}")
+    subprocess.run(["bgzip", "-c", vcf_path], stdout=open(gz_path, "wb"), check=True)
+    ensure_vcf_indexed(gz_path)
+    return gz_path
+
+
+def get_vcf_samples(vcf_path):
+    """Retrieve sample names from VCF header."""
     try:
-        with open(vcf_path, "rb") as f:
-            header = f.read(3)
-            if header == b"\x1f\x8b\x08":
-                is_bgzipped = True
-    except Exception:
-        pass
-
-    usable_path = vcf_path
-    if not is_bgzipped:
-        # If it's a plain VCF, we need to bgzip it
-        if vcf_path.lower().endswith(".vcf"):
-            bgzipped_path = vcf_path + ".gz"
-            if not os.path.exists(bgzipped_path):
-                logging.info(f"ℹ️: Bgzipping {vcf_path}...")
-                try:
-                    subprocess.run(
-                        ["bgzip", "-c", vcf_path],
-                        stdout=open(bgzipped_path, "wb"),
-                        check=True,
-                    )
-                except Exception as e:
-                    logging.error(f"❌: Failed to bgzip VCF: {e}")
-                    return vcf_path
-            usable_path = bgzipped_path
-        else:
-            # Not a .vcf extension and not bgzipped? Might be a problem, but let's try to index anyway
-            pass
-
-    # Ensure it's indexed
-    ensure_vcf_indexed(usable_path)
-    return usable_path
-
-
-def get_vcf_samples(vcf_path: str) -> list[str]:
-    """Returns a list of sample names in the VCF file."""
-    try:
-        result = subprocess.run(
-            ["bcftools", "query", "-l", vcf_path],
-            capture_output=True,
-            text=True,
-            check=True,
+        res = subprocess.run(
+            ["bcftools", "query", "-l", vcf_path], capture_output=True, text=True
         )
-        return result.stdout.strip().split("\n")
-    except Exception as e:
-        logging.debug(f"Failed to get samples from {vcf_path}: {e}")
+        return res.stdout.strip().split("\n")
+    except Exception:
         return []
 
 
-def get_vcf_chr_name(vcf_path, target_chr):
+def normalize_vcf_chromosomes(vcf_path, target_chroms):
     """
-    Identifies the chromosome name used in a VCF for a target (MT or Y).
+    Ensure VCF chromosome naming (chr1 vs 1) matches the targets.
+    Returns path to a temporary normalized VCF if changes were needed.
     """
-    try:
-        result = subprocess.run(
-            ["bcftools", "index", "-s", vcf_path],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        vcf_chroms = [line.split("\t")[0] for line in result.stdout.strip().split("\n")]
-    except Exception:
-        return target_chr
-
-    if target_chr.upper() in ["M", "MT", "CHRM", "CHRMT"]:
-        for c in ["chrM", "chrMT", "MT", "M"]:
-            if c in vcf_chroms:
-                return c
-    elif target_chr.upper() in ["Y", "CHRY"]:
-        for c in ["chrY", "Y"]:
-            if c in vcf_chroms:
-                return c
-
-    return target_chr
-
-
-def get_vcf_build(vcf_path):
-    """Detects genome build (hg19/hg38) from VCF header."""
+    v_chroms = []
     try:
         res = subprocess.run(
-            ["bcftools", "view", "-h", vcf_path], capture_output=True, text=True
+            ["bcftools", "index", "-s", vcf_path], capture_output=True, text=True
         )
-        header = res.stdout.upper()
-        if "38" in header or "HG38" in header or "GRCH38" in header:
-            return "hg38"
-        if "37" in header or "HG19" in header or "GRCH37" in header:
-            return "hg19"
-    except Exception:
-        pass
-    return None
-
-
-def normalize_vcf_chromosomes(vcf_path: str, target_chroms: list[str]) -> str:
-    """
-    Checks if VCF chromosomes match target_chroms style (e.g., '1' vs 'chr1').
-    If not, creates a temporary normalized VCF and returns its path.
-    Otherwise returns original path.
-    """
-    try:
-        # Get first few chroms to check style
-        result = subprocess.run(
-            ["bcftools", "index", "-s", vcf_path],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        vcf_chroms = [line.split("\t")[0] for line in result.stdout.strip().split("\n")]
+        v_chroms = [l.split("\t")[0] for l in res.stdout.strip().split("\n")]
     except Exception:
         return vcf_path
 
-    vcf_has_chr = any(c.startswith("chr") for c in vcf_chroms)
-    target_has_chr = any(c.startswith("chr") for c in target_chroms)
+    needs_rename = False
+    mapping = []
 
-    if vcf_has_chr == target_has_chr:
+    # Check for mismatches
+    for tc in target_chroms:
+        # Simple match
+        if tc in v_chroms:
+            continue
+
+        # Try prefix mismatch
+        if tc.startswith("chr"):
+            alt = tc[3:]
+        else:
+            alt = "chr" + tc
+
+        if alt in v_chroms:
+            needs_rename = True
+            mapping.append(f"{alt} {tc}")
+
+    if not needs_rename:
         return vcf_path
 
-    # Need normalization
-    import tempfile
+    # Create mapping file
+    fd, map_file = tempfile.mkstemp(suffix=".txt")
+    with os.fdopen(fd, "w") as f:
+        f.write("\n".join(mapping))
 
-    fd, map_path = tempfile.mkstemp(suffix=".txt")
+    norm_vcf = vcf_path.replace(".vcf.gz", ".norm.vcf.gz")
+    if norm_vcf == vcf_path:
+        norm_vcf += ".norm.gz"
+
+    logging.info(f"Normalizing chromosomes in {vcf_path}...")
     try:
-        with os.fdopen(fd, "w") as f:
-            for i in range(1, 23):
-                if target_has_chr:
-                    f.write(f"{i} chr{i}\n")
-                else:
-                    f.write(f"chr{i} {i}\n")
-            if target_has_chr:
-                f.write("X chrX\nY chrY\nMT chrM\nM chrM\n")
-            else:
-                f.write("chrX X\nchrY Y\nchrM MT\nchrMT MT\n")
-
-        out_vcf = vcf_path.replace(".vcf.gz", ".norm.vcf.gz")
-        if out_vcf == vcf_path:
-            out_vcf = vcf_path + ".norm.vcf.gz"
-
-        logging.info(f"ℹ️: Normalizing chromosomes for {os.path.basename(vcf_path)}...")
         subprocess.run(
             [
                 "bcftools",
                 "annotate",
                 "--rename-chrs",
-                map_path,
+                map_file,
                 "-Oz",
                 "-o",
-                out_vcf,
+                norm_vcf,
                 vcf_path,
             ],
             check=True,
         )
-        subprocess.run(["bcftools", "index", out_vcf], check=True)
-        return out_vcf
-    finally:
-        if os.path.exists(map_path):
-            os.remove(map_path)
+        ensure_vcf_indexed(norm_vcf)
+        os.remove(map_file)
+        return norm_vcf
+    except Exception as e:
+        logging.error(f"Normalization failed: {e}")
+        if os.path.exists(map_file):
+            os.remove(map_file)
+        return vcf_path
 
 
 def get_bam_header(bam_path, cram_opt=None):
-    """Fetch BAM/CRAM header using samtools view -H."""
-    if not bam_path or not os.path.exists(bam_path):
-        return ""
-
-    if not bam_path.lower().endswith((".bam", ".cram")):
-        return ""
-
-    # Attempt 1: As provided
+    """Retrieve header using samtools view -H."""
     cmd = ["samtools", "view", "-H"]
-
-    # If it's a CRAM and we have a reference, use -T
     is_cram = bam_path.lower().endswith(".cram")
 
     if is_cram and cram_opt:
-        if isinstance(cram_opt, list):
-            cmd.extend(cram_opt)
-        elif os.path.isfile(cram_opt):
+        if os.path.isfile(cram_opt):
             cmd.extend(["-T", cram_opt])
         else:
             # Maybe it's a directory, samtools -T needs a file.
@@ -777,3 +605,73 @@ def is_long_read(bam_path, cram_opt=None, header=None):
     if "PL:ONT" in header or "PL:PACBIO" in header:
         return True
     return False
+
+
+def get_vcf_build(vcf_path):
+    """Scan VCF header for build identifiers."""
+    try:
+        res = subprocess.run(
+            ["bcftools", "view", "-h", vcf_path], capture_output=True, text=True
+        )
+        header = res.stdout.lower()
+        if "hg38" in header or "grch38" in header:
+            return "hg38"
+        if "hg19" in header or "grch37" in header:
+            return "hg19"
+    except Exception:
+        pass
+    return None
+
+
+def get_vcf_chr_name(vcf_path, target_chr):
+    """Map standard chromosome to VCF-specific naming."""
+    try:
+        res = subprocess.run(
+            ["bcftools", "index", "-s", vcf_path], capture_output=True, text=True
+        )
+        v_chroms = [l.split("\t")[0] for l in res.stdout.strip().split("\n")]
+
+        if target_chr.upper() in ["M", "MT", "CHRM", "CHRMT"]:
+            for c in ["chrM", "chrMT", "MT", "M"]:
+                if c in v_chroms:
+                    return c
+        elif target_chr.upper() in ["Y", "CHRY"]:
+            for c in ["chrY", "Y"]:
+                if c in v_chroms:
+                    return c
+    except Exception:
+        pass
+    return target_chr
+
+
+def get_region_bed(region_str):
+    """
+    Converts a region string (chr:start-end) to a temporary BED file.
+    Returns the path to the temporary file.
+    """
+    if not region_str:
+        return None
+
+    chrom = region_str
+    start = 0
+    end = 500000000  # Large default
+
+    if ":" in region_str:
+        chrom, coords = region_str.split(":")
+        if "-" in coords:
+            start_s, end_s = coords.split("-")
+            start = int(start_s)
+            end = int(end_s)
+        else:
+            try:
+                start = int(coords)
+                end = start + 1
+            except ValueError:
+                # Could be just a chrom name that happens to have a colon?
+                # Unlikely in bio, but let's be safe.
+                pass
+
+    fd, path = tempfile.mkstemp(suffix=".bed")
+    with os.fdopen(fd, "w") as f:
+        f.write(f"{chrom}\t{max(0, start - 1)}\t{end}\n")
+    return path

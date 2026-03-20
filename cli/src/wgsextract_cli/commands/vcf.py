@@ -118,12 +118,16 @@ def register(subparsers, base_parser):
     cnv_parser = vcf_subs.add_parser(
         "cnv", parents=[base_parser], help=CLI_HELP["cmd_cnv"]
     )
-
+    cnv_parser.add_argument("-r", "--region", help="Chromosomal region")
+    cnv_parser.add_argument(
+        "-M", "--map", help="Mappability map file (required for delly cnv)"
+    )
     cnv_parser.set_defaults(func=cmd_cnv)
 
     sv_parser = vcf_subs.add_parser(
         "sv", parents=[base_parser], help=CLI_HELP["cmd_sv"]
     )
+    sv_parser.add_argument("-r", "--region", help="Chromosomal region")
     sv_parser.set_defaults(func=cmd_sv)
 
     freebayes_parser = vcf_subs.add_parser(
@@ -148,6 +152,9 @@ def register(subparsers, base_parser):
     )
     deepvariant_parser.add_argument(
         "--wes", action="store_true", help="Set model type to WES (default: WGS)"
+    )
+    deepvariant_parser.add_argument(
+        "--checkpoint", help="Path to DeepVariant model checkpoint"
     )
     deepvariant_parser.set_defaults(func=cmd_deepvariant)
 
@@ -358,17 +365,67 @@ def cmd_annotate(args):
         lib = ReferenceLibrary(args.ref, md5_sig)
         if lib.ref_vcf_tab:
             ann_vcf = lib.ref_vcf_tab
-            if not cols:
-                # Default columns for All_SNPs tab files: ID,INFO/HG
-                cols = "ID,INFO/HG"
             logging.info(f"Auto-resolved annotation file: {ann_vcf}")
         else:
             logging.error("--ann-vcf is required and could not be auto-resolved.")
             return
 
     if not cols:
-        logging.error("--cols is required (e.g., ID,INFO/HG).")
-        return
+        # Dynamically resolve columns from the annotation file
+        if ann_vcf.lower().endswith(
+            (".tab", ".tab.gz", ".txt", ".txt.gz", ".csv", ".csv.gz")
+        ):
+            try:
+                import gzip
+
+                open_func = gzip.open if ann_vcf.endswith(".gz") else open
+                with open_func(ann_vcf, "rt") as f:
+                    header = f.readline().strip()
+                    if header.startswith("#"):
+                        header = header[1:]
+                    cols_in_file = [c.upper() for c in header.split()]
+                    # Map common names to bcftools expected names
+                    col_map = {
+                        "CHROM": "CHROM",
+                        "CHR": "CHROM",
+                        "#CHROM": "CHROM",
+                        "POS": "POS",
+                        "ID": "ID",
+                        "HG": "INFO/HG",
+                        "RSID": "ID",
+                    }
+                    found_cols = []
+                    for col_name in header.split():
+                        upper_col = col_name.upper().lstrip("#")
+                        if upper_col in col_map:
+                            found_cols.append(col_map[upper_col])
+                        else:
+                            found_cols.append("-")  # Skip unknown columns
+
+                    if "CHROM" in found_cols and "POS" in found_cols:
+                        cols = ",".join(found_cols)
+                        logging.info(f"Auto-resolved columns from header: {cols}")
+            except Exception as e:
+                logging.debug(f"Failed to parse tab header: {e}")
+
+        if not cols and ann_vcf.lower().endswith((".vcf", ".vcf.gz")):
+            # For VCFs, default to ID and HG if present in header
+            try:
+                res = subprocess.run(
+                    ["bcftools", "view", "-h", ann_vcf], capture_output=True, text=True
+                )
+                found_cols = ["ID"]
+                if "ID=HG" in res.stdout:
+                    found_cols.append("INFO/HG")
+                cols = ",".join(found_cols)
+                logging.info(f"Auto-resolved VCF columns: {cols}")
+            except Exception:
+                pass
+
+    if not cols:
+        # Fallback to a safe default if still not resolved
+        cols = "ID"
+        logging.info(f"Using default annotation column: {cols}")
 
     if not verify_paths_exist({"--input": input_file, "--ann-vcf": ann_vcf}):
         return
@@ -689,7 +746,7 @@ def cmd_trio(args):
 
 
 def cmd_cnv(args):
-    verify_dependencies(["delly", "bcftools", "tabix"])
+    verify_dependencies(["delly", "bcftools", "tabix", "samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -699,12 +756,55 @@ def cmd_cnv(args):
     out_vcf = os.path.join(outdir, "cnv.vcf.gz")
 
     logging.info(LOG_MESSAGES["vcf_calling_cnv"].format(output=out_vcf))
+
+    # Auto-resolve mappability map if possible
+    map_file = (
+        args.map
+        if getattr(args, "map", None)
+        else getattr(lib, "mappability_map", None)
+    )
+
+    if not map_file or not os.path.exists(map_file):
+        logging.error("❌: Mappability map (-M/--map) is required for delly cnv.")
+        logging.error("     You can download standard maps (e.g., hg38.map.gz) from:")
+        logging.error("     https://github.com/dellytools/delly/tree/master/exclude")
+        logging.error("     Or provide a custom .map file.")
+        sys.exit(1)
+
+    map_args = ["-m", map_file]
+
+    temp_bam = None
+    input_file = args.input
+
+    if getattr(args, "region", None):
+        import tempfile
+
+        fd, temp_bam = tempfile.mkstemp(suffix=".bam", dir=outdir)
+        os.close(fd)
+        logging.info(f"Extracting region {args.region} to temporary BAM...")
+        try:
+            view_cmd = [
+                "samtools",
+                "view",
+                "-bh",
+                args.input,
+                args.region,
+                "-o",
+                temp_bam,
+            ]
+            subprocess.run(view_cmd, check=True)
+            subprocess.run(["samtools", "index", temp_bam], check=True)
+            input_file = temp_bam
+        except Exception as e:
+            logging.error(f"Failed to extract region: {e}")
+            if os.path.exists(temp_bam):
+                os.remove(temp_bam)
+            return
+
     try:
         # delly cnv -g ref.fa -o cnv.bcf input.bam
-        # For CRAM files, delly needs the reference via -g (which we have)
-        subprocess.run(
-            ["delly", "cnv", "-g", ref, "-o", out_bcf, args.input], check=True
-        )
+        cmd = ["delly", "cnv", "-g", ref, "-o", out_bcf] + map_args + [input_file]
+        subprocess.run(cmd, check=True)
         # convert bcf to vcf.gz
         subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
         ensure_vcf_indexed(out_vcf)
@@ -716,10 +816,15 @@ def cmd_cnv(args):
             "Hint: If using macOS, ensure 'delly' and 'boost' are correctly installed via Homebrew."
         )
         sys.exit(e.returncode)
+    finally:
+        if temp_bam and os.path.exists(temp_bam):
+            os.remove(temp_bam)
+            if os.path.exists(temp_bam + ".bai"):
+                os.remove(temp_bam + ".bai")
 
 
 def cmd_sv(args):
-    verify_dependencies(["delly", "bcftools", "tabix"])
+    verify_dependencies(["delly", "bcftools", "tabix", "samtools"])
     base = get_base_args(args)
     if not base:
         return
@@ -729,11 +834,39 @@ def cmd_sv(args):
     out_vcf = os.path.join(outdir, "sv.vcf.gz")
 
     logging.info(LOG_MESSAGES["vcf_calling_sv"].format(output=out_vcf))
+
+    temp_bam = None
+    input_file = args.input
+
+    if getattr(args, "region", None):
+        import tempfile
+
+        fd, temp_bam = tempfile.mkstemp(suffix=".bam", dir=outdir)
+        os.close(fd)
+        logging.info(f"Extracting region {args.region} to temporary BAM...")
+        try:
+            view_cmd = [
+                "samtools",
+                "view",
+                "-bh",
+                args.input,
+                args.region,
+                "-o",
+                temp_bam,
+            ]
+            subprocess.run(view_cmd, check=True)
+            subprocess.run(["samtools", "index", temp_bam], check=True)
+            input_file = temp_bam
+        except Exception as e:
+            logging.error(f"Failed to extract region: {e}")
+            if os.path.exists(temp_bam):
+                os.remove(temp_bam)
+            return
+
     try:
         # delly call -g ref.fa -o sv.bcf input.bam
-        subprocess.run(
-            ["delly", "call", "-g", ref, "-o", out_bcf, args.input], check=True
-        )
+        cmd = ["delly", "call", "-g", ref, "-o", out_bcf, input_file]
+        subprocess.run(cmd, check=True)
         # convert bcf to vcf.gz
         subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
         ensure_vcf_indexed(out_vcf)
@@ -745,6 +878,11 @@ def cmd_sv(args):
             "Hint: If using macOS, ensure 'delly' and 'boost' are correctly installed via Homebrew."
         )
         sys.exit(e.returncode)
+    finally:
+        if temp_bam and os.path.exists(temp_bam):
+            os.remove(temp_bam)
+            if os.path.exists(temp_bam + ".bai"):
+                os.remove(temp_bam + ".bai")
 
 
 def cmd_freebayes(args):
@@ -911,7 +1049,8 @@ def cmd_deepvariant(args):
     use_bioconda = False
 
     if not executable:
-        if shutil.which("dv_make_examples.py"):
+        executable = shutil.which("dv_make_examples.py")
+        if executable:
             use_bioconda = True
             logging.info("Found Bioconda DeepVariant scripts.")
         else:
@@ -930,19 +1069,41 @@ def cmd_deepvariant(args):
 
     logging.info(LOG_MESSAGES["vcf_calling_deepvariant"].format(output=out_vcf))
 
-    model_type = "WGS"
-    if args.wes:
-        model_type = "WES"
-
+    model_type = "WGS" if not args.wes else "WES"
     region_args = ["--regions", args.region] if args.region else []
 
     try:
         if use_bioconda:
+            # 0. Find checkpoint
+            checkpoint = args.checkpoint
+            if not checkpoint:
+                # Try to find default bioconda checkpoints
+                # Usually in ../share/deepvariant/models/WGS/model.ckpt
+                dv_bin_dir = os.path.dirname(executable)
+                potential_base = os.path.abspath(
+                    os.path.join(dv_bin_dir, "..", "share", "deepvariant", "models")
+                )
+                if model_type == "WGS":
+                    potential = os.path.join(potential_base, "WGS", "model.ckpt")
+                else:
+                    potential = os.path.join(potential_base, "WES", "model.ckpt")
+
+                if os.path.exists(potential + ".index"):
+                    checkpoint = potential
+                    logging.info(f"Auto-detected DeepVariant checkpoint: {checkpoint}")
+                else:
+                    logging.error(
+                        "❌: DeepVariant checkpoint not found. Please provide it via --checkpoint."
+                    )
+                    logging.error(f"     Searched: {potential}")
+                    sys.exit(1)
+
             # Multi-step pipeline for Bioconda
             examples = os.path.join(outdir, "dv_examples.tfrecord@" + threads + ".gz")
             call_vcf = os.path.join(outdir, "dv_calls.tfrecord.gz")
 
             # 1. Make Examples
+            logging.info("DeepVariant Step 1/3: Making examples...")
             run_command(
                 [
                     "dv_make_examples.py",
@@ -958,6 +1119,7 @@ def cmd_deepvariant(args):
                 + region_args
             )
             # 2. Call Variants
+            logging.info("DeepVariant Step 2/3: Calling variants...")
             run_command(
                 [
                     "dv_call_variants.py",
@@ -966,10 +1128,11 @@ def cmd_deepvariant(args):
                     "--outfile",
                     call_vcf,
                     "--checkpoint",
-                    "TBD",
+                    checkpoint,
                 ]
-            )  # Need to find checkpoints
+            )
             # 3. Postprocess
+            logging.info("DeepVariant Step 3/3: Postprocessing...")
             run_command(
                 [
                     "dv_postprocess_variants.py",
@@ -981,6 +1144,13 @@ def cmd_deepvariant(args):
                     intermediate_vcf,
                 ]
             )
+            # Cleanup intermediate tfrecords
+            for f in os.listdir(outdir):
+                if f.startswith("dv_examples.tfrecord") or f == "dv_calls.tfrecord.gz":
+                    try:
+                        os.remove(os.path.join(outdir, f))
+                    except Exception:
+                        pass
         else:
             # Single wrapper
             cmd = [
@@ -999,8 +1169,12 @@ def cmd_deepvariant(args):
             subprocess.run(cmd, check=True)
 
         # DeepVariant outputs plain VCF, we compress it
-        subprocess.run(["bgzip", "-f", intermediate_vcf], check=True)
-        ensure_vcf_indexed(out_vcf)
-    except subprocess.CalledProcessError as e:
+        if os.path.exists(intermediate_vcf):
+            subprocess.run(["bgzip", "-f", intermediate_vcf], check=True)
+            ensure_vcf_indexed(out_vcf)
+        else:
+            logging.error("DeepVariant failed to produce output VCF.")
+
+    except Exception as e:
         logging.error(f"DeepVariant failed: {e}")
-        sys.exit(e.returncode)
+        sys.exit(1)

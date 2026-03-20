@@ -397,6 +397,7 @@ LOG_MESSAGES = {
     "vcf_trio_analysis": "Performing Trio Analysis ({mode}) to {output}",
     "vcf_trio_complete": "Trio analysis complete. Results: {output}",
     "vcf_stats": "Running bcftools stats on {input} to {output}",
+    "vcf_indexing": "Indexing VCF: {path}",
     "vcf_calling_cnv": "Calling CNVs using delly to {output}",
     "vcf_calling_sv": "Calling SVs using delly to {output}",
     "vcf_calling_freebayes": "Calling variants using freebayes to {output}",
