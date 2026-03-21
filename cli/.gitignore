@@ -1,2 +1,9 @@
 out/
 tmp/
+local_bin/
+*.fq
+*.fq.gz
+*.bam
+*.cram
+*.vcf
+*.vcf.gz

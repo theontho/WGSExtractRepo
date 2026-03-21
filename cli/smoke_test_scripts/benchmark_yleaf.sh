@@ -6,26 +6,25 @@ if [ -f .env.local ]; then
 fi
 
 # Configuration
-INPUT_VCF="${WGSE_INPUT_VCF:-/Users/mac/Documents/genetics/genomes/mahyar/vcf/Mahyar_McDonald_NU-NKQA-0638.vcf.gz}"
-REF_ROOT="/Users/mac/src/WGSExtractRepo2/reference"
+INPUT_VCF="${WGSE_INPUT_VCF:-out/smoke_test_vcf_gatk/gatk.vcf.gz}"
+REF_ROOT="${WGSE_REF:-reference}"
 OUTDIR="out/benchmark_results_yleaf"
+
+# Tool Paths - Use environment variables for conda environments if not in path
+YLEAF_ENV="${WGSE_YLEAF_ENV_PATH:-}"
+WGSE_ENV="${WGSE_WGSE_ENV_PATH:-}"
+
+if [ -n "$YLEAF_ENV" ]; then export PATH="$YLEAF_ENV/bin:$PATH"; fi
+if [ -n "$WGSE_ENV" ]; then export PATH="$WGSE_ENV/bin:$PATH"; fi
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
-# Path to the specific conda environment for Yleaf
-CONDA_ENV_PATH="/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env"
-# Yleaf also needs samtools/bcftools which are in the base env or wgse env
-WGSE_ENV_PATH="/opt/homebrew/Caskroom/miniconda/base/envs/wgse"
-
-export PATH="$CONDA_ENV_PATH/bin:$WGSE_ENV_PATH/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: Y-DNA (Yleaf) Benchmark"
 echo "  Input: $(basename "$INPUT_VCF")"
-echo "  Env:   $CONDA_ENV_PATH (Local Editable)
---------------------------------------------------------"
+echo "--------------------------------------------------------"
 
 # --- Verification Step ---
 echo ":: Verifying Local Yleaf Installation..."

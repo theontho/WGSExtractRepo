@@ -6,13 +6,13 @@ if [ -f .env.local ]; then
 fi
 
 # Configuration
-INPUT_CRAM="${WGSE_INPUT:-/Users/mac/Documents/genetics/genomes/mahyar/cram/Mahyar_McDonald_NU-NKQA-0638.cram}"
-REF_PATH="/Users/mac/Documents/genetics/cli_out/hs38_temp.fa"
+INPUT_CRAM="${WGSE_INPUT:-out/fake_30x/fake.bam}"
+REF_PATH="${WGSE_REF:-reference/chrm/chrM.fa}"
 OUTDIR="out/benchmark_results_haplogrep"
 
 # Path to the specific conda environment for Haplogrep
-CONDA_ENV_PATH="/opt/homebrew/Caskroom/miniconda/base/envs/wgse"
-export PATH="$CONDA_ENV_PATH/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+HAPLOGREP_BIN="${WGSE_HAPLOGREP_PATH:-haplogrep}"
+export PATH="$(dirname "$HAPLOGREP_BIN"):$PATH"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

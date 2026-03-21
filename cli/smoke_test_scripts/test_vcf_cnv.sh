@@ -8,12 +8,12 @@ fi
 # Add common miniconda and homebrew paths to PATH
 export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
 
-# Configuration - Using REAL data for CNV to ensure sufficient coverage
-INPUT_BAM="/Users/mac/Documents/genetics/genomes/mahyar/cram/Mahyar_McDonald_NU-NKQA-0638.cram"
-REF_FASTA="/Users/mac/Documents/genetics/WGSExtract/WGSExtractv4/reference/genomes/hs38DH.fa.gz"
-MAP_FILE="/Users/mac/Documents/genetics/WGSExtract/WGSExtractv4/reference/genomes/hs38DH.map.fa.gz"
+# Configuration - Pull paths from .env.local if present, otherwise use defaults
+INPUT_BAM="${WGSE_INPUT:-out/fake_30x/fake.bam}"
+REF_FASTA="${WGSE_REF_FASTA:-out/fake_30x/fake_ref.fa}"
+MAP_FILE="${WGSE_MAP:-}"
 OUTDIR="out/smoke_test_vcf_cnv"
-REGION="chr21"
+REGION="${WGSE_REGION:-chr1}"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

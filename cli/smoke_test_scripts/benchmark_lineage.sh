@@ -9,9 +9,12 @@ fi
 export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
 
 # Configuration
-REF_PATH="/Users/mac/Documents/genetics/cli_out/hs38_temp.fa"
-INPUT_CRAM="${WGSE_INPUT:-/Users/mac/Documents/genetics/genomes/mahyar/cram/Mahyar_McDonald_NU-NKQA-0638.cram}"
+REF_PATH="${WGSE_REF:-reference/chrm/chrM.fa}"
+INPUT_CRAM="${WGSE_INPUT:-out/fake_30x/fake.bam}"
 OUTDIR="out/benchmark_results"
+
+# Tool Paths
+HAPLOGREP_BIN="${WGSE_HAPLOGREP_PATH:-haplogrep}"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"
@@ -30,7 +33,7 @@ uv run wgsextract lineage mt-dna \
     --input "$INPUT_CRAM" \
     --ref "$REF_PATH" \
     --outdir "$OUTDIR/mt_dna" \
-    --haplogrep-path "/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin/haplogrep" \
+    --haplogrep-path "$HAPLOGREP_BIN" \
     --debug
 end_mt=$(date +%s)
 runtime_mt=$((end_mt - start_mt))

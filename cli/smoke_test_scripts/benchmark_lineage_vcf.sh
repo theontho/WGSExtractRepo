@@ -9,8 +9,11 @@ fi
 export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
 
 # Configuration - Using VCF instead of CRAM
-INPUT_VCF="${WGSE_INPUT_VCF:-/Users/mac/Documents/genetics/genomes/mahyar/vcf/Mahyar_McDonald_NU-NKQA-0638.vcf.gz}"
+INPUT_VCF="${WGSE_INPUT_VCF:-out/smoke_test_vcf_gatk/gatk.vcf.gz}"
 OUTDIR="out/benchmark_results_vcf"
+
+# Tool Paths
+HAPLOGREP_BIN="${WGSE_HAPLOGREP_PATH:-haplogrep}"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"
@@ -27,7 +30,7 @@ start_mt=$(date +%s)
 uv run wgsextract lineage mt-dna \
     --input "$INPUT_VCF" \
     --outdir "$OUTDIR/mt_dna" \
-    --haplogrep-path "/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin/haplogrep"
+    --haplogrep-path "$HAPLOGREP_BIN"
 end_mt=$(date +%s)
 runtime_mt=$((end_mt - start_mt))
 
