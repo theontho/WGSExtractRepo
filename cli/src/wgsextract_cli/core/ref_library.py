@@ -285,6 +285,11 @@ REVEL_URLS = {
     "hg19": "http://www.openbioinformatics.org/annovar/download/hg19_revel.txt.gz",
 }
 
+GNOMAD_URLS = {
+    "hg38": "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/exomes/gnomad.exomes.r2.1.1.sites.liftover_grch38.vcf.bgz",
+    "hg19": "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/vcf/exomes/gnomad.exomes.r2.1.1.sites.vcf.bgz",
+}
+
 
 def download_clinvar(reflib_dir, cancel_event=None, progress_callback=None):
     """Downloads and indexes official ClinVar VCFs for hg19 and hg38."""
@@ -352,6 +357,40 @@ def download_revel(reflib_dir, cancel_event=None, progress_callback=None):
             )
         except Exception as e:
             logging.error(f"Failed to index REVEL {build}: {e}")
+            success = False
+
+    return success
+
+
+def download_gnomad(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes gnomAD sites VCFs for hg19 and hg38."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in GNOMAD_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        dest_path = os.path.join(target_dir, f"gnomad_{build}.vcf.bgz")
+        logging.info(f"Downloading gnomAD {build} from Google Storage...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # Index the VCF
+        logging.info(f"Indexing gnomAD {build}...")
+        try:
+            # gnomAD VCFs are usually already bgzipped and indexed,
+            # but we might need to download the index or recreate it.
+            # Tabix -p vcf works for .vcf.bgz as well.
+            subprocess.run(["tabix", "-p", "vcf", "-f", dest_path], check=True)
+        except Exception as e:
+            logging.error(f"Failed to index gnomAD {build}: {e}")
             success = False
 
     return success

@@ -152,6 +152,7 @@ class ReferenceLibrary:
         self.ref_vcf_tab = None
         self.clinvar_vcf = None
         self.revel_file = None
+        self.gnomad_vcf = None
         self.ploidy_file = None
         self.vep_cache = None
         self.build = None
@@ -316,6 +317,20 @@ class ReferenceLibrary:
                         self.revel_file = potential
                         break
                 if self.revel_file:
+                    break
+
+        # Look for gnomAD VCF
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                # Support .vcf.bgz or .vcf.gz
+                for ext in [".vcf.bgz", ".vcf.gz"]:
+                    potential = os.path.join(search_dir, f"gnomad_{self.build}{ext}")
+                    if os.path.exists(potential):
+                        self.gnomad_vcf = potential
+                        break
+                if self.gnomad_vcf:
                     break
 
 

@@ -52,6 +52,7 @@ CLI_HELP = {
     "cmd_trio": "Analyze inheritance patterns. Compares a child's VCF with their parents to identify de novo (new) mutations or inherited conditions. (Time: 5-10 mins)",
     "cmd_vcf-qc": "Generate statistical reports for your VCF file to check the quality and distribution of your variant calls. (Time: 1-5 mins)",
     "cmd_revel": "Annotate VCF with REVEL pathogenicity scores. REVEL is an ensemble method for predicting the pathogenicity of missense variants. (Time: 5-10 mins)",
+    "cmd_gnomad": "Annotate VCF with gnomAD population frequencies. Used to filter out common variants. (Time: 10-20 mins)",
     "cmd_fake-data": "Generate minimal fake BAM, CRAM, and VCF files for testing purposes.",
     "cmd_vep-run": "Ensembl Variant Effect Predictor. Predicts the functional impact of your variants (e.g., if a mutation likely breaks a gene or causes a specific disease). (Time: 15-60 mins)",
     "arg_vcf_type": "Type of variants in the VCF (snp-indel, sv, cnv). Affects VEP parameters.",
@@ -75,6 +76,7 @@ CLI_HELP = {
     "cmd_ref-gene-map": "Download or delete lightweight gene-to-coordinate mapping files (hg19/hg38), enabling you to filter VCFs by gene name (e.g. BRCA1). (Time: <1 min)",
     "cmd_ref-library": "Opens the interactive reference manager to help you organize and download genomic data.",
     "cmd_ref-revel": "Download REVEL pathogenicity scores for hg19 and hg38. (Time: 10-20 mins, Space: 2 GB)",
+    "cmd_ref-gnomad": "Download gnomAD population frequencies for hg19 and hg38. (Time: 30-60 mins, Space: 100+ GB)",
     "micro_formats_help": """Comma-separated list of formats to generate (default: all).
 Available formats:
   Everything:
@@ -244,6 +246,7 @@ GUI_TOOLTIPS = {
     "pet-align": "Species-specific alignment and calling for dogs/cats.",
     "ref-gene-map": "Download or delete gene-to-coordinate mapping files.",
     "ref-revel": "Download REVEL pathogenicity scores for offline annotation.",
+    "ref-gnomad": "Download gnomAD population frequencies for offline annotation.",
     "vep-download": "Download the VEP cache for offline annotation.",
     "vep-verify": "Verify the integrity of your local VEP cache.",
     "var_calling_ann_help": "Identify SNPs, InDels, and Structural Variants, then add metadata to the resulting VCF file.",

@@ -84,6 +84,13 @@ def register(subparsers, base_parser):
     )
     revel_dl_parser.set_defaults(func=cmd_revel_dl)
 
+    gnomad_dl_parser = ref_subs.add_parser(
+        "gnomad",
+        parents=[base_parser],
+        help="Download gnomAD sites VCF for hg19 and hg38.",
+    )
+    gnomad_dl_parser.set_defaults(func=cmd_gnomad_dl)
+
 
 def cmd_download(args):
     verify_dependencies(["wget"])
@@ -373,6 +380,32 @@ def cmd_library_list(args):
     print("-" * 80)
     gm_installed = "INSTALLED" if are_gene_maps_installed(reflib_dir) else "MISSING"
     print(f"{'Gene Maps (hg19/hg38)':<40} {gm_installed}")
+
+    # Check for ClinVar, REVEL, gnomAD
+    ref_dir = os.path.join(reflib_dir, "ref")
+    for build in ["hg19", "hg38"]:
+        cv = (
+            "INSTALLED"
+            if os.path.exists(os.path.join(ref_dir, f"clinvar_{build}.vcf.gz"))
+            else "MISSING"
+        )
+        print(f"{f'ClinVar ({build})':<40} {cv}")
+        rv = (
+            "INSTALLED"
+            if os.path.exists(os.path.join(ref_dir, f"revel_{build}.tsv.gz"))
+            else "MISSING"
+        )
+        print(f"{f'REVEL ({build})':<40} {rv}")
+        gn = (
+            "INSTALLED"
+            if any(
+                os.path.exists(os.path.join(ref_dir, f"gnomad_{build}{ext}"))
+                for ext in [".vcf.bgz", ".vcf.gz"]
+            )
+            else "MISSING"
+        )
+        print(f"{f'gnomAD ({build})':<40} {gn}")
+
     print("-" * 80)
 
 
@@ -398,6 +431,7 @@ def cmd_library(args):
     print(" G) Gene Map (hg19/hg38)")
     print(" C) ClinVar (hg19/hg38)")
     print(" R) REVEL (hg19/hg38)")
+    print(" N) gnomAD (hg19/hg38)")
 
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
@@ -444,6 +478,12 @@ def cmd_library(args):
             from wgsextract_cli.core.ref_library import download_revel
 
             download_revel(reflib_dir)
+            return
+
+        if choice == "N":
+            from wgsextract_cli.core.ref_library import download_gnomad
+
+            download_gnomad(reflib_dir)
             return
 
         idx = int(choice) - 1
@@ -505,4 +545,20 @@ def cmd_revel_dl(args):
         logging.info("REVEL setup complete.")
     else:
         logging.error("REVEL setup failed.")
+        sys.exit(1)
+
+
+def cmd_gnomad_dl(args):
+    from wgsextract_cli.core.ref_library import download_gnomad
+
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = os.environ.get("WGSE_REFLIB")
+    if not reflib:
+        reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+
+    logging.info("Starting gnomAD download and indexing...")
+    if download_gnomad(reflib):
+        logging.info("gnomAD setup complete.")
+    else:
+        logging.error("gnomAD setup failed.")
         sys.exit(1)

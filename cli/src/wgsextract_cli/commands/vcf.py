@@ -187,6 +187,22 @@ def register(subparsers, base_parser):
     )
     revel_parser.set_defaults(func=cmd_revel)
 
+    gnomad_parser = vcf_subs.add_parser(
+        "gnomad",
+        parents=[base_parser],
+        help="Annotate VCF with gnomAD population frequencies.",
+    )
+    gnomad_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    gnomad_parser.add_argument("--gnomad-file", help="Path to gnomAD VCF data file.")
+    gnomad_parser.add_argument(
+        "--max-af",
+        type=float,
+        help="Maximum Allele Frequency to filter for (e.g., 0.01 for 1%%).",
+    )
+    gnomad_parser.set_defaults(func=cmd_gnomad)
+
 
 def get_base_args(args):
     verify_dependencies(["bcftools", "tabix"])
@@ -1156,6 +1172,125 @@ def cmd_revel(args):
             logging.error(f"REVEL filtering failed: {e}")
     else:
         logging.info(LOG_MESSAGES["vcf_revel_done"].format(output=ann_out))
+
+
+def cmd_gnomad(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(f"Annotating VCF with gnomAD data: {input_file}")
+
+    # Resolve gnomAD VCF
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    gnomad_file = args.gnomad_file if args.gnomad_file else lib.gnomad_vcf
+
+    if not gnomad_file:
+        logging.error(
+            "gnomAD data file not found. Please run 'ref gnomad' first or provide with --gnomad-file."
+        )
+        return
+
+    logging.info(f"Using gnomAD file: {gnomad_file}")
+
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    gnomad_vcf = ensure_vcf_prepared(gnomad_file)
+
+    # 2. Match chromosome styles (chr1 vs 1)
+    # Reuse normalization logic if possible, or just call normalize_vcf_chromosomes
+    from wgsextract_cli.core.utils import normalize_vcf_chromosomes
+
+    try:
+        res_g = subprocess.run(
+            ["bcftools", "index", "-s", gnomad_vcf], capture_output=True, text=True
+        )
+        g_chroms = [l.split("\t")[0] for l in res_g.stdout.strip().split("\n")]
+        normalized_input = normalize_vcf_chromosomes(input_vcf, g_chroms)
+    except Exception as e:
+        logging.debug(f"Chromosome normalization check failed: {e}")
+        normalized_input = input_vcf
+
+    # 3. Annotate with gnomAD
+    # We'll transfer AF (Allele Frequency) as GNOMAD_AF to avoid collisions
+    ann_out = os.path.join(outdir, "gnomad_annotated.vcf.gz")
+    header_tmp = None
+    try:
+        import tempfile
+
+        fd, header_tmp = tempfile.mkstemp(suffix=".hdr", dir=outdir)
+        with os.fdopen(fd, "w") as f:
+            f.write(
+                '##INFO=<ID=GNOMAD_AF,Number=A,Type=Float,Description="gnomAD Allele Frequency">\n'
+            )
+
+        run_command(
+            [
+                "bcftools",
+                "annotate",
+                "-a",
+                gnomad_vcf,
+                "-h",
+                header_tmp,
+                "-c",
+                "INFO/GNOMAD_AF:=INFO/AF",
+                "-Oz",
+                "-o",
+                ann_out,
+                normalized_input,
+            ]
+        )
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"gnomAD annotation failed: {e}")
+        return
+    finally:
+        if header_tmp and os.path.exists(header_tmp):
+            os.remove(header_tmp)
+        if normalized_input != input_vcf and os.path.exists(normalized_input):
+            os.remove(normalized_input)
+            if os.path.exists(normalized_input + ".tbi"):
+                os.remove(normalized_input + ".tbi")
+
+    # 4. Optional Filtering
+    if args.max_af is not None:
+        filter_out = os.path.join(outdir, f"gnomad_af_lt_{args.max_af}.vcf.gz")
+        logging.info(
+            f"Filtering for variants with gnomAD Allele Frequency < {args.max_af} to {filter_out}"
+        )
+        try:
+            # Note: bcftools filter handles missing values (not in gnomAD) by excluding them by default
+            # unless we explicitly ask to keep them. Common practice for 'rare' filtering is
+            # to keep anything with AF < threshold OR AF is missing.
+            filter_expr = f"GNOMAD_AF < {args.max_af} || GNOMAD_AF='.'"
+            run_command(
+                [
+                    "bcftools",
+                    "filter",
+                    "-i",
+                    filter_expr,
+                    "-Oz",
+                    "-o",
+                    filter_out,
+                    ann_out,
+                ]
+            )
+            ensure_vcf_indexed(filter_out)
+            logging.info(f"gnomAD filtering complete: {filter_out}")
+        except Exception as e:
+            logging.error(f"gnomAD filtering failed: {e}")
+    else:
+        logging.info(f"gnomAD annotation complete: {ann_out}")
 
 
 def cmd_freebayes(args):
