@@ -425,11 +425,12 @@ def get_bam_header(bam_path, cram_opt=None):
     is_cram = bam_path.lower().endswith(".cram")
 
     if is_cram and cram_opt:
-        if os.path.isfile(cram_opt):
+        if isinstance(cram_opt, list):
+            cmd.extend(cram_opt)
+        elif os.path.isfile(cram_opt):
             cmd.extend(["-T", cram_opt])
         else:
             # Maybe it's a directory, samtools -T needs a file.
-            # ReferenceLibrary.fasta usually is the file.
             cmd.extend(["-T", cram_opt])
 
     cmd.append(bam_path)

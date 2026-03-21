@@ -614,6 +614,8 @@ def run_sampled_coverage(input_p, ref_p, idx_stats, out_p, region=None):
 
 
 def run(args):
+    from wgsextract_cli.core.utils import resolve_reference
+
     start_time = time.time()
     verify_dependencies(["samtools"])
     log_dependency_info(["samtools"])
@@ -630,8 +632,6 @@ def run(args):
     # If it's a CRAM and we have a ref, try to resolve it early to help samtools read the header
     initial_ref = None
     if args.input.lower().endswith(".cram") and args.ref:
-        from wgsextract_cli.core.utils import resolve_reference
-
         resolved = resolve_reference(args.ref, None)
         if resolved and os.path.isfile(resolved):
             initial_ref = resolved

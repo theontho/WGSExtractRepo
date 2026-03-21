@@ -444,6 +444,7 @@ LOG_MESSAGES = {
     "input_required": "--input is required.",
     "ref_required": "--ref is required.",
     "ref_required_for": "--ref is required for {task}.",
+    "file_not_found": "{label} file not found: {path}",
 }
 
 # Workflow Graph Text
