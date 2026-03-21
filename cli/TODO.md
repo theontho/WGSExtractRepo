@@ -22,7 +22,7 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 ### 🧬 Gene Analysis & Clinical Interpretation
 - [x] **Gene-Centric Workflows**: Filter VCFs and BAMs by Gene Name or HGNC ID.
 - [x] **Inheritance & Trio Analysis**: Detect De Novo mutations and Compound Heterozygotes.
-- [ ] **Population Frequency Integration**: (Priority) Annotate variants with gnomAD, ExAC, and 1000 Genomes.
+- [x] **Population Frequency Integration**: (Priority) Annotate variants with gnomAD, ExAC, and 1000 Genomes.
 - [x] **ClinVar clinical significance**: Report "Pathogenic" status from ClinVar using `vcf clinvar`.
 - [x] **REVEL Pathogenicity Scores**: Annotate missense variants with REVEL scores.
 - [ ] **Pathogenicity & Conservation**: Support for CADD, SIFT, PolyPhen-2, PhyloP, and GERP++.
