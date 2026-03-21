@@ -151,6 +151,7 @@ class ReferenceLibrary:
         self.liftover_chain = None
         self.ref_vcf_tab = None
         self.clinvar_vcf = None
+        self.revel_file = None
         self.ploidy_file = None
         self.vep_cache = None
         self.build = None
@@ -301,6 +302,20 @@ class ReferenceLibrary:
                 potential = os.path.join(search_dir, f"clinvar_{self.build}.vcf.gz")
                 if os.path.exists(potential):
                     self.clinvar_vcf = potential
+                    break
+
+        # Look for REVEL data
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                # Support .tsv.gz or .vcf.gz
+                for ext in [".tsv.gz", ".vcf.gz"]:
+                    potential = os.path.join(search_dir, f"revel_{self.build}{ext}")
+                    if os.path.exists(potential):
+                        self.revel_file = potential
+                        break
+                if self.revel_file:
                     break
 
 

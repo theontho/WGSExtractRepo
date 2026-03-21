@@ -169,6 +169,24 @@ def register(subparsers, base_parser):
     )
     clinvar_parser.set_defaults(func=cmd_clinvar)
 
+    revel_parser = vcf_subs.add_parser(
+        "revel",
+        parents=[base_parser],
+        help="Annotate VCF with REVEL pathogenicity scores.",
+    )
+    revel_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    revel_parser.add_argument(
+        "--revel-file", help="Path to REVEL TSV or VCF data file."
+    )
+    revel_parser.add_argument(
+        "--min-score",
+        type=float,
+        help="Minimum REVEL score to filter for (e.g., 0.5).",
+    )
+    revel_parser.set_defaults(func=cmd_revel)
+
 
 def get_base_args(args):
     verify_dependencies(["bcftools", "tabix"])
@@ -978,6 +996,166 @@ def cmd_clinvar(args):
         logging.info(LOG_MESSAGES["vcf_clinvar_done"].format(output=path_out))
     except Exception as e:
         logging.error(f"ClinVar filtering failed: {e}")
+
+
+def cmd_revel(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(LOG_MESSAGES["vcf_revel_start"].format(input=input_file))
+
+    # Resolve REVEL data file
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    revel_file = args.revel_file if args.revel_file else lib.revel_file
+
+    if not revel_file:
+        logging.error(LOG_MESSAGES["vcf_revel_missing"])
+        return
+
+    logging.info(LOG_MESSAGES["vcf_revel_resolve"].format(path=revel_file))
+
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    revel_vcf = ensure_vcf_prepared(revel_file)
+
+    # 2. Match chromosome styles (chr1 vs 1)
+    normalized_input = input_vcf
+    needs_cleanup = False
+    try:
+        res_v = subprocess.run(
+            ["bcftools", "index", "-s", input_vcf], capture_output=True, text=True
+        )
+        v_chroms = [l.split("\t")[0] for l in res_v.stdout.strip().split("\n")]
+        res_r = subprocess.run(
+            ["bcftools", "index", "-s", revel_vcf], capture_output=True, text=True
+        )
+        r_chroms = [l.split("\t")[0] for l in res_r.stdout.strip().split("\n")]
+
+        v_has_chr = any(c.startswith("chr") for c in v_chroms)
+        r_has_chr = any(c.startswith("chr") for c in r_chroms)
+
+        if v_has_chr != r_has_chr:
+            import tempfile
+
+            fd, map_path = tempfile.mkstemp(suffix=".map", dir=outdir)
+            with os.fdopen(fd, "w") as f:
+                for vc in v_chroms:
+                    if v_has_chr and not r_has_chr:
+                        rc = vc[3:] if vc.startswith("chr") else vc
+                        if rc == "MT":
+                            rc = "M"
+                        f.write(f"{vc} {rc}\n")
+                    elif not v_has_chr and r_has_chr:
+                        rc = "chr" + vc
+                        if rc == "chrMT":
+                            rc = "chrM"
+                        f.write(f"{vc} {rc}\n")
+
+            norm_out = os.path.join(outdir, "input_revel_norm.vcf.gz")
+            logging.info(
+                f"Normalizing chromosome naming for REVEL: {'chr1 -> 1' if v_has_chr else '1 -> chr1'}"
+            )
+            subprocess.run(
+                [
+                    "bcftools",
+                    "annotate",
+                    "--rename-chrs",
+                    map_path,
+                    "-Oz",
+                    "-o",
+                    norm_out,
+                    input_vcf,
+                ],
+                check=True,
+            )
+            ensure_vcf_indexed(norm_out)
+            os.remove(map_path)
+            normalized_input = norm_out
+            needs_cleanup = True
+    except Exception as e:
+        logging.debug(f"Chromosome normalization failed: {e}")
+
+    # 3. Annotate with REVEL
+    ann_out = os.path.join(outdir, "revel_annotated.vcf.gz")
+    header_tmp = None
+    try:
+        # Annovar REVEL TSV: #Chr, Start, End, Ref, Alt, REVEL
+        cols = "CHROM,POS,-,REF,ALT,INFO/REVEL"
+        annotate_args = [
+            "bcftools",
+            "annotate",
+            "-a",
+            revel_vcf,
+            "-Oz",
+            "-o",
+            ann_out,
+        ]
+
+        if revel_vcf.lower().endswith((".vcf", ".vcf.gz")):
+            annotate_args.extend(["-c", "INFO/REVEL"])
+        else:
+            import tempfile
+
+            fd, header_tmp = tempfile.mkstemp(suffix=".hdr", dir=outdir)
+            with os.fdopen(fd, "w") as f:
+                f.write(
+                    '##INFO=<ID=REVEL,Number=1,Type=Float,Description="REVEL score">\n'
+                )
+            annotate_args.extend(["-c", cols, "-h", header_tmp])
+
+        annotate_args.append(normalized_input)
+        run_command(annotate_args)
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"REVEL annotation failed: {e}")
+        return
+    finally:
+        if header_tmp and os.path.exists(header_tmp):
+            os.remove(header_tmp)
+        if needs_cleanup and os.path.exists(normalized_input):
+            os.remove(normalized_input)
+            if os.path.exists(normalized_input + ".tbi"):
+                os.remove(normalized_input + ".tbi")
+
+    # 4. Optional Filtering
+    if args.min_score is not None:
+        path_out = os.path.join(outdir, f"revel_gt_{args.min_score}.vcf.gz")
+        logging.info(
+            LOG_MESSAGES["vcf_revel_filtering"].format(
+                min_score=args.min_score, output=path_out
+            )
+        )
+        try:
+            filter_expr = f"REVEL >= {args.min_score}"
+            run_command(
+                [
+                    "bcftools",
+                    "filter",
+                    "-i",
+                    filter_expr,
+                    "-Oz",
+                    "-o",
+                    path_out,
+                    ann_out,
+                ]
+            )
+            ensure_vcf_indexed(path_out)
+            logging.info(LOG_MESSAGES["vcf_revel_done"].format(output=path_out))
+        except Exception as e:
+            logging.error(f"REVEL filtering failed: {e}")
+    else:
+        logging.info(LOG_MESSAGES["vcf_revel_done"].format(output=ann_out))
 
 
 def cmd_freebayes(args):

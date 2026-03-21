@@ -280,6 +280,11 @@ CLINVAR_URLS = {
     "hg19": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/clinvar.vcf.gz",
 }
 
+REVEL_URLS = {
+    "hg38": "http://www.openbioinformatics.org/annovar/download/hg38_revel.txt.gz",
+    "hg19": "http://www.openbioinformatics.org/annovar/download/hg19_revel.txt.gz",
+}
+
 
 def download_clinvar(reflib_dir, cancel_event=None, progress_callback=None):
     """Downloads and indexes official ClinVar VCFs for hg19 and hg38."""
@@ -308,6 +313,45 @@ def download_clinvar(reflib_dir, cancel_event=None, progress_callback=None):
             subprocess.run(["tabix", "-p", "vcf", "-f", dest_path], check=True)
         except Exception as e:
             logging.error(f"Failed to index ClinVar {build}: {e}")
+            success = False
+
+    return success
+
+
+def download_revel(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes REVEL pathogenicity scores for hg19 and hg38."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in REVEL_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # We use .tsv.gz suffix for consistency in our app's search logic
+        dest_path = os.path.join(target_dir, f"revel_{build}.tsv.gz")
+        logging.info(f"Downloading REVEL {build} from Annovar mirrors...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # Ensure BGZF format before indexing (Annovar mirrors are usually standard gzip)
+        dest_path = ensure_bgzf(dest_path, None, cancel_event) or dest_path
+
+        # Index the TSV
+        logging.info(f"Indexing REVEL {build}...")
+        try:
+            # Annovar REVEL format: #Chr, Start, End, Ref, Alt, REVEL...
+            # We want CHROM=1, POS=2, REF=4, ALT=5
+            subprocess.run(
+                ["tabix", "-f", "-s", "1", "-b", "2", "-e", "2", dest_path], check=True
+            )
+        except Exception as e:
+            logging.error(f"Failed to index REVEL {build}: {e}")
             success = False
 
     return success
@@ -479,20 +523,26 @@ def process_reference_file(
     return True
 
 
+def is_bgzf(path: str) -> bool:
+    """Check if a file is in BGZF format by looking for the magic bytes."""
+    try:
+        with open(path, "rb") as f:
+            # BGZF header: 1f 8b 08 04 ... (the 4th byte 04 indicates XLEN is present)
+            # This is a bit simplified but generally reliable for our tools.
+            header = f.read(4)
+            return header == b"\x1f\x8b\x08\x04"
+    except Exception:
+        return False
+
+
 def ensure_bgzf(
     path: str,
     status_callback: Callable[[str], None] | None = None,
     cancel_event: Any | None = None,
 ) -> str | None:
-    try:
-        res = run_command(
-            ["samtools", "view", "-H", path], capture_output=True, check=False
-        )
-        if "BGZF" in res.stdout or "BGZF" in res.stderr:
-            logging.info(f"{path} is already in BGZF format.")
-            return path
-    except Exception:
-        pass
+    if is_bgzf(path):
+        logging.info(f"{path} is already in BGZF format.")
+        return path
 
     if cancel_event and cancel_event.is_set():
         return None

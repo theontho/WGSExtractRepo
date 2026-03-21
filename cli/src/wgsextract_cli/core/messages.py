@@ -51,6 +51,7 @@ CLI_HELP = {
     "cmd_filter": "Filter your results. Use this to focus on specific genes of interest or to remove low-quality 'noisy' variant calls. (Time: <1 min)",
     "cmd_trio": "Analyze inheritance patterns. Compares a child's VCF with their parents to identify de novo (new) mutations or inherited conditions. (Time: 5-10 mins)",
     "cmd_vcf-qc": "Generate statistical reports for your VCF file to check the quality and distribution of your variant calls. (Time: 1-5 mins)",
+    "cmd_revel": "Annotate VCF with REVEL pathogenicity scores. REVEL is an ensemble method for predicting the pathogenicity of missense variants. (Time: 5-10 mins)",
     "cmd_fake-data": "Generate minimal fake BAM, CRAM, and VCF files for testing purposes.",
     "cmd_vep-run": "Ensembl Variant Effect Predictor. Predicts the functional impact of your variants (e.g., if a mutation likely breaks a gene or causes a specific disease). (Time: 15-60 mins)",
     "arg_vcf_type": "Type of variants in the VCF (snp-indel, sv, cnv). Affects VEP parameters.",
@@ -73,6 +74,7 @@ CLI_HELP = {
     "cmd_ref-count-ns": "Calculate the percentage of 'N' (unknown) bases in a genome. Useful for understanding the 'mappability' of different reference builds. (Time: 5-10 mins)",
     "cmd_ref-gene-map": "Download or delete lightweight gene-to-coordinate mapping files (hg19/hg38), enabling you to filter VCFs by gene name (e.g. BRCA1). (Time: <1 min)",
     "cmd_ref-library": "Opens the interactive reference manager to help you organize and download genomic data.",
+    "cmd_ref-revel": "Download REVEL pathogenicity scores for hg19 and hg38. (Time: 10-20 mins, Space: 2 GB)",
     "micro_formats_help": """Comma-separated list of formats to generate (default: all).
 Available formats:
   Everything:
@@ -241,6 +243,7 @@ GUI_TOOLTIPS = {
     "fastp": "All-in-one FASTQ pre-processor (trimming/filtering).",
     "pet-align": "Species-specific alignment and calling for dogs/cats.",
     "ref-gene-map": "Download or delete gene-to-coordinate mapping files.",
+    "ref-revel": "Download REVEL pathogenicity scores for offline annotation.",
     "vep-download": "Download the VEP cache for offline annotation.",
     "vep-verify": "Verify the integrity of your local VEP cache.",
     "var_calling_ann_help": "Identify SNPs, InDels, and Structural Variants, then add metadata to the resulting VCF file.",
@@ -409,6 +412,11 @@ LOG_MESSAGES = {
     "vcf_clinvar_missing": "ClinVar VCF not found. Please run 'ref clinvar' first.",
     "vcf_clinvar_filtering": "Filtering for Pathogenic/Likely Pathogenic variants to {output}",
     "vcf_clinvar_done": "ClinVar annotation and filtering complete: {output}",
+    "vcf_revel_start": "Annotating VCF with REVEL scores: {input}",
+    "vcf_revel_resolve": "Auto-resolved REVEL file: {path}",
+    "vcf_revel_missing": "REVEL data file not found. Please provide with --revel-file or place it in your 'ref/' directory as revel_hg38.tsv.gz.",
+    "vcf_revel_filtering": "Filtering for variants with REVEL score >= {min_score} to {output}",
+    "vcf_revel_done": "REVEL annotation and filtering complete: {output}",
     "vep_downloading": "Downloading VEP cache from {host}...",
     "vep_verifying_checksums": "Verifying download against Ensembl CHECKSUMS...",
     "vep_checksum_ok": "Checksum verification successful: {sum} {blocks}",

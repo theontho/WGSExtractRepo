@@ -77,6 +77,13 @@ def register(subparsers, base_parser):
     )
     clinvar_dl_parser.set_defaults(func=cmd_clinvar_dl)
 
+    revel_dl_parser = ref_subs.add_parser(
+        "revel",
+        parents=[base_parser],
+        help="Download REVEL pathogenicity scores for hg19 and hg38.",
+    )
+    revel_dl_parser.set_defaults(func=cmd_revel_dl)
+
 
 def cmd_download(args):
     verify_dependencies(["wget"])
@@ -389,6 +396,8 @@ def cmd_library(args):
     print("Select an option:")
     print(" 0) Exit")
     print(" G) Gene Map (hg19/hg38)")
+    print(" C) ClinVar (hg19/hg38)")
+    print(" R) REVEL (hg19/hg38)")
 
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
@@ -423,6 +432,18 @@ def cmd_library(args):
                         print("Deletion failed.")
             else:
                 download_gene_maps(reflib_dir)
+            return
+
+        if choice == "C":
+            from wgsextract_cli.core.ref_library import download_clinvar
+
+            download_clinvar(reflib_dir)
+            return
+
+        if choice == "R":
+            from wgsextract_cli.core.ref_library import download_revel
+
+            download_revel(reflib_dir)
             return
 
         idx = int(choice) - 1
@@ -468,4 +489,20 @@ def cmd_clinvar_dl(args):
         logging.info("ClinVar setup complete.")
     else:
         logging.error("ClinVar setup failed.")
+        sys.exit(1)
+
+
+def cmd_revel_dl(args):
+    from wgsextract_cli.core.ref_library import download_revel
+
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = os.environ.get("WGSE_REFLIB")
+    if not reflib:
+        reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+
+    logging.info("Starting REVEL download and indexing...")
+    if download_revel(reflib):
+        logging.info("REVEL setup complete.")
+    else:
+        logging.error("REVEL setup failed.")
         sys.exit(1)
