@@ -159,6 +159,16 @@ def register(subparsers, base_parser):
     )
     deepvariant_parser.set_defaults(func=cmd_deepvariant)
 
+    clinvar_parser = vcf_subs.add_parser(
+        "clinvar",
+        parents=[base_parser],
+        help="Annotate VCF with ClinVar and filter for Pathogenic variants.",
+    )
+    clinvar_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    clinvar_parser.set_defaults(func=cmd_clinvar)
+
 
 def get_base_args(args):
     verify_dependencies(["bcftools", "tabix"])
@@ -902,6 +912,72 @@ def cmd_sv(args):
             os.remove(temp_bam)
             if os.path.exists(temp_bam + ".bai"):
                 os.remove(temp_bam + ".bai")
+
+
+def cmd_clinvar(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(LOG_MESSAGES["vcf_clinvar_start"].format(input=input_file))
+
+    # Resolve ClinVar VCF
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    clinvar_vcf = lib.clinvar_vcf
+
+    if not clinvar_vcf:
+        logging.error(LOG_MESSAGES["vcf_clinvar_missing"])
+        return
+
+    logging.info(LOG_MESSAGES["vcf_clinvar_resolve"].format(path=clinvar_vcf))
+
+    # 1. Annotate with ClinVar
+    # We transfer CLNSIG (Significance) and CLNDN (Disease Name)
+    ann_out = os.path.join(outdir, "clinvar_annotated.vcf.gz")
+    try:
+        run_command(
+            [
+                "bcftools",
+                "annotate",
+                "-a",
+                clinvar_vcf,
+                "-c",
+                "CLNSIG,CLNDN",
+                "-Oz",
+                "-o",
+                ann_out,
+                input_file,
+            ]
+        )
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"ClinVar annotation failed: {e}")
+        return
+
+    # 2. Filter for Pathogenic
+    path_out = os.path.join(outdir, "clinvar_pathogenic.vcf.gz")
+    logging.info(LOG_MESSAGES["vcf_clinvar_filtering"].format(output=path_out))
+    try:
+        # Filter for Pathogenic or Likely_pathogenic in CLNSIG
+        # The exact string can vary slightly, so we use a regex/substring match
+        filter_expr = 'CLNSIG ~ "Pathogenic" || CLNSIG ~ "Likely_pathogenic"'
+        run_command(
+            ["bcftools", "filter", "-i", filter_expr, "-Oz", "-o", path_out, ann_out]
+        )
+        ensure_vcf_indexed(path_out)
+        logging.info(LOG_MESSAGES["vcf_clinvar_done"].format(output=path_out))
+    except Exception as e:
+        logging.error(f"ClinVar filtering failed: {e}")
 
 
 def cmd_freebayes(args):

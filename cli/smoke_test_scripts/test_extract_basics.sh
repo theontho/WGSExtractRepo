@@ -63,7 +63,50 @@ else
     exit 1
 fi
 
-# 4. Extract hg19 CRAM (Verification of CRAM + Ref support)
+# 4. Extract Subset (Region)
+echo ":: Testing 'extract bam-subset' (region chr1)..."
+uv run wgsextract extract bam-subset \
+    --input "$FAKEDATA/fake.bam" \
+    --outdir "$OUTDIR" \
+    --region "chr1" \
+    --fraction 0.1
+
+if [ $? -eq 0 ]; then
+    echo "✅ Success: subset extraction finished."
+else
+    echo "❌ Failure: subset extraction failed."
+    exit 1
+fi
+
+# 5. Extract Y-DNA VCF
+echo ":: Testing 'extract ydna-vcf'..."
+uv run wgsextract extract ydna-vcf \
+    --input "$FAKEDATA/fake.bam" \
+    --outdir "$OUTDIR" \
+    --ref "$FAKEDATA/fake_ref_hg38_scaled.fa"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Success: ydna-vcf extraction finished."
+else
+    echo "❌ Failure: ydna-vcf extraction failed."
+    exit 1
+fi
+
+# 6. Combined Y-MT Extraction
+echo ":: Testing 'extract y-mt-extract'..."
+uv run wgsextract extract y-mt-extract \
+    --input "$FAKEDATA/fake.bam" \
+    --outdir "$OUTDIR/y_mt" \
+    --ref "$FAKEDATA/fake_ref_hg38_scaled.fa"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Success: y-mt-extract finished."
+else
+    echo "❌ Failure: y-mt-extract failed."
+    exit 1
+fi
+
+# 7. Extract hg19 CRAM (Verification of CRAM + Ref support)
 HG19DATA="out/smoke_test_qc_fake/hg19"
 echo ":: Testing 'extract mt-bam' with hg19 CRAM..."
 uv run wgsextract extract mt-bam \

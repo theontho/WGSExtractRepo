@@ -49,6 +49,7 @@ def register(subparsers, base_parser):
         help=CLI_HELP["arg_fraction"],
     )
     subset_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    subset_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
     subset_parser.set_defaults(func=cmd_bam_subset)
 
     # Y-DNA commands
@@ -77,10 +78,47 @@ def register(subparsers, base_parser):
     custom_parser = ext_subs.add_parser(
         "custom", parents=[base_parser], help=CLI_HELP["cmd_custom"]
     )
-    custom_parser.add_argument(
-        "-r", "--region", required=True, help=CLI_HELP["arg_region"]
-    )
+    custom_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    custom_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
     custom_parser.set_defaults(func=cmd_custom)
+
+
+def resolve_region_or_gene(args, resolved_ref):
+    """Helper to resolve either a raw region or a gene name to coordinates."""
+    if hasattr(args, "region") and args.region:
+        return args.region
+
+    if hasattr(args, "gene") and args.gene:
+        from wgsextract_cli.core.gene_map import GeneMap
+
+        # Determine reference library directory
+        reflib_dir = os.environ.get("WGSE_REFLIB")
+        if not reflib_dir and resolved_ref:
+            # resolved_ref is usually path/to/reflib/ref/genome.fa
+            reflib_dir = os.path.dirname(os.path.dirname(resolved_ref))
+
+        if not reflib_dir:
+            logging.error(
+                "Reference library not found. Please set WGSE_REFLIB or provide a --ref."
+            )
+            return None
+
+        gm = GeneMap(reflib_dir)
+        # We need a build name. Default to hg38 if we can't detect it.
+        build = "hg38"
+        if resolved_ref:
+            if "hg19" in resolved_ref.lower() or "b37" in resolved_ref.lower():
+                build = "hg19"
+
+        resolved_region = gm.get_coords(args.gene, build)
+        if resolved_region:
+            logging.info(f"Resolved gene {args.gene} to {resolved_region}")
+            return resolved_region
+        else:
+            logging.error(f"Could not resolve gene name: {args.gene}")
+            return None
+
+    return None
 
 
 def get_base_args(args):
@@ -261,6 +299,10 @@ def cmd_bam_subset(args):
         return
     threads, outdir, cram_opt, resolved_ref = base
 
+    region = resolve_region_or_gene(args, resolved_ref)
+    if (args.region or (hasattr(args, "gene") and args.gene)) and not region:
+        return
+
     out_file = os.path.join(
         outdir,
         os.path.basename(args.input).replace(".bam", "").replace(".cram", "")
@@ -270,7 +312,7 @@ def cmd_bam_subset(args):
         LOG_MESSAGES["subsetting_file"].format(fraction=args.fraction, output=out_file)
     )
     try:
-        region_args = [args.region] if args.region else []
+        region_args = [region] if region else []
         run_command(
             ["samtools", "view", "-bh", "-s", str(args.fraction)]
             + cram_opt
@@ -409,7 +451,11 @@ def cmd_custom(args):
         return
     threads, outdir, cram_opt, resolved_ref = base
 
-    region = args.region
+    region = resolve_region_or_gene(args, resolved_ref)
+    if not region:
+        logging.error("Region or Gene is required for custom extraction.")
+        return
+
     base_name = os.path.basename(args.input).split(".")[0]
     out_bam = os.path.join(outdir, f"{base_name}_{region.replace(':', '_')}.bam")
 

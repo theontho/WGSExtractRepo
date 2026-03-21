@@ -46,10 +46,12 @@ BASICS_TESTS=(
     "test_info_coverage.sh"
     "test_align_basics.sh"
     "test_ref_basics.sh"
+    "test_ref_library_basics.sh"
     "test_repair_basics.sh"
     "test_pet_basics.sh"
     "test_vep_basics.sh"
     "test_lineage_basics.sh"
+    "test_microarray_basics.sh"
     "test_misc_basics.sh"
 )
 
@@ -64,6 +66,7 @@ VCF_TESTS=(
     "test_vcf_cnv.sh"
     "test_vcf_sv.sh"
     "test_vcf_trio.sh"
+    "test_vcf_clinvar.sh"
 )
 
 REAL_DATA_TESTS=(

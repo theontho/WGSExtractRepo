@@ -22,7 +22,8 @@ uv run wgsextract qc fake-data \
     --build hg38 \
     --type bam,vcf \
     --coverage 0.1 \
-    --seed 123
+    --seed 123 \
+    --ref "$OUTDIR/hg38"
 
 if [ $? -eq 0 ] && [ -f "$OUTDIR/hg38/fake.bam" ] && [ -f "$OUTDIR/hg38/fake.vcf.gz" ]; then
     echo "✅ Success: hg38 BAM and VCF generated."

@@ -70,6 +70,13 @@ def register(subparsers, base_parser):
     )
     genemap_parser.set_defaults(func=cmd_gene_map)
 
+    clinvar_dl_parser = ref_subs.add_parser(
+        "clinvar",
+        parents=[base_parser],
+        help="Download official ClinVar VCF for hg19 and hg38.",
+    )
+    clinvar_dl_parser.set_defaults(func=cmd_clinvar_dl)
+
 
 def cmd_download(args):
     verify_dependencies(["wget"])
@@ -446,3 +453,19 @@ def cmd_gene_map(args):
             print(LOG_MESSAGES["dl_genemap_success"])
         else:
             print(LOG_MESSAGES["dl_genemap_failed"])
+
+
+def cmd_clinvar_dl(args):
+    from wgsextract_cli.core.ref_library import download_clinvar
+
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = os.environ.get("WGSE_REFLIB")
+    if not reflib:
+        reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+
+    logging.info("Starting ClinVar download and indexing...")
+    if download_clinvar(reflib):
+        logging.info("ClinVar setup complete.")
+    else:
+        logging.error("ClinVar setup failed.")
+        sys.exit(1)

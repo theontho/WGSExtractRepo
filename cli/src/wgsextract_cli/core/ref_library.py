@@ -275,6 +275,44 @@ def get_genome_size(final_name: str, reflib_dir: str) -> str:
     return f"{total_bytes / (1024 * 1024):.1f} MB"
 
 
+CLINVAR_URLS = {
+    "hg38": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz",
+    "hg19": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh37/clinvar.vcf.gz",
+}
+
+
+def download_clinvar(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes official ClinVar VCFs for hg19 and hg38."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in CLINVAR_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        dest_path = os.path.join(target_dir, f"clinvar_{build}.vcf.gz")
+        logging.info(f"Downloading ClinVar {build} from NIH FTP...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # Index the VCF
+        logging.info(f"Indexing ClinVar {build}...")
+        try:
+            # We need tabix
+            subprocess.run(["tabix", "-p", "vcf", "-f", dest_path], check=True)
+        except Exception as e:
+            logging.error(f"Failed to index ClinVar {build}: {e}")
+            success = False
+
+    return success
+
+
 def delete_genome(final_name: str, reflib_dir: str):
     base_path = os.path.join(reflib_dir, "genomes", final_name)
     for ext in ["", ".partial", ".fai", ".gzi", ".dict"]:

@@ -150,6 +150,7 @@ class ReferenceLibrary:
         self.fai = None
         self.liftover_chain = None
         self.ref_vcf_tab = None
+        self.clinvar_vcf = None
         self.ploidy_file = None
         self.vep_cache = None
         self.build = None
@@ -291,6 +292,16 @@ class ReferenceLibrary:
                     break
             if self.ref_vcf_tab:
                 break
+
+        # Look for ClinVar VCF
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                potential = os.path.join(search_dir, f"clinvar_{self.build}.vcf.gz")
+                if os.path.exists(potential):
+                    self.clinvar_vcf = potential
+                    break
 
 
 def resolve_reference(ref_path, md5_sig):

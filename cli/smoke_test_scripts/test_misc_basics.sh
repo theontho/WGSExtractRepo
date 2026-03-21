@@ -91,7 +91,18 @@ else
     exit 1
 fi
 
-# 6. Optional QC tools (fastp/fastqc)
+# 6. BAM Identify
+echo ":: Testing 'bam identify'..."
+uv run wgsextract bam identify --input "$FAKEDATA/fake.bam"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Success: bam identify completed."
+else
+    echo "❌ Failure: bam identify failed."
+    exit 1
+fi
+
+# 7. Optional QC tools (fastp/fastqc)
 if command -v fastp >/dev/null 2>&1; then
     echo ":: Testing 'qc fastp'..."
     uv run wgsextract qc fastp \

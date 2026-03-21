@@ -24,6 +24,7 @@ def register(subparsers, base_parser):
         "sort", parents=[base_parser], help=CLI_HELP["cmd_sort"]
     )
     sort_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    sort_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
     sort_parser.set_defaults(func=cmd_sort)
 
     index_parser = bam_subs.add_parser(
@@ -45,6 +46,7 @@ def register(subparsers, base_parser):
         "to-cram", parents=[base_parser], help=CLI_HELP["cmd_to-cram"]
     )
     tocram_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    tocram_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
     tocram_parser.add_argument(
         "--cram-version",
         choices=["2.1", "3.0", "3.1"],
@@ -57,6 +59,7 @@ def register(subparsers, base_parser):
         "to-bam", parents=[base_parser], help=CLI_HELP["cmd_to-bam"]
     )
     tobam_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    tobam_parser.add_argument("--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)")
     tobam_parser.set_defaults(func=cmd_tobam)
 
     unalign_parser = bam_subs.add_parser(
@@ -66,6 +69,9 @@ def register(subparsers, base_parser):
     unalign_parser.add_argument("--r2", required=True, help=CLI_HELP["arg_r2"])
     unalign_parser.add_argument("--se", help=CLI_HELP["arg_se"])
     unalign_parser.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    unalign_parser.add_argument(
+        "--gene", help="Filter by Gene Name (e.g. BRCA1, KCNQ2)"
+    )
     unalign_parser.set_defaults(func=cmd_unalign)
 
     identify_parser = bam_subs.add_parser(
@@ -120,6 +126,44 @@ def get_base_args(args):
     return threads, memory, outdir, cram_opt, resolved_ref
 
 
+def resolve_region_or_gene(args, resolved_ref):
+    """Helper to resolve either a raw region or a gene name to coordinates."""
+    if args.region:
+        return args.region
+
+    if hasattr(args, "gene") and args.gene:
+        from wgsextract_cli.core.gene_map import GeneMap
+
+        # Determine reference library directory
+        reflib_dir = os.environ.get("WGSE_REFLIB")
+        if not reflib_dir and resolved_ref:
+            # resolved_ref is usually path/to/reflib/ref/genome.fa
+            reflib_dir = os.path.dirname(os.path.dirname(resolved_ref))
+
+        if not reflib_dir:
+            logging.error(
+                "Reference library not found. Please set WGSE_REFLIB or provide a --ref."
+            )
+            return None
+
+        gm = GeneMap(reflib_dir)
+        # We need a build name. Default to hg38 if we can't detect it.
+        build = "hg38"
+        if resolved_ref:
+            if "hg19" in resolved_ref.lower() or "b37" in resolved_ref.lower():
+                build = "hg19"
+
+        resolved_region = gm.get_coords(args.gene, build)
+        if resolved_region:
+            logging.info(f"Resolved gene {args.gene} to {resolved_region}")
+            return resolved_region
+        else:
+            logging.error(f"Could not resolve gene name: {args.gene}")
+            return None
+
+    return None
+
+
 def cmd_identify(args):
     verify_dependencies(["samtools"])
     log_dependency_info(["samtools"])
@@ -150,6 +194,10 @@ def cmd_sort(args):
         return
     threads, memory, outdir, cram_opt, resolved_ref = base
 
+    region = resolve_region_or_gene(args, resolved_ref)
+    if (args.region or (hasattr(args, "gene") and args.gene)) and not region:
+        return
+
     file_size = os.path.getsize(args.input)
     is_cram = args.input.lower().endswith(".cram")
     print_warning(
@@ -169,7 +217,7 @@ def cmd_sort(args):
         + "_sorted.bam",
     )
     with tempfile.TemporaryDirectory() as tempdir:
-        region_args = [args.region] if args.region else []
+        region_args = [region] if region else []
         view_cmd = (
             ["samtools", "view", "-uh", "--no-PG"]
             + cram_opt
@@ -313,6 +361,10 @@ def cmd_tocram(args):
         return
     threads, memory, outdir, cram_opt, resolved_ref = base
 
+    region = resolve_region_or_gene(args, resolved_ref)
+    if (args.region or (hasattr(args, "gene") and args.gene)) and not region:
+        return
+
     print_warning("BAMtoCRAM", threads=threads)
 
     out_file = os.path.join(
@@ -322,7 +374,7 @@ def cmd_tocram(args):
         LOG_MESSAGES["converting_file"].format(input=args.input, output=out_file)
     )
     try:
-        region_args = [args.region] if args.region else []
+        region_args = [region] if region else []
         run_command(
             [
                 "samtools",
@@ -351,6 +403,10 @@ def cmd_tobam(args):
         return
     threads, memory, outdir, cram_opt, resolved_ref = base
 
+    region = resolve_region_or_gene(args, resolved_ref)
+    if (args.region or (hasattr(args, "gene") and args.gene)) and not region:
+        return
+
     print_warning("CRAMtoBAM", threads=threads)
 
     out_file = os.path.join(
@@ -360,7 +416,7 @@ def cmd_tobam(args):
         LOG_MESSAGES["converting_file"].format(input=args.input, output=out_file)
     )
     try:
-        region_args = [args.region] if args.region else []
+        region_args = [region] if region else []
         run_command(
             ["samtools", "view", "-bh"]
             + cram_opt
@@ -382,6 +438,10 @@ def cmd_unalign(args):
     if not base:
         return
     threads, memory, outdir, cram_opt, resolved_ref = base
+
+    region = resolve_region_or_gene(args, resolved_ref)
+    if (args.region or (hasattr(args, "gene") and args.gene)) and not region:
+        return
 
     file_size = os.path.getsize(args.input)
     is_cram = args.input.lower().endswith(".cram")
@@ -407,7 +467,7 @@ def cmd_unalign(args):
     se_arg = ["-0", out_se]
 
     with tempfile.TemporaryDirectory() as tempdir:
-        region_args = [args.region] if args.region else []
+        region_args = [region] if region else []
         view_cmd = (
             ["samtools", "view", "-uh", "--no-PG"]
             + cram_opt
