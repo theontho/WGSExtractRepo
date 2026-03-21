@@ -5,11 +5,11 @@ if [ -f .env.local ]; then
     export $(grep -v '^#' .env.local | xargs)
 fi
 
-OUTDIR="out/vcf_revel_out"
+OUTDIR="out/vcf_phylop_out"
 mkdir -p "$OUTDIR"
 
 # 1. Create a fake reference structure
-REFDIR="$OUTDIR/fake_ref_revel"
+REFDIR="$OUTDIR/fake_ref_phylop"
 mkdir -p "$REFDIR/ref"
 mkdir -p "$REFDIR/genomes"
 echo ">chr1" > "$REFDIR/genomes/fake_hg38.fa"
@@ -19,16 +19,16 @@ bgzip -c "$REFDIR/genomes/fake_hg38.fa" > "$REFDIR/genomes/hg38.fa.gz"
 # Index it
 samtools faidx "$REFDIR/genomes/hg38.fa.gz"
 
-# 2. Create a dummy REVEL TSV.gz
-# Annovar REVEL format: #Chr, Start, End, Ref, Alt, Score
-REVEL_TSV="$REFDIR/ref/revel_hg38.tsv.gz"
-cat <<EOF > "$OUTDIR/revel.tsv"
-#Chr	Start	End	Ref	Alt	Score
-chr1	100	100	A	G	0.85
-chr1	200	200	C	T	0.45
+# 2. Create a dummy PhyloP TSV.gz
+# Annovar PhyloP format: #Chr, Start, End, Score
+PHYLOP_TSV="$REFDIR/ref/phylop_hg38.tsv.gz"
+cat <<EOF > "$OUTDIR/phylop.tsv"
+#Chr	Start	End	Score
+chr1	100	100	2.5
+chr1	200	200	0.5
 EOF
-bgzip -c "$OUTDIR/revel.tsv" > "$REVEL_TSV"
-tabix -s 1 -b 2 -e 2 "$REVEL_TSV"
+bgzip -c "$OUTDIR/phylop.tsv" > "$PHYLOP_TSV"
+tabix -s 1 -b 2 -e 2 "$PHYLOP_TSV"
 
 # 3. Create a dummy input VCF with two variants
 INPUT_VCF="$OUTDIR/input.vcf.gz"
@@ -44,57 +44,57 @@ bgzip -c "$OUTDIR/input.vcf" > "$INPUT_VCF"
 tabix -p vcf "$INPUT_VCF"
 
 echo "--------------------------------------------------------"
-echo "  WGS Extract CLI: VCF REVEL Smoke Test"
+echo "  WGS Extract CLI: VCF PhyloP Smoke Test"
 echo "--------------------------------------------------------"
 
-# 4. Run revel command (Annotation only)
-echo ":: Running REVEL annotation..."
-uv run wgsextract vcf revel \
+# 4. Run phylop command (Annotation only)
+echo ":: Running PhyloP annotation..."
+uv run wgsextract vcf phylop \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR"
 
-if [ $? -eq 0 ] && [ -f "$OUTDIR/revel_annotated.vcf.gz" ]; then
-    echo "✅ Success: 'vcf revel' completed."
+if [ $? -eq 0 ] && [ -f "$OUTDIR/phylop_annotated.vcf.gz" ]; then
+    echo "✅ Success: 'vcf phylop' completed."
     # Check if annotation worked
-    VAL=$(zgrep "REVEL=0.85" "$OUTDIR/revel_annotated.vcf.gz")
+    VAL=$(zgrep "PHYLOP=2.5" "$OUTDIR/phylop_annotated.vcf.gz")
     if [ -n "$VAL" ]; then
-        echo "✅ Success: Annotation confirmed (REVEL=0.85 found)."
+        echo "✅ Success: Annotation confirmed (PHYLOP=2.5 found)."
     else
-        echo "❌ Failure: REVEL annotation missing in output."
-        zgrep -v "^#" "$OUTDIR/revel_annotated.vcf.gz"
+        echo "❌ Failure: PhyloP annotation missing in output."
+        zgrep -v "^#" "$OUTDIR/phylop_annotated.vcf.gz"
         exit 1
     fi
 else
-    echo "❌ Failure: 'vcf revel' failed or missing output."
+    echo "❌ Failure: 'vcf phylop' failed or missing output."
     exit 1
 fi
 
-# 5. Run revel command (with Filtering)
-echo ":: Running REVEL annotation + filtering (score >= 0.5)..."
-uv run wgsextract vcf revel \
+# 5. Run phylop command (with Filtering)
+echo ":: Running PhyloP annotation + filtering (score >= 2.0)..."
+uv run wgsextract vcf phylop \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --min-score 0.5
+    --min-score 2.0
 
-if [ $? -eq 0 ] && [ -f "$OUTDIR/revel_gt_0.5.vcf.gz" ]; then
-    echo "✅ Success: REVEL filtering produced output."
-    # Should only have chr1:100 (0.85), not chr1:200 (0.45)
-    COUNT=$(zgrep -v "^#" "$OUTDIR/revel_gt_0.5.vcf.gz" | wc -l)
+if [ $? -eq 0 ] && [ -f "$OUTDIR/phylop_gt_2.0.vcf.gz" ]; then
+    echo "✅ Success: PhyloP filtering produced output."
+    # Should only have chr1:100 (2.5), not chr1:200 (0.5)
+    COUNT=$(zgrep -v "^#" "$OUTDIR/phylop_gt_2.0.vcf.gz" | wc -l)
     if [ "$COUNT" -eq 1 ]; then
         echo "✅ Success: Filtered correctly (1 variant remains)."
     else
         echo "❌ Failure: Incorrect number of variants after filter ($COUNT)."
-        zgrep -v "^#" "$OUTDIR/revel_gt_0.5.vcf.gz"
+        zgrep -v "^#" "$OUTDIR/phylop_gt_2.0.vcf.gz"
         exit 1
     fi
 else
-    echo "❌ Failure: REVEL filtering failed or missing output."
+    echo "❌ Failure: PhyloP filtering failed or missing output."
     exit 1
 fi
 
 echo ""
 echo "========================================================"
-echo "VCF REVEL Smoke Test: ALL PASSED"
+echo "VCF PhyloP Smoke Test: ALL PASSED"
 echo "========================================================"

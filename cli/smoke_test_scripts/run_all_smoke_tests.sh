@@ -68,7 +68,9 @@ VCF_TESTS=(
     "test_vcf_trio.sh"
     "test_vcf_clinvar.sh"
     "test_vcf_revel.sh"
+    "test_vcf_phylop.sh"
     "test_vcf_gnomad.sh"
+    "test_vcf_chain_annotate.sh"
 )
 
 REAL_DATA_TESTS=(

@@ -187,6 +187,24 @@ def register(subparsers, base_parser):
     )
     revel_parser.set_defaults(func=cmd_revel)
 
+    phylop_parser = vcf_subs.add_parser(
+        "phylop",
+        parents=[base_parser],
+        help="Annotate VCF with PhyloP conservation scores.",
+    )
+    phylop_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    phylop_parser.add_argument(
+        "--phylop-file", help="Path to PhyloP TSV or VCF data file."
+    )
+    phylop_parser.add_argument(
+        "--min-score",
+        type=float,
+        help="Minimum PhyloP score to filter for (e.g., 2.0).",
+    )
+    phylop_parser.set_defaults(func=cmd_phylop)
+
     gnomad_parser = vcf_subs.add_parser(
         "gnomad",
         parents=[base_parser],
@@ -202,6 +220,26 @@ def register(subparsers, base_parser):
         help="Maximum Allele Frequency to filter for (e.g., 0.01 for 1%%).",
     )
     gnomad_parser.set_defaults(func=cmd_gnomad)
+
+    chain_annotate_parser = vcf_subs.add_parser(
+        "chain-annotate",
+        parents=[base_parser],
+        help="Sequentially apply multiple annotations to a single VCF.",
+    )
+    chain_annotate_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    chain_annotate_parser.add_argument(
+        "--annotations",
+        default="clinvar,revel,phylop,gnomad,vep",
+        help="Comma-separated list of annotations to apply in order (default: clinvar,revel,phylop,gnomad,vep).",
+    )
+    chain_annotate_parser.add_argument(
+        "--keep-intermediates",
+        action="store_true",
+        help="Keep intermediate VCF files generated during the chain process.",
+    )
+    chain_annotate_parser.set_defaults(func=cmd_chain_annotate)
 
 
 def get_base_args(args):
@@ -1053,13 +1091,20 @@ def cmd_revel(args):
             ["bcftools", "index", "-s", input_vcf], capture_output=True, text=True
         )
         v_chroms = [l.split("\t")[0] for l in res_v.stdout.strip().split("\n")]
-        res_r = subprocess.run(
-            ["bcftools", "index", "-s", revel_vcf], capture_output=True, text=True
-        )
-        r_chroms = [l.split("\t")[0] for l in res_r.stdout.strip().split("\n")]
+
+        if revel_vcf.lower().endswith((".vcf", ".vcf.gz")):
+            res_r = subprocess.run(
+                ["bcftools", "index", "-s", revel_vcf], capture_output=True, text=True
+            )
+            r_chroms = [l.split("\t")[0] for l in res_r.stdout.strip().split("\n")]
+        else:
+            res_r = subprocess.run(
+                ["tabix", "-l", revel_vcf], capture_output=True, text=True
+            )
+            r_chroms = res_r.stdout.strip().split("\n")
 
         v_has_chr = any(c.startswith("chr") for c in v_chroms)
-        r_has_chr = any(c.startswith("chr") for c in r_chroms)
+        r_has_chr = any(c.startswith("chr") for c in r_chroms if c)
 
         if v_has_chr != r_has_chr:
             import tempfile
@@ -1172,6 +1217,174 @@ def cmd_revel(args):
             logging.error(f"REVEL filtering failed: {e}")
     else:
         logging.info(LOG_MESSAGES["vcf_revel_done"].format(output=ann_out))
+
+
+def cmd_phylop(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(LOG_MESSAGES["vcf_phylop_start"].format(input=input_file))
+
+    # Resolve PhyloP data file
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    phylop_file = args.phylop_file if args.phylop_file else lib.phylop_file
+
+    if not phylop_file:
+        logging.error(LOG_MESSAGES["vcf_phylop_missing"])
+        return
+
+    logging.info(LOG_MESSAGES["vcf_phylop_resolve"].format(path=phylop_file))
+
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    phylop_vcf = ensure_vcf_prepared(phylop_file)
+
+    # 2. Match chromosome styles (chr1 vs 1)
+    normalized_input = input_vcf
+    needs_cleanup = False
+    try:
+        res_v = subprocess.run(
+            ["bcftools", "index", "-s", input_vcf], capture_output=True, text=True
+        )
+        v_chroms = [l.split("\t")[0] for l in res_v.stdout.strip().split("\n")]
+
+        if phylop_vcf.lower().endswith((".vcf", ".vcf.gz")):
+            res_p = subprocess.run(
+                ["bcftools", "index", "-s", phylop_vcf], capture_output=True, text=True
+            )
+            p_chroms = [l.split("\t")[0] for l in res_p.stdout.strip().split("\n")]
+        else:
+            res_p = subprocess.run(
+                ["tabix", "-l", phylop_vcf], capture_output=True, text=True
+            )
+            p_chroms = res_p.stdout.strip().split("\n")
+
+        v_has_chr = any(c.startswith("chr") for c in v_chroms)
+        p_has_chr = any(c.startswith("chr") for c in p_chroms if c)
+
+        if v_has_chr != p_has_chr:
+            import tempfile
+
+            fd, map_path = tempfile.mkstemp(suffix=".map", dir=outdir)
+            with os.fdopen(fd, "w") as f:
+                for vc in v_chroms:
+                    if v_has_chr and not p_has_chr:
+                        pc = vc[3:] if vc.startswith("chr") else vc
+                        if pc == "MT":
+                            pc = "M"
+                        f.write(f"{vc} {pc}\n")
+                    elif not v_has_chr and p_has_chr:
+                        pc = "chr" + vc
+                        if pc == "chrMT":
+                            pc = "chrM"
+                        f.write(f"{vc} {pc}\n")
+
+            norm_out = os.path.join(outdir, "input_phylop_norm.vcf.gz")
+            logging.info(
+                f"Normalizing chromosome naming for PhyloP: {'chr1 -> 1' if v_has_chr else '1 -> chr1'}"
+            )
+            subprocess.run(
+                [
+                    "bcftools",
+                    "annotate",
+                    "--rename-chrs",
+                    map_path,
+                    "-Oz",
+                    "-o",
+                    norm_out,
+                    input_vcf,
+                ],
+                check=True,
+            )
+            ensure_vcf_indexed(norm_out)
+            os.remove(map_path)
+            normalized_input = norm_out
+            needs_cleanup = True
+    except Exception as e:
+        logging.debug(f"Chromosome normalization failed: {e}")
+
+    # 3. Annotate with PhyloP
+    ann_out = os.path.join(outdir, "phylop_annotated.vcf.gz")
+    header_tmp = None
+    try:
+        # Annovar PhyloP TSV: #Chr, Start, End, Score
+        # We want CHROM=1, POS=2, Score=4
+        cols = "CHROM,POS,-,INFO/PHYLOP"
+        annotate_args = [
+            "bcftools",
+            "annotate",
+            "-a",
+            phylop_vcf,
+            "-Oz",
+            "-o",
+            ann_out,
+        ]
+
+        if phylop_vcf.lower().endswith((".vcf", ".vcf.gz")):
+            annotate_args.extend(["-c", "INFO/PHYLOP"])
+        else:
+            import tempfile
+
+            fd, header_tmp = tempfile.mkstemp(suffix=".hdr", dir=outdir)
+            with os.fdopen(fd, "w") as f:
+                f.write(
+                    '##INFO=<ID=PHYLOP,Number=1,Type=Float,Description="PhyloP conservation score">\n'
+                )
+            annotate_args.extend(["-c", cols, "-h", header_tmp])
+
+        annotate_args.append(normalized_input)
+        run_command(annotate_args)
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"PhyloP annotation failed: {e}")
+        return
+    finally:
+        if header_tmp and os.path.exists(header_tmp):
+            os.remove(header_tmp)
+        if needs_cleanup and os.path.exists(normalized_input):
+            os.remove(normalized_input)
+            if os.path.exists(normalized_input + ".tbi"):
+                os.remove(normalized_input + ".tbi")
+
+    # 4. Optional Filtering
+    if args.min_score is not None:
+        path_out = os.path.join(outdir, f"phylop_gt_{args.min_score}.vcf.gz")
+        logging.info(
+            LOG_MESSAGES["vcf_phylop_filtering"].format(
+                min_score=args.min_score, output=path_out
+            )
+        )
+        try:
+            filter_expr = f"PHYLOP >= {args.min_score}"
+            run_command(
+                [
+                    "bcftools",
+                    "filter",
+                    "-i",
+                    filter_expr,
+                    "-Oz",
+                    "-o",
+                    path_out,
+                    ann_out,
+                ]
+            )
+            ensure_vcf_indexed(path_out)
+            logging.info(LOG_MESSAGES["vcf_phylop_done"].format(output=path_out))
+        except Exception as e:
+            logging.error(f"PhyloP filtering failed: {e}")
+    else:
+        logging.info(LOG_MESSAGES["vcf_phylop_done"].format(output=ann_out))
 
 
 def cmd_gnomad(args):
@@ -1640,3 +1853,93 @@ def cmd_deepvariant(args):
     except Exception as e:
         logging.error(f"DeepVariant failed: {e}")
         sys.exit(1)
+
+
+def cmd_chain_annotate(args):
+    import shutil
+
+    verify_dependencies(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    annotations = [a.strip().lower() for a in args.annotations.split(",") if a.strip()]
+
+    if not annotations:
+        logging.error("No valid annotations provided in --annotations.")
+        return
+
+    logging.info(f"Starting chained annotation with: {', '.join(annotations)}")
+
+    current_input = ensure_vcf_prepared(input_file)
+    intermediate_files = []
+
+    try:
+        for i, ann in enumerate(annotations):
+            step_outdir = os.path.join(outdir, f"chain_step_{i + 1}_{ann}")
+            os.makedirs(step_outdir, exist_ok=True)
+
+            logging.info(f"[{i + 1}/{len(annotations)}] Running '{ann}' annotation...")
+
+            cmd = ["uv", "run", "wgsextract"]
+
+            if ann == "vep":
+                cmd.extend(["vep", "run"])
+            elif ann in ["clinvar", "revel", "phylop", "gnomad"]:
+                cmd.extend(["vcf", ann])
+            else:
+                logging.warning(f"Unknown annotation type '{ann}', skipping.")
+                continue
+
+            cmd.extend(["--input", current_input, "--outdir", step_outdir])
+
+            if args.ref:
+                cmd.extend(["--ref", args.ref])
+
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Annotation step '{ann}' failed. Aborting chain.")
+                return
+
+            # Find the output VCF from this step
+            out_files = [
+                f
+                for f in os.listdir(step_outdir)
+                if f.endswith(".vcf.gz")
+                and not f.endswith(".norm.vcf.gz")
+                and "gt_" not in f
+            ]
+            # vep might output something like out.vcf.gz, others output clinvar_annotated.vcf.gz etc.
+
+            if not out_files:
+                logging.error(f"No VCF output found for step '{ann}'. Aborting chain.")
+                return
+
+            # Assume the newest VCF is the result
+            out_files_paths = [os.path.join(step_outdir, f) for f in out_files]
+            latest_out = max(out_files_paths, key=os.path.getmtime)
+
+            intermediate_files.append(latest_out)
+            current_input = latest_out
+            logging.info(f"Step '{ann}' completed. Intermediate file: {latest_out}")
+
+        # Finalize
+        final_out = os.path.join(outdir, "chain_annotated.vcf.gz")
+
+        shutil.copy2(current_input, final_out)
+        if os.path.exists(current_input + ".tbi"):
+            shutil.copy2(current_input + ".tbi", final_out + ".tbi")
+
+        logging.info(f"✅ Chain annotation complete: {final_out}")
+
+    finally:
+        if not getattr(args, "keep_intermediates", False):
+            logging.info("Cleaning up intermediate files...")
+            for i, ann in enumerate(annotations):
+                step_outdir = os.path.join(outdir, f"chain_step_{i + 1}_{ann}")
+                if os.path.exists(step_outdir):
+                    shutil.rmtree(step_outdir, ignore_errors=True)

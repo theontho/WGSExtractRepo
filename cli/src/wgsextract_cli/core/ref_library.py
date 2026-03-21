@@ -285,6 +285,11 @@ REVEL_URLS = {
     "hg19": "http://www.openbioinformatics.org/annovar/download/hg19_revel.txt.gz",
 }
 
+PHYLOP_URLS = {
+    "hg38": "http://www.openbioinformatics.org/annovar/download/hg38_phyloP100way.txt.gz",
+    "hg19": "http://www.openbioinformatics.org/annovar/download/hg19_phyloP100way.txt.gz",
+}
+
 GNOMAD_URLS = {
     "hg38": "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/exomes/gnomad.exomes.r2.1.1.sites.liftover_grch38.vcf.bgz",
     "hg19": "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/vcf/exomes/gnomad.exomes.r2.1.1.sites.vcf.bgz",
@@ -357,6 +362,45 @@ def download_revel(reflib_dir, cancel_event=None, progress_callback=None):
             )
         except Exception as e:
             logging.error(f"Failed to index REVEL {build}: {e}")
+            success = False
+
+    return success
+
+
+def download_phylop(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes PhyloP conservation scores for hg19 and hg38."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in PHYLOP_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # We use .tsv.gz suffix for consistency in our app's search logic
+        dest_path = os.path.join(target_dir, f"phylop_{build}.tsv.gz")
+        logging.info(f"Downloading PhyloP {build} from Annovar mirrors...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # Ensure BGZF format before indexing (Annovar mirrors are usually standard gzip)
+        dest_path = ensure_bgzf(dest_path, None, cancel_event) or dest_path
+
+        # Index the TSV
+        logging.info(f"Indexing PhyloP {build}...")
+        try:
+            # Annovar PhyloP format: #Chr, Start, End, Score
+            # We use bcftools annotate with CHROM=1, POS=2
+            subprocess.run(
+                ["tabix", "-f", "-s", "1", "-b", "2", "-e", "2", dest_path], check=True
+            )
+        except Exception as e:
+            logging.error(f"Failed to index PhyloP {build}: {e}")
             success = False
 
     return success

@@ -152,6 +152,7 @@ class ReferenceLibrary:
         self.ref_vcf_tab = None
         self.clinvar_vcf = None
         self.revel_file = None
+        self.phylop_file = None
         self.gnomad_vcf = None
         self.ploidy_file = None
         self.vep_cache = None
@@ -319,6 +320,20 @@ class ReferenceLibrary:
                 if self.revel_file:
                     break
 
+        # Look for PhyloP data
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                # Support .tsv.gz or .vcf.gz
+                for ext in [".tsv.gz", ".vcf.gz"]:
+                    potential = os.path.join(search_dir, f"phylop_{self.build}{ext}")
+                    if os.path.exists(potential):
+                        self.phylop_file = potential
+                        break
+                if self.phylop_file:
+                    break
+
         # Look for gnomAD VCF
         if self.build:
             for search_dir in [self.root, os.path.join(self.root, "ref")]:
@@ -395,7 +410,7 @@ def verify_paths_exist(paths_dict):
 
 def ensure_vcf_indexed(vcf_path):
     """Ensure VCF has a .tbi index, creating it if needed."""
-    if not vcf_path.endswith(".gz"):
+    if not (vcf_path.endswith(".gz") or vcf_path.endswith(".bgz")):
         # We can't index plain VCF easily with tabix
         return
 
@@ -406,8 +421,8 @@ def ensure_vcf_indexed(vcf_path):
 
 
 def ensure_vcf_prepared(vcf_path):
-    """Ensure VCF is bgzipped and indexed, returns path to .gz file."""
-    if vcf_path.endswith(".gz"):
+    """Ensure VCF is bgzipped and indexed, returns path to compressed file."""
+    if vcf_path.endswith(".gz") or vcf_path.endswith(".bgz"):
         ensure_vcf_indexed(vcf_path)
         return vcf_path
 
