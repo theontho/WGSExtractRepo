@@ -270,7 +270,7 @@ def calculate_bsd_sum(file_path):
     return checksum, blocks
 
 
-def run_command(cmd, capture_output=False, check=True):
+def run_command(cmd, capture_output=False, check=True, env=None):
     """Helper to run subprocess with logging and registry."""
     cmd_str = " ".join(cmd)
     logging.debug(f"Running: {cmd_str}")
@@ -280,6 +280,7 @@ def run_command(cmd, capture_output=False, check=True):
         stdout=subprocess.PIPE if capture_output else None,
         stderr=subprocess.PIPE if capture_output else None,
         text=True,
+        env=env,
     )
 
     proc_registry.register_process(cmd_str, process)

@@ -107,13 +107,14 @@ def register(subparsers, base_parser):
         help=CLI_HELP["arg_father"],
     )
     trio_parser.add_argument("--proband", help="VCF file for the child")
-    trio_parser.set_defaults(func=cmd_trio)
     trio_parser.add_argument(
         "--mode",
         choices=["denovo", "recessive", "comphet", "all"],
         default="denovo",
         help="Inheritance mode to filter for",
     )
+    trio_parser.add_argument("-r", "--region", help="Chromosomal region")
+    trio_parser.set_defaults(func=cmd_trio)
 
     cnv_parser = vcf_subs.add_parser(
         "cnv", parents=[base_parser], help=CLI_HELP["cmd_cnv"]
@@ -611,6 +612,7 @@ def cmd_trio(args):
 
     # 2. Merge
     merged_vcf = os.path.join(outdir, "merged_trio_tmp.vcf.gz")
+    region_args = ["-r", args.region] if getattr(args, "region", None) else []
     try:
         subprocess.run(
             [
@@ -620,6 +622,9 @@ def cmd_trio(args):
                 "-Oz",
                 "-o",
                 merged_vcf,
+            ]
+            + region_args
+            + [
                 p_vcf,
                 m_vcf_norm,
                 f_vcf_norm,
@@ -787,11 +792,18 @@ def cmd_cnv(args):
                 "samtools",
                 "view",
                 "-bh",
-                args.input,
-                args.region,
-                "-o",
-                temp_bam,
             ]
+            if args.input.lower().endswith(".cram"):
+                view_cmd.extend(["-T", ref])
+
+            view_cmd.extend(
+                [
+                    args.input,
+                    args.region,
+                    "-o",
+                    temp_bam,
+                ]
+            )
             subprocess.run(view_cmd, check=True)
             subprocess.run(["samtools", "index", temp_bam], check=True)
             input_file = temp_bam
@@ -849,11 +861,18 @@ def cmd_sv(args):
                 "samtools",
                 "view",
                 "-bh",
-                args.input,
-                args.region,
-                "-o",
-                temp_bam,
             ]
+            if args.input.lower().endswith(".cram"):
+                view_cmd.extend(["-T", ref])
+
+            view_cmd.extend(
+                [
+                    args.input,
+                    args.region,
+                    "-o",
+                    temp_bam,
+                ]
+            )
             subprocess.run(view_cmd, check=True)
             subprocess.run(["samtools", "index", temp_bam], check=True)
             input_file = temp_bam
@@ -1074,67 +1093,98 @@ def cmd_deepvariant(args):
 
     try:
         if use_bioconda:
-            # 0. Find checkpoint
-            checkpoint = args.checkpoint
-            if not checkpoint:
-                # Try to find default bioconda checkpoints
-                # Usually in ../share/deepvariant/models/WGS/model.ckpt
-                dv_bin_dir = os.path.dirname(executable)
-                potential_base = os.path.abspath(
-                    os.path.join(dv_bin_dir, "..", "share", "deepvariant", "models")
-                )
-                if model_type == "WGS":
-                    potential = os.path.join(potential_base, "WGS", "model.ckpt")
-                else:
-                    potential = os.path.join(potential_base, "WES", "model.ckpt")
-
-                if os.path.exists(potential + ".index"):
-                    checkpoint = potential
-                    logging.info(f"Auto-detected DeepVariant checkpoint: {checkpoint}")
-                else:
-                    logging.error(
-                        "❌: DeepVariant checkpoint not found. Please provide it via --checkpoint."
-                    )
-                    logging.error(f"     Searched: {potential}")
-                    sys.exit(1)
+            # 0. Prepare clean environment for conda run
+            clean_env = os.environ.copy()
+            dv_bin_dir = os.path.dirname(executable)
+            # Remove virtualenv stuff that interferes with conda internal python
+            clean_env.pop("VIRTUAL_ENV", None)
+            clean_env.pop("PYTHONPATH", None)
+            # Put Bioconda at the front
+            clean_env["PATH"] = dv_bin_dir + os.pathsep + clean_env.get("PATH", "")
 
             # Multi-step pipeline for Bioconda
-            examples = os.path.join(outdir, "dv_examples.tfrecord@" + threads + ".gz")
+            examples = os.path.join(outdir, "dv_examples.tfrecord.gz")
             call_vcf = os.path.join(outdir, "dv_calls.tfrecord.gz")
+            log_dir = os.path.join(outdir, "dv_logs")
+            os.makedirs(log_dir, exist_ok=True)
+
+            # Get sample name from BAM
+            sample_name = "sample"
+            try:
+                res = subprocess.run(
+                    ["samtools", "view", "-H", args.input],
+                    capture_output=True,
+                    text=True,
+                    env=clean_env,
+                )
+                for line in res.stdout.splitlines():
+                    if line.startswith("@RG"):
+                        for part in line.split("\t"):
+                            if part.startswith("SM:"):
+                                sample_name = part[3:]
+                                break
+            except Exception:
+                pass
 
             # 1. Make Examples
             logging.info("DeepVariant Step 1/3: Making examples...")
             run_command(
                 [
+                    "conda",
+                    "run",
+                    "-n",
+                    "wgse",
+                    "--no-capture-output",
                     "dv_make_examples.py",
-                    "--mode",
-                    "calling",
+                    "--cores",
+                    threads,
                     "--ref",
                     ref,
                     "--reads",
                     args.input,
+                    "--sample",
+                    sample_name,
                     "--examples",
                     examples,
+                    "--logdir",
+                    log_dir,
                 ]
-                + region_args
+                + region_args,
+                env=clean_env,
             )
             # 2. Call Variants
             logging.info("DeepVariant Step 2/3: Calling variants...")
-            run_command(
-                [
-                    "dv_call_variants.py",
-                    "--examples",
-                    examples,
-                    "--outfile",
-                    call_vcf,
-                    "--checkpoint",
-                    checkpoint,
-                ]
-            )
+            call_cmd = [
+                "conda",
+                "run",
+                "-n",
+                "wgse",
+                "--no-capture-output",
+                "dv_call_variants.py",
+                "--cores",
+                threads,
+                "--examples",
+                examples,
+                "--outfile",
+                call_vcf,
+                "--sample",
+                sample_name,
+                "--model",
+                model_type.lower(),
+            ]
+            if args.checkpoint:
+                call_cmd.extend(["--checkpoint", args.checkpoint])
+
+            run_command(call_cmd, env=clean_env)
             # 3. Postprocess
             logging.info("DeepVariant Step 3/3: Postprocessing...")
             run_command(
                 [
+                    "conda",
+                    "run",
+                    "-n",
+                    "wgse",
+                    "--no-capture-output",
                     "dv_postprocess_variants.py",
                     "--ref",
                     ref,
@@ -1142,7 +1192,8 @@ def cmd_deepvariant(args):
                     call_vcf,
                     "--outfile",
                     intermediate_vcf,
-                ]
+                ],
+                env=clean_env,
             )
             # Cleanup intermediate tfrecords
             for f in os.listdir(outdir):
