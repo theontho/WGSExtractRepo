@@ -32,7 +32,22 @@ else
     exit 1
 fi
 
-REF="$FASTQDIR/fake_ref_hg38_scaled.fa"
+REF=$(ls "$FASTQDIR"/fake_ref_hg38_*.fa | head -n 1)
+if [ ! -f "$REF" ]; then
+    # Maybe it used a real library reference, try to find it from logs or assume it's NOT what we want for a self-contained smoke test.
+    # Force it to be local by passing --ref to qc fake-data
+    echo ":: Retrying FASTQ generation with forced local ref..."
+    uv run wgsextract qc fake-data \
+        --outdir "$FASTQDIR" \
+        --build hg38 \
+        --type fastq \
+        --coverage 0.001 \
+        --seed 123 \
+        --ref "$FASTQDIR" # Passing a directory without fasta forces creation
+    REF=$(ls "$FASTQDIR"/fake_ref_hg38_*.fa | head -n 1)
+fi
+
+echo ":: Using reference: $REF"
 
 # 2. Align to BAM
 echo ":: Testing 'align' to BAM..."

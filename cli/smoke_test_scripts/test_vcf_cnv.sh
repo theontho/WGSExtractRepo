@@ -8,12 +8,18 @@ fi
 # Add common miniconda and homebrew paths to PATH
 export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
 
-# Configuration - Pull paths from .env.local if present, otherwise use defaults
-INPUT_BAM="${WGSE_INPUT:-out/fake_30x/fake.bam}"
-REF_FASTA="${WGSE_REF_FASTA:-out/fake_30x/fake_ref.fa}"
-MAP_FILE="${WGSE_MAP:-}"
+# Configuration (Hardcode to fake data for smoke test)
+INPUT_BAM="out/fake_30x/fake.bam"
+REF_FASTA="out/fake_30x/fake_ref.fa"
+MAP_FILE="out/fake_30x/fake.map"
 OUTDIR="out/smoke_test_vcf_cnv"
-REGION="${WGSE_REGION:-chr1}"
+REGION="chr1"
+
+# Ensure map file exists
+if [ ! -f "$MAP_FILE" ]; then
+    echo ">chr1" > "$MAP_FILE"
+    echo "11111111111111111111111111111111111111111111111111" >> "$MAP_FILE"
+fi
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

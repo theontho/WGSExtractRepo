@@ -171,6 +171,9 @@ def cmd_vcf_qc(args):
             subprocess.run(["bcftools", "stats", input_file], stdout=f, check=True)
     except subprocess.CalledProcessError as e:
         logging.error(f"VCF stats failed: {e}")
+        import sys
+
+        sys.exit(1)
 
 
 def cmd_fake_data(args):
@@ -397,17 +400,21 @@ def generate_fake_genomics_data(
         ref_path = os.path.join(
             outdir, f"fake_ref_{build}_{mode.lower().replace(' ', '_')}.fa"
         )
-        if not os.path.exists(ref_path):
-            with open(ref_path, "w") as f:
-                for idx, (name, length) in enumerate(chroms.items()):
-                    f.write(f">{name}\n")
-                    # Writing large files in chunks is faster
-                    chunk_size = 1000000
-                    for i in range(0, length, chunk_size):
-                        this_chunk = min(chunk_size, length - i)
-                        # Use chromosome-specific noise
-                        f.write(get_noise_seq(idx, i, this_chunk) + "\n")
-            run_command(["samtools", "faidx", ref_path])
+
+    if not os.path.exists(str(ref_path)):
+        logging.info(f"Creating fake reference at {ref_path}...")
+        with open(ref_path, "w") as f:
+            for idx, (name, length) in enumerate(chroms.items()):
+                f.write(f">{name}\n")
+                # Writing large files in chunks is faster
+                chunk_size = 1000000
+                for i in range(0, length, chunk_size):
+                    this_chunk = min(chunk_size, length - i)
+                    # Use chromosome-specific noise
+                    f.write(get_noise_seq(idx, i, this_chunk) + "\n")
+        run_command(["samtools", "faidx", ref_path])
+    else:
+        logging.info(f"Using reference: {ref_path}")
 
     # 2. Create fake BAM with reads on all chromosomes based on coverage
     # We generate reads in sorted order to avoid a massive sort operation
@@ -419,18 +426,6 @@ def generate_fake_genomics_data(
     need_bam = any(t in types for t in ["bam", "cram", "fastq"])
     if need_bam:
         with open(sam_path, "w") as f:
-            header = ""
-            if (
-                ref_path
-                and os.path.exists(str(ref_path))
-                and not ref_path.endswith(
-                    f"fake_ref_{build}_{mode.lower().replace(' ', '_')}.fa"
-                )
-            ):
-                header = run_command(
-                    ["samtools", "view", "-H", ref_path], capture_output=True
-                ).stdout
-
             f.write("@HD\tVN:1.6\tSO:coordinate\n")
 
             # Embed MD5 in Read Group Description so it survives into BAM and is visible to samtools view -H
@@ -442,13 +437,9 @@ def generate_fake_genomics_data(
             if target_md5:
                 f.write(f"@CO\tMD5:{target_md5}\n")
 
-            if not header:
-                for name, length in chroms.items():
-                    f.write(f"@SQ\tSN:{name}\tLN:{length}\n")
-            else:
-                for line in header.splitlines():
-                    if line.startswith("@SQ"):
-                        f.write(line + "\n")
+            # Always write SQ lines from chroms dict for fake data
+            for name, length in chroms.items():
+                f.write(f"@SQ\tSN:{name}\tLN:{length}\n")
 
             # Generate reads chromosome by chromosome (sorted)
             for idx, (name, length) in enumerate(chroms.items()):

@@ -49,10 +49,11 @@ fi
 
 # 3. Convert to CRAM
 echo ":: Testing 'bam to-cram'..."
+REF=$(ls "$FAKEDATA"/fake_ref_hg38_*.fa | head -n 1)
 uv run wgsextract bam to-cram \
     --input "$OUTDIR/test.bam" \
     --outdir "$OUTDIR" \
-    --ref "$FAKEDATA/fake_ref_hg38_scaled.fa"
+    --ref "$REF"
 
 if [ $? -eq 0 ] && [ -f "$OUTDIR/test.cram" ]; then
     echo "✅ Success: bam to-cram completed."
@@ -66,7 +67,7 @@ echo ":: Testing 'bam to-bam'..."
 uv run wgsextract bam to-bam \
     --input "$OUTDIR/test.cram" \
     --outdir "$OUTDIR" \
-    --ref "$FAKEDATA/fake_ref_hg38_scaled.fa"
+    --ref "$REF"
 
 if [ $? -eq 0 ] && [ -f "$OUTDIR/test.bam" ]; then
     echo "✅ Success: bam to-bam completed."

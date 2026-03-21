@@ -166,10 +166,16 @@ class ReferenceLibrary:
 
         # Look for Fasta
         if not self.fasta:
-            for f in REF_GENOME_FILENAMES:
-                potential = os.path.join(d, f)
-                if os.path.exists(potential):
-                    self.fasta = potential
+            # Check direct directory and 'genomes' subdirectory
+            for search_dir in [d, os.path.join(d, "genomes")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                for f in REF_GENOME_FILENAMES.values():
+                    potential = os.path.join(search_dir, f)
+                    if os.path.exists(potential):
+                        self.fasta = potential
+                        break
+                if self.fasta:
                     break
 
         if not self.fasta:
@@ -181,10 +187,18 @@ class ReferenceLibrary:
             self.fai = None
 
         # Build identification from path
-        if "hg38" in d.lower() or "grch38" in d.lower():
-            self.build = "hg38"
-        elif "hg19" in d.lower() or "grch37" in d.lower():
-            self.build = "hg19"
+        if self.fasta:
+            f_lower = self.fasta.lower()
+            if "hg38" in f_lower or "grch38" in f_lower:
+                self.build = "hg38"
+            elif "hg19" in f_lower or "grch37" in f_lower or "hs37d5" in f_lower:
+                self.build = "hg19"
+
+        if not self.build:
+            if "hg38" in d.lower() or "grch38" in d.lower():
+                self.build = "hg38"
+            elif "hg19" in d.lower() or "grch37" in d.lower():
+                self.build = "hg19"
 
         # Look for .dict
         self.dict_file = (
@@ -198,15 +212,35 @@ class ReferenceLibrary:
 
         # Look for ploidy
         if self.build:
-            ploidy_name = f"ploidy_{self.build}.txt"
-            potential = os.path.join(d, ploidy_name)
-            if os.path.exists(potential):
-                self.ploidy_file = potential
+            for search_dir in [
+                self.root,
+                os.path.join(self.root, "ref"),
+                os.path.join(self.root, "microarray"),
+            ]:
+                if not os.path.isdir(search_dir):
+                    continue
+                potential = os.path.join(search_dir, f"ploidy_{self.build}.txt")
+                if os.path.exists(potential):
+                    self.ploidy_file = potential
+                    break
+                # Generic name
+                potential = os.path.join(search_dir, "ploidy.txt")
+                if os.path.exists(potential):
+                    self.ploidy_file = potential
+                    break
 
         # Look for vep cache
-        vep_dir = os.path.join(d, "vep")
-        if os.path.isdir(vep_dir):
-            self.vep_cache = vep_dir
+        for search_dir in [self.root, os.path.join(self.root, "vep")]:
+            if os.path.isdir(search_dir) and any(
+                f.endswith("_GRCh38") or f.endswith("_GRCh37")
+                for f in os.listdir(search_dir)
+            ):
+                self.vep_cache = search_dir
+                break
+            vep_sub = os.path.join(search_dir, "vep")
+            if os.path.isdir(vep_sub):
+                self.vep_cache = vep_sub
+                break
 
         if skip_full_search:
             return
@@ -229,6 +263,8 @@ class ReferenceLibrary:
                 [
                     f"All_SNPs_{build_suffix}_ref.tab.gz",
                     f"All_SNPs_{build_suffix.upper()}_ref.tab.gz",
+                    f"All_SNPs_GRCh{build_suffix[-2:]}_ref.tab.gz",
+                    f"All_SNPs_grch{build_suffix[-2:]}_ref.tab.gz",
                 ]
             )
             if alt_build:
@@ -240,16 +276,20 @@ class ReferenceLibrary:
                     ]
                 )
 
-        for v in potential_vcf_names:
-            # Check same dir as fasta
-            potential = os.path.join(d, v)
-            if os.path.exists(potential):
-                self.ref_vcf_tab = potential
-                break
-            # Check microarray subfolder
-            potential = os.path.join(self.root, "microarray", v)
-            if os.path.exists(potential):
-                self.ref_vcf_tab = potential
+        # Check in root, ref/, and microarray/ subdirectories
+        for search_dir in [
+            self.root,
+            os.path.join(self.root, "ref"),
+            os.path.join(self.root, "microarray"),
+        ]:
+            if not os.path.isdir(search_dir):
+                continue
+            for v in potential_vcf_names:
+                potential = os.path.join(search_dir, v)
+                if os.path.exists(potential):
+                    self.ref_vcf_tab = potential
+                    break
+            if self.ref_vcf_tab:
                 break
 
 

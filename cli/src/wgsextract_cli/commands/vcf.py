@@ -1060,6 +1060,8 @@ def cmd_gatk(args):
 
 
 def cmd_deepvariant(args):
+    import shlex
+
     # DeepVariant can be run via:
     # 1. Official 'run_deepvariant' wrapper
     # 2. Bioconda 'dv_make_examples.py' + 'dv_call_variants.py' + 'dv_postprocess_variants.py'
@@ -1128,41 +1130,42 @@ def cmd_deepvariant(args):
 
             # 1. Make Examples
             logging.info("DeepVariant Step 1/3: Making examples...")
-            run_command(
+            make_cmd_inner = [
+                "dv_make_examples.py",
+                "--cores",
+                str(threads),
+                "--ref",
+                ref,
+                "--reads",
+                args.input,
+                "--sample",
+                sample_name,
+                "--examples",
+                examples,
+                "--logdir",
+                log_dir,
+            ] + region_args
+
+            subprocess.run(
                 [
                     "conda",
                     "run",
                     "-n",
                     "wgse",
                     "--no-capture-output",
-                    "dv_make_examples.py",
-                    "--cores",
-                    threads,
-                    "--ref",
-                    ref,
-                    "--reads",
-                    args.input,
-                    "--sample",
-                    sample_name,
-                    "--examples",
-                    examples,
-                    "--logdir",
-                    log_dir,
-                ]
-                + region_args,
+                    "bash",
+                    "-c",
+                    f"{' '.join(map(shlex.quote, make_cmd_inner))} < /dev/null",
+                ],
                 env=clean_env,
+                check=True,
             )
             # 2. Call Variants
             logging.info("DeepVariant Step 2/3: Calling variants...")
-            call_cmd = [
-                "conda",
-                "run",
-                "-n",
-                "wgse",
-                "--no-capture-output",
+            call_cmd_inner = [
                 "dv_call_variants.py",
                 "--cores",
-                threads,
+                str(threads),
                 "--examples",
                 examples,
                 "--outfile",
@@ -1173,27 +1176,46 @@ def cmd_deepvariant(args):
                 model_type.lower(),
             ]
             if args.checkpoint:
-                call_cmd.extend(["--checkpoint", args.checkpoint])
+                call_cmd_inner.extend(["--checkpoint", args.checkpoint])
 
-            run_command(call_cmd, env=clean_env)
-            # 3. Postprocess
-            logging.info("DeepVariant Step 3/3: Postprocessing...")
-            run_command(
+            subprocess.run(
                 [
                     "conda",
                     "run",
                     "-n",
                     "wgse",
                     "--no-capture-output",
-                    "dv_postprocess_variants.py",
-                    "--ref",
-                    ref,
-                    "--infile",
-                    call_vcf,
-                    "--outfile",
-                    intermediate_vcf,
+                    "bash",
+                    "-c",
+                    f"{' '.join(map(shlex.quote, call_cmd_inner))} < /dev/null",
                 ],
                 env=clean_env,
+                check=True,
+            )
+            # 3. Postprocess
+            logging.info("DeepVariant Step 3/3: Postprocessing...")
+            post_cmd_inner = [
+                "dv_postprocess_variants.py",
+                "--ref",
+                ref,
+                "--infile",
+                call_vcf,
+                "--outfile",
+                intermediate_vcf,
+            ]
+            subprocess.run(
+                [
+                    "conda",
+                    "run",
+                    "-n",
+                    "wgse",
+                    "--no-capture-output",
+                    "bash",
+                    "-c",
+                    f"{' '.join(map(shlex.quote, post_cmd_inner))} < /dev/null",
+                ],
+                env=clean_env,
+                check=True,
             )
             # Cleanup intermediate tfrecords
             for f in os.listdir(outdir):

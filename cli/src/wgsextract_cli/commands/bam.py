@@ -93,6 +93,16 @@ def get_base_args(args):
     try:
         md5_sig = calculate_bam_md5(args.input, None)
         resolved_ref = resolve_reference(args.ref, md5_sig)
+        # Ensure it's a file, not a directory
+        if resolved_ref and os.path.isdir(resolved_ref):
+            from wgsextract_cli.core.utils import REF_GENOME_FILENAMES
+
+            for f in REF_GENOME_FILENAMES:
+                potential = os.path.join(resolved_ref, f)
+                if os.path.exists(potential):
+                    resolved_ref = potential
+                    break
+
         logging.debug(f"Resolved reference: {resolved_ref}")
     except Exception as e:
         logging.error(f"Failed to initialize reference resolution: {e}")
@@ -102,6 +112,7 @@ def get_base_args(args):
     if resolved_ref:
         paths_to_check["--ref"] = resolved_ref
 
+    # If we still have a directory or None but ref was requested/required, we might fail later
     if not verify_paths_exist(paths_to_check):
         return None
 
@@ -182,15 +193,28 @@ def cmd_sort(args):
             LOG_MESSAGES["sorting_file"].format(input=args.input, output=out_file)
         )
         try:
-            p1 = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
-            p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout)
+            p1 = subprocess.Popen(
+                view_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            p2 = subprocess.Popen(sort_cmd, stdin=p1.stdout, stderr=subprocess.PIPE)
             if p1.stdout:
                 p1.stdout.close()
-            p2.communicate()
+            _, stderr2 = p2.communicate()
+            _, stderr1 = p1.communicate()
             if p2.returncode != 0:
-                logging.error("Sort failed.")
+                logging.error(
+                    f"Sort failed: {stderr2.decode() if stderr2 else 'Unknown error'}"
+                )
+                if stderr1:
+                    logging.error(f"View error: {stderr1.decode()}")
+                import sys
+
+                sys.exit(1)
         except Exception as e:
             logging.error(f"Execution failed: {e}")
+            import sys
+
+            sys.exit(1)
 
 
 def cmd_index(args):
@@ -210,6 +234,9 @@ def cmd_index(args):
         run_command(["samtools", "index", args.input])
     except Exception as e:
         logging.error(f"Indexing failed: {e}")
+        import sys
+
+        sys.exit(1)
 
 
 def cmd_unindex(args):
@@ -265,12 +292,17 @@ def cmd_unsort(args):
                     input=args.input, output=out_file
                 )
             )
-            run_command(
-                ["samtools", "reheader", newhead, args.input],
-                stdout=open(out_file, "w"),
-            )
+            with open(out_file, "w") as f_out:
+                subprocess.run(
+                    ["samtools", "reheader", newhead, args.input],
+                    stdout=f_out,
+                    check=True,
+                )
         except (subprocess.CalledProcessError, Exception) as e:
             logging.error(f"Failed to unsort {args.input}: {e}")
+            import sys
+
+            sys.exit(1)
 
 
 def cmd_tocram(args):
@@ -306,6 +338,9 @@ def cmd_tocram(args):
         run_command(["samtools", "index", out_file])
     except Exception as e:
         logging.error(f"Conversion to CRAM failed: {e}")
+        import sys
+
+        sys.exit(1)
 
 
 def cmd_tobam(args):
@@ -335,6 +370,9 @@ def cmd_tobam(args):
         run_command(["samtools", "index", out_file])
     except Exception as e:
         logging.error(f"Conversion to BAM failed: {e}")
+        import sys
+
+        sys.exit(1)
 
 
 def cmd_unalign(args):
@@ -358,7 +396,15 @@ def cmd_unalign(args):
     temp_needed, final_needed = get_free_space_needed(file_size, "Name", is_cram)
     check_free_space(outdir, temp_needed + final_needed)
 
-    se_arg = ["-0", args.se] if args.se else ["-0", "/dev/null"]
+    # Resolve output paths
+    out_r1 = args.r1 if os.path.isabs(args.r1) else os.path.join(outdir, args.r1)
+    out_r2 = args.r2 if os.path.isabs(args.r2) else os.path.join(outdir, args.r2)
+
+    out_se = "/dev/null"
+    if args.se:
+        out_se = args.se if os.path.isabs(args.se) else os.path.join(outdir, args.se)
+
+    se_arg = ["-0", out_se]
 
     with tempfile.TemporaryDirectory() as tempdir:
         region_args = [args.region] if args.region else []
@@ -382,7 +428,7 @@ def cmd_unalign(args):
             "sam",
         ]
         fastq_cmd = (
-            ["samtools", "fastq", "-1", args.r1, "-2", args.r2]
+            ["samtools", "fastq", "-1", out_r1, "-2", out_r2]
             + se_arg
             + ["-s", "/dev/null", "-n", "-@", threads, "-"]
         )
@@ -397,5 +443,13 @@ def cmd_unalign(args):
             if p2.stdout:
                 p2.stdout.close()
             p3.communicate()
+            if p3.returncode != 0:
+                logging.error("Unalign failed.")
+                import sys
+
+                sys.exit(1)
         except Exception as e:
             logging.error(f"Unalign failed: {e}")
+            import sys
+
+            sys.exit(1)

@@ -23,9 +23,10 @@ uv run wgsextract qc fake-data \
     --build hg38 \
     --type fastq \
     --coverage 0.0001 \
-    --seed 123
+    --seed 123 \
+    --ref "$FAKEREFDIR" # Passing dir without fasta forces creation
 
-REF_PATH="$FAKEREFDIR/fake_ref_hg38_scaled.fa"
+REF_PATH=$(ls "$FAKEREFDIR"/fake_ref_hg38_*.fa | head -n 1)
 
 if [ ! -f "$REF_PATH" ]; then
     echo "❌ Failure: Fake reference generation failed."

@@ -26,6 +26,11 @@ uv run wgsextract qc fake-data \
 
 if [ $? -eq 0 ] && [ -f "$OUTDIR/hg38/fake.bam" ] && [ -f "$OUTDIR/hg38/fake.vcf.gz" ]; then
     echo "✅ Success: hg38 BAM and VCF generated."
+    # Find the generated reference (it has Scaled in name usually)
+    FASTA=$(ls "$OUTDIR/hg38"/fake_ref_hg38_*.fa | head -n 1)
+    if [ -f "$FASTA" ]; then
+        cp "$FASTA" "$OUTDIR/hg38/fake_ref_hg38_scaled.fa"
+    fi
 else
     echo "❌ Failure: hg38 data generation failed."
     exit 1

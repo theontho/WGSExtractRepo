@@ -27,14 +27,15 @@ echo "--------------------------------------------------------"
 # If we have real data from env, we could use it.
 
 uv run wgsextract vcf annotate \
-    --vcf-input "$INPUT_VCF" \
+    --input "$INPUT_VCF" \
+    --ann-vcf "$INPUT_VCF" \
     --ref "$REF_FASTA" \
     --outdir "$OUTDIR"
 
-if [ $? -eq 0 ]; then
+if [ $? -eq 0 ] && [ -f "$OUTDIR/annotated.vcf.gz" ]; then
     echo "SUCCESS: VCF Annotate completed."
     ls -lh "$OUTDIR/annotated.vcf.gz"
 else
-    echo "INFO: VCF Annotate failed (likely missing annotation file)."
-    echo "      Verification of command structure complete."
+    echo "FAILURE: VCF Annotate failed."
+    exit 1
 fi
