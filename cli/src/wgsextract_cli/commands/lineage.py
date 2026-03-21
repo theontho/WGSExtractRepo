@@ -140,7 +140,9 @@ def cmd_ydna(args):
     yleaf_path = args.yleaf_path or get_tool_path("yleaf")
 
     if not verify_paths_exist({"--input": args.input, "--yleaf-path": yleaf_path}):
-        return
+        import sys
+
+        sys.exit(1)
 
     logging.debug(f"Input file: {os.path.abspath(args.input)}")
     logging.debug(f"Output directory: {os.path.abspath(args.outdir)}")
@@ -259,6 +261,9 @@ def cmd_ydna(args):
 
     except Exception as e:
         logging.error(f"Yleaf failed: {e}")
+        import sys
+
+        sys.exit(1)
     finally:
         if temp_vcf and os.path.exists(temp_vcf):
             try:
@@ -293,7 +298,9 @@ def cmd_mtdna(args):
     if not verify_paths_exist(
         {"--input": args.input, "--haplogrep-path": haplogrep_path}
     ):
-        return
+        import sys
+
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(args.input))
@@ -390,6 +397,9 @@ def cmd_mtdna(args):
         )
     except Exception as e:
         logging.error(f"Haplogrep failed: {e}")
+        import sys
+
+        sys.exit(1)
     finally:
         if temp_vcf and os.path.exists(temp_vcf):
             try:

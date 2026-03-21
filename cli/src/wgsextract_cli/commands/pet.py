@@ -83,10 +83,12 @@ def run(args):
     r2_args = [args.r2] if args.r2 else []
 
     try:
-        # BWA MEM -> Samtools view (BAM/CRAM)
-        sam_args = ["samtools", "view", "-bh"]
+        # Samtools sort (BAM/CRAM)
+        sam_args = ["samtools", "sort", "-t", threads]
         if args.format == "CRAM":
-            sam_args = ["samtools", "view", "-Ch", "--reference", ref_file]
+            sam_args += ["--reference", ref_file, "-O", "CRAM"]
+        else:
+            sam_args += ["-O", "BAM"]
         sam_args += ["-o", out_bam]
 
         p1 = subprocess.Popen(
@@ -100,14 +102,18 @@ def run(args):
 
         if p2.returncode != 0:
             logging.error("Alignment failed.")
-            return
+            import sys
+
+            sys.exit(1)
 
         logging.info(LOG_MESSAGES["pet_indexing"].format(format=args.format))
         run_command(["samtools", "index", out_bam])
 
     except Exception as e:
         logging.error(f"Alignment error: {e}")
-        return
+        import sys
+
+        sys.exit(1)
 
     # 2. Variant Calling (Simple MPileup + BCFTools)
     logging.info(LOG_MESSAGES["pet_calling"])
@@ -144,7 +150,9 @@ def run(args):
 
         if p2.returncode != 0:
             logging.error("Variant calling failed.")
-            return
+            import sys
+
+            sys.exit(1)
 
         logging.info("Indexing VCF...")
         run_command(["bcftools", "index", out_vcf])
@@ -154,3 +162,6 @@ def run(args):
 
     except Exception as e:
         logging.error(f"Variant calling error: {e}")
+        import sys
+
+        sys.exit(1)

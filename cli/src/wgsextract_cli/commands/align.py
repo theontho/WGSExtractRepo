@@ -82,10 +82,12 @@ def align_bwa(args):
         LOG_MESSAGES["aligning_reads"].format(input=args.r1, output=out_bam, tool="BWA")
     )
     try:
-        # Samtools view (BAM/CRAM)
-        sam_args = ["samtools", "view", "-bh"]
+        # Samtools sort (BAM/CRAM)
+        sam_args = ["samtools", "sort", "-t", threads]
         if args.format == "CRAM":
-            sam_args = ["samtools", "view", "-Ch", "--reference", resolved_ref]
+            sam_args += ["--reference", resolved_ref, "-O", "CRAM"]
+        else:
+            sam_args += ["-O", "BAM"]
         sam_args += ["-o", out_bam]
 
         p1 = subprocess.Popen(
@@ -137,10 +139,12 @@ def align_minimap2(args):
         )
     )
     try:
-        # Samtools view (BAM/CRAM)
-        sam_args = ["samtools", "view", "-bh"]
+        # Samtools sort (BAM/CRAM)
+        sam_args = ["samtools", "sort", "-t", threads]
         if args.format == "CRAM":
-            sam_args = ["samtools", "view", "-Ch", "--reference", resolved_ref]
+            sam_args += ["--reference", resolved_ref, "-O", "CRAM"]
+        else:
+            sam_args += ["-O", "BAM"]
         sam_args += ["-o", out_bam]
 
         p1 = subprocess.Popen(

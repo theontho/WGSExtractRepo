@@ -151,6 +151,7 @@ class ReferenceLibrary:
         self.liftover_chain = None
         self.ref_vcf_tab = None
         self.ploidy_file = None
+        self.vep_cache = None
         self.build = None
 
         if not root_path:
@@ -201,6 +202,11 @@ class ReferenceLibrary:
             potential = os.path.join(d, ploidy_name)
             if os.path.exists(potential):
                 self.ploidy_file = potential
+
+        # Look for vep cache
+        vep_dir = os.path.join(d, "vep")
+        if os.path.isdir(vep_dir):
+            self.vep_cache = vep_dir
 
         if skip_full_search:
             return

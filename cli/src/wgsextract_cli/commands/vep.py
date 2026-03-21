@@ -47,6 +47,7 @@ def register(subparsers, base_parser):
         default="uk",
         help="Ensembl mirror to use (default: uk)",
     )
+    dl_parser.add_argument("--vep-cache", help="Path to VEP cache directory")
     dl_parser.set_defaults(func=cmd_vep_download)
 
     # Verify helper
@@ -65,6 +66,7 @@ def register(subparsers, base_parser):
     verify_parser.add_argument(
         "--vep-version", default="115", help="Ensembl release version (default: 115)"
     )
+    verify_parser.add_argument("--vep-cache", help="Path to VEP cache directory")
     verify_parser.set_defaults(func=cmd_vep_verify)
 
     # Main run arguments
@@ -241,7 +243,9 @@ def cmd_vep_verify(args):
 
     if not os.path.exists(version_dir):
         logging.error(LOG_MESSAGES["vep_cache_missing"].format(path=version_dir))
-        return False
+        import sys
+
+        sys.exit(1)
 
     # Check for basic files
     info_file = os.path.join(version_dir, "info.txt")
