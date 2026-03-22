@@ -627,9 +627,9 @@ def normalize_vcf_chromosomes(vcf_path, target_chroms):
     with os.fdopen(fd, "w") as f:
         f.write("\n".join(mapping))
 
-    norm_vcf = vcf_path.replace(".vcf.gz", ".norm.vcf.gz")
-    if norm_vcf == vcf_path:
-        norm_vcf += ".norm.gz"
+    # Use a unique temporary file for the normalized VCF to avoid collisions
+    fd_out, norm_vcf = tempfile.mkstemp(suffix=".vcf.gz", dir=os.path.dirname(vcf_path))
+    os.close(fd_out)
 
     logging.info(f"Normalizing chromosomes in {vcf_path}...")
     try:
@@ -653,6 +653,8 @@ def normalize_vcf_chromosomes(vcf_path, target_chroms):
         logging.error(f"Normalization failed: {e}")
         if os.path.exists(map_file):
             os.remove(map_file)
+        if os.path.exists(norm_vcf):
+            os.remove(norm_vcf)
         return vcf_path
 
 
