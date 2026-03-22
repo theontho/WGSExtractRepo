@@ -260,6 +260,9 @@ class GenericFrame(ScrollableBaseFrame):
                 "freebayes",
                 "gatk",
                 "deepvariant",
+                "spliceai",
+                "alphamissense",
+                "pharmgkb",
                 "vcf-qc",
                 "repair-ftdna-vcf",
             ]

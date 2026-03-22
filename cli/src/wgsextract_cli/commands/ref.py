@@ -9,7 +9,14 @@ from wgsextract_cli.core.gene_map import are_gene_maps_installed
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import (
     GENOME_DATA,
+    download_alphamissense,
     download_and_process_genome,
+    download_clinvar,
+    download_gnomad,
+    download_pharmgkb,
+    download_phylop,
+    download_revel,
+    download_spliceai,
     get_available_genomes,
     get_genome_size,
     get_genome_status,
@@ -97,6 +104,27 @@ def register(subparsers, base_parser):
         help="Download gnomAD sites VCF for hg19 and hg38.",
     )
     gnomad_dl_parser.set_defaults(func=cmd_gnomad_dl)
+
+    spliceai_dl_parser = ref_subs.add_parser(
+        "spliceai",
+        parents=[base_parser],
+        help="Download SpliceAI precomputed scores for hg19 and hg38.",
+    )
+    spliceai_dl_parser.set_defaults(func=cmd_spliceai_dl)
+
+    alphamissense_dl_parser = ref_subs.add_parser(
+        "alphamissense",
+        parents=[base_parser],
+        help="Download AlphaMissense scores for hg19 and hg38.",
+    )
+    alphamissense_dl_parser.set_defaults(func=cmd_alphamissense_dl)
+
+    pharmgkb_dl_parser = ref_subs.add_parser(
+        "pharmgkb",
+        parents=[base_parser],
+        help="Download PharmGKB annotations.",
+    )
+    pharmgkb_dl_parser.set_defaults(func=cmd_pharmgkb_dl)
 
 
 def cmd_download(args):
@@ -446,6 +474,9 @@ def cmd_library(args):
     print(" R) REVEL (hg19/hg38)")
     print(" P) PhyloP (hg19/hg38)")
     print(" N) gnomAD (hg19/hg38)")
+    print(" S) SpliceAI (hg19/hg38)")
+    print(" A) AlphaMissense (hg19/hg38)")
+    print(" K) PharmGKB")
 
     # Check for installed genomes
     for i, g in enumerate(genomes, 1):
@@ -506,6 +537,24 @@ def cmd_library(args):
             download_gnomad(reflib_dir)
             return
 
+        if choice == "S":
+            from wgsextract_cli.core.ref_library import download_spliceai
+
+            download_spliceai(reflib_dir)
+            return
+
+        if choice == "A":
+            from wgsextract_cli.core.ref_library import download_alphamissense
+
+            download_alphamissense(reflib_dir)
+            return
+
+        if choice == "K":
+            from wgsextract_cli.core.ref_library import download_pharmgkb
+
+            download_pharmgkb(reflib_dir)
+            return
+
         idx = int(choice) - 1
         if 0 <= idx < len(genomes):
             if not os.path.exists(reflib_dir):
@@ -537,8 +586,6 @@ def cmd_gene_map(args):
 
 
 def cmd_clinvar_dl(args):
-    from wgsextract_cli.core.ref_library import download_clinvar
-
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib = os.environ.get("WGSE_REFLIB")
     if not reflib:
@@ -553,8 +600,6 @@ def cmd_clinvar_dl(args):
 
 
 def cmd_revel_dl(args):
-    from wgsextract_cli.core.ref_library import download_revel
-
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib = os.environ.get("WGSE_REFLIB")
     if not reflib:
@@ -569,8 +614,6 @@ def cmd_revel_dl(args):
 
 
 def cmd_phylop_dl(args):
-    from wgsextract_cli.core.ref_library import download_phylop
-
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib = os.environ.get("WGSE_REFLIB")
     if not reflib:
@@ -585,8 +628,6 @@ def cmd_phylop_dl(args):
 
 
 def cmd_gnomad_dl(args):
-    from wgsextract_cli.core.ref_library import download_gnomad
-
     prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
     reflib = os.environ.get("WGSE_REFLIB")
     if not reflib:
@@ -597,4 +638,46 @@ def cmd_gnomad_dl(args):
         logging.info("gnomAD setup complete.")
     else:
         logging.error("gnomAD setup failed.")
+        sys.exit(1)
+
+
+def cmd_spliceai_dl(args):
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = os.environ.get("WGSE_REFLIB")
+    if not reflib:
+        reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+
+    logging.info("Starting SpliceAI download and indexing...")
+    if download_spliceai(reflib):
+        logging.info("SpliceAI setup complete.")
+    else:
+        logging.error("SpliceAI setup failed.")
+        sys.exit(1)
+
+
+def cmd_alphamissense_dl(args):
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = os.environ.get("WGSE_REFLIB")
+    if not reflib:
+        reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+
+    logging.info("Starting AlphaMissense download and indexing...")
+    if download_alphamissense(reflib):
+        logging.info("AlphaMissense setup complete.")
+    else:
+        logging.error("AlphaMissense setup failed.")
+        sys.exit(1)
+
+
+def cmd_pharmgkb_dl(args):
+    prog_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+    reflib = os.environ.get("WGSE_REFLIB")
+    if not reflib:
+        reflib = args.ref if args.ref else os.path.join(prog_root, "reference")
+
+    logging.info("Starting PharmGKB download...")
+    if download_pharmgkb(reflib):
+        logging.info("PharmGKB setup complete.")
+    else:
+        logging.error("PharmGKB setup failed.")
         sys.exit(1)

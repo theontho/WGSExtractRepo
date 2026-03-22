@@ -162,11 +162,12 @@ def register(subparsers, base_parser):
     clinvar_parser = vcf_subs.add_parser(
         "clinvar",
         parents=[base_parser],
-        help="Annotate VCF with ClinVar and filter for Pathogenic variants.",
+        help="Annotate VCF with ClinVar pathogenicity data.",
     )
     clinvar_parser.add_argument(
         "--vcf-input", help="Optional override for VCF input file."
     )
+    clinvar_parser.add_argument("--clinvar-file", help="Path to ClinVar VCF data file.")
     clinvar_parser.set_defaults(func=cmd_clinvar)
 
     revel_parser = vcf_subs.add_parser(
@@ -220,6 +221,50 @@ def register(subparsers, base_parser):
         help="Maximum Allele Frequency to filter for (e.g., 0.01 for 1%%).",
     )
     gnomad_parser.set_defaults(func=cmd_gnomad)
+
+    spliceai_parser = vcf_subs.add_parser(
+        "spliceai",
+        parents=[base_parser],
+        help="Annotate VCF with SpliceAI splicing scores.",
+    )
+    spliceai_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    spliceai_parser.add_argument(
+        "--spliceai-file", help="Path to SpliceAI VCF data file."
+    )
+    spliceai_parser.set_defaults(func=cmd_spliceai)
+
+    alphamissense_parser = vcf_subs.add_parser(
+        "alphamissense",
+        parents=[base_parser],
+        help="Annotate VCF with AlphaMissense pathogenicity scores.",
+    )
+    alphamissense_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    alphamissense_parser.add_argument(
+        "--am-file", help="Path to AlphaMissense VCF data file."
+    )
+    alphamissense_parser.add_argument(
+        "--min-score",
+        type=float,
+        help="Minimum AlphaMissense score to filter for (e.g., 0.5).",
+    )
+    alphamissense_parser.set_defaults(func=cmd_alphamissense)
+
+    pharmgkb_parser = vcf_subs.add_parser(
+        "pharmgkb",
+        parents=[base_parser],
+        help="Annotate VCF with PharmGKB drug metabolism data.",
+    )
+    pharmgkb_parser.add_argument(
+        "--vcf-input", help="Optional override for VCF input file."
+    )
+    pharmgkb_parser.add_argument(
+        "--pharmgkb-file", help="Path to PharmGKB VCF or data file."
+    )
+    pharmgkb_parser.set_defaults(func=cmd_pharmgkb)
 
     chain_annotate_parser = vcf_subs.add_parser(
         "chain-annotate",
@@ -1005,7 +1050,7 @@ def cmd_clinvar(args):
         else None
     )
     lib = ReferenceLibrary(args.ref, md5_sig)
-    clinvar_vcf = lib.clinvar_vcf
+    clinvar_vcf = args.clinvar_file if args.clinvar_file else lib.clinvar_vcf
 
     if not clinvar_vcf:
         logging.error(LOG_MESSAGES["vcf_clinvar_missing"])
@@ -1013,7 +1058,25 @@ def cmd_clinvar(args):
 
     logging.info(LOG_MESSAGES["vcf_clinvar_resolve"].format(path=clinvar_vcf))
 
-    # 1. Annotate with ClinVar
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    clinvar_prepared = ensure_vcf_prepared(clinvar_vcf)
+
+    # 2. Match chromosome styles (chr1 vs 1)
+    from wgsextract_cli.core.utils import normalize_vcf_chromosomes
+
+    try:
+        res_c = subprocess.run(
+            ["bcftools", "index", "-s", clinvar_prepared],
+            capture_output=True,
+            text=True,
+        )
+        c_chroms = [l.split("\t")[0] for l in res_c.stdout.strip().split("\n")]
+        normalized_input = normalize_vcf_chromosomes(input_vcf, c_chroms)
+    except Exception:
+        normalized_input = input_vcf
+
+    # 3. Annotate with ClinVar
     # We transfer CLNSIG (Significance) and CLNDN (Disease Name)
     ann_out = os.path.join(outdir, "clinvar_annotated.vcf.gz")
     try:
@@ -1022,21 +1085,24 @@ def cmd_clinvar(args):
                 "bcftools",
                 "annotate",
                 "-a",
-                clinvar_vcf,
+                clinvar_prepared,
                 "-c",
                 "CLNSIG,CLNDN",
                 "-Oz",
                 "-o",
                 ann_out,
-                input_file,
+                normalized_input,
             ]
         )
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"ClinVar annotation failed: {e}")
         return
+    finally:
+        if normalized_input != input_vcf and os.path.exists(normalized_input):
+            os.remove(normalized_input)
 
-    # 2. Filter for Pathogenic
+    # 4. Filter for Pathogenic
     path_out = os.path.join(outdir, "clinvar_pathogenic.vcf.gz")
     logging.info(LOG_MESSAGES["vcf_clinvar_filtering"].format(output=path_out))
     try:
@@ -1503,7 +1569,264 @@ def cmd_gnomad(args):
         except Exception as e:
             logging.error(f"gnomAD filtering failed: {e}")
     else:
-        logging.info(f"gnomAD annotation complete: {ann_out}")
+        logging.info(LOG_MESSAGES["vcf_gnomad_done"].format(output=ann_out))
+
+
+def cmd_spliceai(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(f"Annotating VCF with SpliceAI scores: {input_file}")
+
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    spliceai_file = args.spliceai_file if args.spliceai_file else lib.spliceai_vcf
+
+    if not spliceai_file:
+        logging.error(
+            "SpliceAI data file not found. Please run 'ref spliceai' first or provide with --spliceai-file."
+        )
+        return
+
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    spliceai_vcf = ensure_vcf_prepared(spliceai_file)
+
+    # 2. Match chromosome styles
+    from wgsextract_cli.core.utils import normalize_vcf_chromosomes
+
+    try:
+        res_s = subprocess.run(
+            ["bcftools", "index", "-s", spliceai_vcf], capture_output=True, text=True
+        )
+        s_chroms = [l.split("\t")[0] for l in res_s.stdout.strip().split("\n")]
+        normalized_input = normalize_vcf_chromosomes(input_vcf, s_chroms)
+    except Exception:
+        normalized_input = input_vcf
+
+    # 3. Annotate with SpliceAI
+    ann_out = os.path.join(outdir, "spliceai_annotated.vcf.gz")
+    try:
+        run_command(
+            [
+                "bcftools",
+                "annotate",
+                "-a",
+                spliceai_vcf,
+                "-c",
+                "INFO/SpliceAI",
+                "-Oz",
+                "-o",
+                ann_out,
+                normalized_input,
+            ]
+        )
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"SpliceAI annotation failed: {e}")
+        return
+    finally:
+        if normalized_input != input_vcf and os.path.exists(normalized_input):
+            os.remove(normalized_input)
+
+    # 4. Finish
+    logging.info(f"SpliceAI annotation complete: {ann_out}")
+
+
+def cmd_alphamissense(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(f"Annotating VCF with AlphaMissense scores: {input_file}")
+
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    am_file = args.am_file if args.am_file else lib.alphamissense_vcf
+
+    if not am_file:
+        logging.error(
+            "AlphaMissense data file not found. Please run 'ref alphamissense' first or provide with --am-file."
+        )
+        return
+
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    am_vcf = ensure_vcf_prepared(am_file)
+
+    # 2. Match chromosome styles
+    from wgsextract_cli.core.utils import normalize_vcf_chromosomes
+
+    try:
+        res_a = subprocess.run(
+            ["bcftools", "index", "-s", am_vcf], capture_output=True, text=True
+        )
+        a_chroms = [l.split("\t")[0] for l in res_a.stdout.strip().split("\n")]
+        normalized_input = normalize_vcf_chromosomes(input_vcf, a_chroms)
+    except Exception:
+        normalized_input = input_vcf
+
+    # 3. Annotate with AlphaMissense
+    ann_out = os.path.join(outdir, "alphamissense_annotated.vcf.gz")
+    header_tmp = None
+    try:
+        if am_vcf.lower().endswith((".vcf", ".vcf.gz", ".vcf.bgz")):
+            cols = "INFO/am_pathogenicity,INFO/am_class"
+            h_arg = []
+        else:
+            # TSV: #CHROM  POS     REF     ALT     genome  uniprot_id      transcript_id   protein_variant am_pathogenicity        am_class
+            cols = "CHROM,POS,REF,ALT,-,-,-,-,INFO/am_pathogenicity,INFO/am_class"
+            import tempfile
+
+            fd, header_tmp = tempfile.mkstemp(suffix=".hdr", dir=outdir)
+            with os.fdopen(fd, "w") as f:
+                f.write(
+                    '##INFO=<ID=am_pathogenicity,Number=1,Type=Float,Description="AlphaMissense pathogenicity score">\n'
+                )
+                f.write(
+                    '##INFO=<ID=am_class,Number=1,Type=String,Description="AlphaMissense classification">\n'
+                )
+            h_arg = ["-h", header_tmp]
+
+        run_command(
+            [
+                "bcftools",
+                "annotate",
+                "-a",
+                am_vcf,
+                "-c",
+                cols,
+            ]
+            + h_arg
+            + [
+                "-Oz",
+                "-o",
+                ann_out,
+                normalized_input,
+            ]
+        )
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"AlphaMissense annotation failed: {e}")
+        return
+    finally:
+        if header_tmp and os.path.exists(header_tmp):
+            os.remove(header_tmp)
+        if normalized_input != input_vcf and os.path.exists(normalized_input):
+            os.remove(normalized_input)
+
+    # 4. Optional Filtering
+    if args.min_score is not None:
+        path_out = os.path.join(outdir, f"alphamissense_gt_{args.min_score}.vcf.gz")
+        try:
+            run_command(
+                [
+                    "bcftools",
+                    "filter",
+                    "-i",
+                    f"am_pathogenicity >= {args.min_score}",
+                    "-Oz",
+                    "-o",
+                    path_out,
+                    ann_out,
+                ]
+            )
+            ensure_vcf_indexed(path_out)
+            logging.info(f"AlphaMissense filtering complete: {path_out}")
+        except Exception as e:
+            logging.error(f"AlphaMissense filtering failed: {e}")
+    else:
+        logging.info(f"AlphaMissense annotation complete: {ann_out}")
+
+
+def cmd_pharmgkb(args):
+    verify_dependencies(["bcftools", "tabix"])
+    log_dependency_info(["bcftools", "tabix"])
+    input_file = args.vcf_input if args.vcf_input else args.input
+    if not input_file:
+        return logging.error(LOG_MESSAGES["input_required"])
+
+    outdir = (
+        args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
+    )
+    logging.info(f"Annotating VCF with PharmGKB data: {input_file}")
+
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig)
+    pharmgkb_file = args.pharmgkb_file if args.pharmgkb_file else lib.pharmgkb_vcf
+
+    if not pharmgkb_file:
+        logging.error(
+            "PharmGKB data file not found. Please run 'ref pharmgkb' first or provide with --pharmgkb-file."
+        )
+        return
+
+    # 1. Prepare Inputs
+    input_vcf = ensure_vcf_prepared(input_file)
+    pharmgkb_vcf = ensure_vcf_prepared(pharmgkb_file)
+
+    # 2. Match chromosome styles
+    from wgsextract_cli.core.utils import normalize_vcf_chromosomes
+
+    try:
+        res_p = subprocess.run(
+            ["bcftools", "index", "-s", pharmgkb_vcf], capture_output=True, text=True
+        )
+        p_chroms = [l.split("\t")[0] for l in res_p.stdout.strip().split("\n")]
+        normalized_input = normalize_vcf_chromosomes(input_vcf, p_chroms)
+    except Exception:
+        normalized_input = input_vcf
+
+    # 3. Annotate with PharmGKB
+    ann_out = os.path.join(outdir, "pharmgkb_annotated.vcf.gz")
+    try:
+        # Transfer all INFO fields from PharmGKB
+        run_command(
+            [
+                "bcftools",
+                "annotate",
+                "-a",
+                pharmgkb_vcf,
+                "-c",
+                "INFO",
+                "-Oz",
+                "-o",
+                ann_out,
+                normalized_input,
+            ]
+        )
+        ensure_vcf_indexed(ann_out)
+    except Exception as e:
+        logging.error(f"PharmGKB annotation failed: {e}")
+        return
+    finally:
+        if normalized_input != input_vcf and os.path.exists(normalized_input):
+            os.remove(normalized_input)
+
+    logging.info(f"PharmGKB annotation complete: {ann_out}")
 
 
 def cmd_freebayes(args):
@@ -1888,7 +2211,15 @@ def cmd_chain_annotate(args):
 
             if ann == "vep":
                 cmd.extend(["vep", "run"])
-            elif ann in ["clinvar", "revel", "phylop", "gnomad"]:
+            elif ann in [
+                "clinvar",
+                "revel",
+                "phylop",
+                "gnomad",
+                "spliceai",
+                "alphamissense",
+                "pharmgkb",
+            ]:
                 cmd.extend(["vcf", ann])
             else:
                 logging.warning(f"Unknown annotation type '{ann}', skipping.")

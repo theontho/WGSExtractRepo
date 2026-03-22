@@ -154,6 +154,9 @@ class ReferenceLibrary:
         self.revel_file = None
         self.phylop_file = None
         self.gnomad_vcf = None
+        self.spliceai_vcf = None
+        self.alphamissense_vcf = None
+        self.pharmgkb_vcf = None
         self.ploidy_file = None
         self.vep_cache = None
         self.build = None
@@ -346,6 +349,47 @@ class ReferenceLibrary:
                         self.gnomad_vcf = potential
                         break
                 if self.gnomad_vcf:
+                    break
+
+        # Look for SpliceAI VCF
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                for ext in [".vcf.gz", ".vcf.bgz"]:
+                    potential = os.path.join(search_dir, f"spliceai_{self.build}{ext}")
+                    if os.path.exists(potential):
+                        self.spliceai_vcf = potential
+                        break
+                if self.spliceai_vcf:
+                    break
+
+        # Look for AlphaMissense VCF
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                for ext in [".vcf.gz", ".vcf.bgz"]:
+                    potential = os.path.join(
+                        search_dir, f"alphamissense_{self.build}{ext}"
+                    )
+                    if os.path.exists(potential):
+                        self.alphamissense_vcf = potential
+                        break
+                if self.alphamissense_vcf:
+                    break
+
+        # Look for PharmGKB VCF
+        if self.build:
+            for search_dir in [self.root, os.path.join(self.root, "ref")]:
+                if not os.path.isdir(search_dir):
+                    continue
+                for ext in [".vcf.gz", ".vcf.bgz", ".tsv.gz"]:
+                    potential = os.path.join(search_dir, f"pharmgkb_{self.build}{ext}")
+                    if os.path.exists(potential):
+                        self.pharmgkb_vcf = potential
+                        break
+                if self.pharmgkb_vcf:
                     break
 
 

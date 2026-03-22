@@ -1140,6 +1140,9 @@ class GUIController:
             "gatk",
             "deepvariant",
             "annotate",
+            "spliceai",
+            "alphamissense",
+            "pharmgkb",
             "filter",
             "trio",
             "vep-run",
@@ -1405,7 +1408,16 @@ class GUIController:
             "lineage-mt-haplogroup",
         ]
 
-        vcf_cmds = ["repair-ftdna-vcf", "annotate", "filter", "trio", "vcf-qc"]
+        vcf_cmds = [
+            "repair-ftdna-vcf",
+            "annotate",
+            "spliceai",
+            "alphamissense",
+            "pharmgkb",
+            "filter",
+            "trio",
+            "vcf-qc",
+        ]
 
         ref_cmds = [
             "align",

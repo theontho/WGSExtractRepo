@@ -218,6 +218,21 @@ UI_METADATA: dict[str, dict[str, Any]] = {
                 "cmd": "annotate",
                 "help": GUI_TOOLTIPS["annotate"],
             },
+            {
+                "label": "SpliceAI",
+                "cmd": "spliceai",
+                "help": GUI_TOOLTIPS["spliceai"],
+            },
+            {
+                "label": "AlphaMissense",
+                "cmd": "alphamissense",
+                "help": GUI_TOOLTIPS["alphamissense"],
+            },
+            {
+                "label": "PharmGKB",
+                "cmd": "pharmgkb",
+                "help": GUI_TOOLTIPS["pharmgkb"],
+            },
             {"label": "Filter", "cmd": "filter", "help": GUI_TOOLTIPS["filter"]},
             {
                 "label": "Trio Analysis",

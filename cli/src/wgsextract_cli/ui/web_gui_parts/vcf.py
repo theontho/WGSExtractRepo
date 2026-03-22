@@ -78,7 +78,16 @@ def frame_vcf():
                 proc_cmds = [
                     c
                     for c in UI_METADATA["vcf"]["commands"]
-                    if c["cmd"] in ["annotate", "filter", "vcf-qc", "repair-ftdna-vcf"]
+                    if c["cmd"]
+                    in [
+                        "annotate",
+                        "spliceai",
+                        "alphamissense",
+                        "pharmgkb",
+                        "filter",
+                        "vcf-qc",
+                        "repair-ftdna-vcf",
+                    ]
                 ]
                 for cmd in proc_cmds:
                     ui.button(

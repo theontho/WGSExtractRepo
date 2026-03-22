@@ -295,8 +295,136 @@ GNOMAD_URLS = {
     "hg19": "https://storage.googleapis.com/gcp-public-data--gnomad/release/2.1.1/vcf/exomes/gnomad.exomes.r2.1.1.sites.vcf.bgz",
 }
 
+SPLICEAI_URLS = {
+    "hg38": "https://basespace.illumina.com/s/vU97u6757PBt/spliceai_scores.raw.snv.hg38.vcf.gz",  # Note: Requires login/mirror check
+    "hg19": "https://basespace.illumina.com/s/vU97u6757PBt/spliceai_scores.raw.snv.hg19.vcf.gz",
+}
+
+ALPHAMISSENSE_URLS = {
+    "hg38": "https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg38.tsv.gz",
+    "hg19": "https://storage.googleapis.com/dm_alphamissense/AlphaMissense_hg19.tsv.gz",
+}
+
+PHARMGKB_URLS = {
+    "hg38": "https://api.pharmgkb.org/v1/download/file/data/annotations.zip",
+}
+
 
 def download_clinvar(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes official ClinVar VCFs for hg19 and hg38."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in CLINVAR_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        dest_path = os.path.join(target_dir, f"clinvar_{build}.vcf.gz")
+        logging.info(f"Downloading ClinVar {build} from NIH FTP...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # Index the VCF
+        logging.info(f"Indexing ClinVar {build}...")
+        try:
+            # We need tabix
+            subprocess.run(["tabix", "-p", "vcf", "-f", dest_path], check=True)
+        except Exception as e:
+            logging.error(f"Failed to index ClinVar {build}: {e}")
+            success = False
+
+    return success
+
+
+def download_spliceai(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes SpliceAI precomputed scores."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in SPLICEAI_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        dest_path = os.path.join(target_dir, f"spliceai_{build}.vcf.gz")
+        logging.info(f"Downloading SpliceAI {build}...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        logging.info(f"Indexing SpliceAI {build}...")
+        try:
+            subprocess.run(["tabix", "-p", "vcf", "-f", dest_path], check=True)
+        except Exception as e:
+            logging.error(f"Failed to index SpliceAI {build}: {e}")
+            success = False
+
+    return success
+
+
+def download_alphamissense(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads and indexes AlphaMissense pathogenicity scores."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in ALPHAMISSENSE_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        dest_path = os.path.join(target_dir, f"alphamissense_{build}.tsv.gz")
+        logging.info(f"Downloading AlphaMissense {build} from Google Storage...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        logging.info(f"Indexing AlphaMissense {build}...")
+        try:
+            # AlphaMissense TSV format: #CHROM, POS, REF, ALT, am_pathogenicity, am_class
+            # We want CHROM=1, POS=2
+            subprocess.run(
+                ["tabix", "-f", "-s", "1", "-b", "2", "-e", "2", dest_path], check=True
+            )
+        except Exception as e:
+            logging.error(f"Failed to index AlphaMissense {build}: {e}")
+            success = False
+
+    return success
+
+
+def download_pharmgkb(reflib_dir, cancel_event=None, progress_callback=None):
+    """Downloads PharmGKB annotations (placeholder for full implementation)."""
+    target_dir = os.path.join(reflib_dir, "ref")
+    os.makedirs(target_dir, exist_ok=True)
+
+    success = True
+    for build, url in PHARMGKB_URLS.items():
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        # PharmGKB is often a ZIP, but for now we'll just download it
+        dest_path = os.path.join(target_dir, f"pharmgkb_{build}.zip")
+        logging.info(f"Downloading PharmGKB {build}...")
+
+        if not download_file(url, dest_path, progress_callback, cancel_event):
+            success = False
+            continue
+
+    return success
     """Downloads and indexes official ClinVar VCFs for hg19 and hg38."""
     target_dir = os.path.join(reflib_dir, "ref")
     os.makedirs(target_dir, exist_ok=True)
