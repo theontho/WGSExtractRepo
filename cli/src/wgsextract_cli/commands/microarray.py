@@ -68,17 +68,18 @@ def split_snps_by_chrom(ref_vcf_tab, outdir):
         with subprocess.Popen(
             ["gzcat", ref_vcf_tab], stdout=subprocess.PIPE, text=True
         ) as proc:
-            for line in proc.stdout:
-                if line.startswith("#"):
-                    continue
-                parts = line.split("\t", 2)
-                if len(parts) < 2:
-                    continue
-                chrom = parts[0]
-                if chrom not in chrom_files:
-                    chrom_files[chrom] = os.path.join(outdir, f"snps_{chrom}.tab")
-                with open(chrom_files[chrom], "a") as f:
-                    f.write(line)
+            if proc.stdout:
+                for line in proc.stdout:
+                    if line.startswith("#"):
+                        continue
+                    parts = line.split("\t", 2)
+                    if len(parts) < 2:
+                        continue
+                    chrom = parts[0]
+                    if chrom not in chrom_files:
+                        chrom_files[chrom] = os.path.join(outdir, f"snps_{chrom}.tab")
+                    with open(chrom_files[chrom], "a") as f:
+                        f.write(line)
 
     return chrom_files
 
@@ -188,7 +189,7 @@ def run(args):
     logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     md5_sig = calculate_bam_md5(args.input, None)
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=args.input)
 
     ref_fasta = lib.fasta
     ref_vcf_tab = args.ref_vcf_tab if args.ref_vcf_tab else lib.ref_vcf_tab
@@ -431,21 +432,62 @@ def run(args):
             logging.info("Pre-fetching reference alleles for target SNPs...")
             ref_alleles = {}
             region_file = os.path.join(outdir, "targets.regions")
-            try:
-                # 1. Generate region file (chr:pos-pos)
-                with open(region_file, "w") as f_reg:
-                    awk_cmd = [
-                        "gzcat",
-                        ref_vcf_tab,
-                        "|",
-                        "awk",
-                        '\'!/^#/ {print $1":"$2"-"$2}\'',
-                    ]
-                    subprocess.run(
-                        " ".join(awk_cmd), shell=True, stdout=f_reg, check=True
-                    )
 
-                # 2. Run samtools faidx --region-file
+            # 1. Detect FASTA chromosome naming to ensure faidx hits
+            # Use .fai file if it exists, as it is more portable than samtools faidx -l
+            fasta_chroms = set()
+            fai_path = ref_fasta + ".fai"
+            if os.path.exists(fai_path):
+                try:
+                    with open(fai_path) as f_fai:
+                        fasta_chroms = {line.split("\t")[0] for line in f_fai}
+                except Exception as e:
+                    logging.warning(f"Failed to read .fai file: {e}")
+
+            if not fasta_chroms:
+                res_l = subprocess.run(
+                    ["samtools", "faidx", "-l", ref_fasta],
+                    capture_output=True,
+                    text=True,
+                )
+                if res_l.returncode == 0:
+                    fasta_chroms = set(res_l.stdout.splitlines())
+
+            try:
+                # 2. Generate region file (chr:pos-pos) with normalization
+                # Map FASTA-normalized name back to original SNP-tab name for reverse lookup
+                norm_to_orig = {}
+
+                with open(region_file, "w") as f_reg:
+                    # Use a stream that handles both compressed and uncompressed
+                    cat_cmd = ["gzcat"] if ref_vcf_tab.endswith(".gz") else ["cat"]
+                    with subprocess.Popen(
+                        cat_cmd + [ref_vcf_tab], stdout=subprocess.PIPE, text=True
+                    ) as proc_tab:
+                        if proc_tab.stdout:
+                            for line in proc_tab.stdout:
+                                if line.startswith("#"):
+                                    continue
+                                parts = line.strip().split("\t")
+                                if len(parts) < 2:
+                                    continue
+                                c, p = parts[0], parts[1]
+                                # Normalize for FASTA
+                                fc = c
+                                if fc not in fasta_chroms:
+                                    if fc.startswith("chr") and fc[3:] in fasta_chroms:
+                                        fc = fc[3:]
+                                    elif (
+                                        not fc.startswith("chr")
+                                        and f"chr{fc}" in fasta_chroms
+                                    ):
+                                        fc = f"chr{fc}"
+
+                                if fc in fasta_chroms:
+                                    f_reg.write(f"{fc}:{p}-{p}\n")
+                                    norm_to_orig[f"{fc}:{p}-{p}"] = (c, p)
+
+                # 3. Run samtools faidx --region-file
                 faidx_cmd = [
                     "samtools",
                     "faidx",
@@ -465,17 +507,27 @@ def run(args):
                         else:
                             if curr_region:
                                 base = line.strip().upper()
-                                if ":" in curr_region:
-                                    c, p_range = curr_region.split(":", 1)
+                                # Map back to ORIGINAL chromosome name from the region string
+                                if curr_region in norm_to_orig:
+                                    orig_c, orig_p = norm_to_orig[curr_region]
+                                    ref_alleles[(orig_c, orig_p)] = base
+                                elif ":" in curr_region:
+                                    # Fallback parsing
+                                    c_norm, p_range = curr_region.split(":", 1)
                                     p = p_range.split("-")[0]
-                                    ref_alleles[(c, p)] = base
+                                    ref_alleles[(c_norm, p)] = base
+                                    # Also store variations to be safe
+                                    if not c_norm.startswith("chr"):
+                                        ref_alleles[(f"chr{c_norm}", p)] = base
+                                    elif c_norm.startswith("chr"):
+                                        ref_alleles[(c_norm[3:], p)] = base
                 proc_ref.wait()
                 logging.info(f"Pre-fetched {len(ref_alleles)} reference alleles.")
                 if os.path.exists(region_file):
                     os.remove(region_file)
             except Exception as e:
                 logging.warning(
-                    f"Fast reference pre-fetch failed: {e}. Falling back to slow mode."
+                    f"Fast reference pre-fetch failed: {e}. Falling back to SNP-tab column or 'N'."
                 )
                 if os.path.exists(region_file):
                     os.remove(region_file)
@@ -486,47 +538,53 @@ def run(args):
                 if args.region:
                     stream_cmd = ["tabix", ref_vcf_tab, args.region]
                 else:
-                    stream_cmd = ["gzcat", ref_vcf_tab]
+                    cat_cmd = ["gzcat"] if ref_vcf_tab.endswith(".gz") else ["cat"]
+                    stream_cmd = cat_cmd + [ref_vcf_tab]
 
                 with subprocess.Popen(
                     stream_cmd, stdout=subprocess.PIPE, text=True
                 ) as proc:
-                    for line in proc.stdout:
-                        if line.startswith("#"):
-                            continue
-                        parts = line.strip().split("\t")
-                        chrom, pos, rsid = parts[0], parts[1], parts[2]
+                    if proc.stdout:
+                        ref_col_idx = -1
+                        for line in proc.stdout:
+                            if line.startswith("#"):
+                                header = line.strip().split("\t")
+                                if "REF" in header:
+                                    ref_col_idx = header.index("REF")
+                                continue
+                            parts = line.strip().split("\t")
+                            if len(parts) < 3:
+                                continue
+                            chrom, pos, rsid = parts[0], parts[1], parts[2]
 
-                        if (chrom, pos) in variant_calls:
-                            tgt = variant_calls[(chrom, pos)]
-                            genotype = (
-                                tgt.replace("/", "").replace("|", "").replace(".", "-")
-                            )
-                        else:
-                            # MISSING in VCF -> Assume Homozygous Reference
-                            ref_base = ref_alleles.get((chrom, pos))
-
-                            if not ref_base:
-                                res = subprocess.run(
-                                    [
-                                        "samtools",
-                                        "faidx",
-                                        ref_fasta,
-                                        f"{chrom}:{pos}-{pos}",
-                                    ],
-                                    capture_output=True,
-                                    text=True,
+                            if (chrom, pos) in variant_calls:
+                                tgt = variant_calls[(chrom, pos)]
+                                genotype = (
+                                    tgt.replace("/", "")
+                                    .replace("|", "")
+                                    .replace(".", "-")
                                 )
-                                ref_base = (
-                                    res.stdout.splitlines()[1].upper()
-                                    if res.returncode == 0
-                                    else "N"
-                                )
+                            else:
+                                # MISSING in VCF -> Assume Homozygous Reference
+                                ref_base = None
 
-                            genotype = f"{ref_base}{ref_base}"
+                                # 1. Try REF column from TAB file first (FASTEST)
+                                if ref_col_idx != -1 and len(parts) > ref_col_idx:
+                                    ref_base = parts[ref_col_idx].upper()
 
-                        chrom_norm = chrom.replace("chr", "").replace("M", "MT")
-                        f_out.write(f"{rsid}\t{chrom_norm}\t{pos}\t{genotype}\n")
+                                # 2. Try pre-fetched alleles
+                                if not ref_base:
+                                    ref_base = ref_alleles.get((chrom, pos))
+
+                                # 3. Fallback to N (NO slow subprocess calls here)
+                                if not ref_base:
+                                    ref_base = "N"
+
+                                genotype = f"{ref_base}{ref_base}"
+
+                            chrom_norm = chrom.replace("chr", "").replace("M", "MT")
+                            f_out.write(f"{rsid}\t{chrom_norm}\t{pos}\t{genotype}\n")
+
         else:
             # CRAM/BAM MODE: Standard extraction
             with open(combined_kit_txt, "w") as f_out:

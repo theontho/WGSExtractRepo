@@ -233,9 +233,12 @@ def get_sam_view_cmd(threads="1", fmt="BAM", reference=None, is_input_sam=False)
 class ReferenceLibrary:
     """Helper to manage and resolve reference genome paths."""
 
-    def __init__(self, root_path, md5_sig=None, skip_full_search=False):
+    def __init__(
+        self, root_path, md5_sig=None, skip_full_search=False, input_path=None
+    ):
         self.root = root_path
         self.md5 = md5_sig
+        self.input_path = input_path
         self.fasta = None
         self.dict_file = None
         self.fai = None
@@ -276,16 +279,96 @@ class ReferenceLibrary:
                 if self.fasta:
                     break
 
-        if not self.fasta:
-            return
-
         # Resolve associated files
-        self.fai = self.fasta + ".fai"
-        if not os.path.exists(self.fai):
+        self.fai = self.fasta + ".fai" if self.fasta else None
+        if self.fai and not os.path.exists(self.fai):
             self.fai = None
 
-        # Build identification from path
-        if self.fasta:
+        # Build identification from MD5 (if provided)
+        if self.md5:
+            from wgsextract_cli.core.constants import REFERENCE_MODELS
+
+            if self.md5 in REFERENCE_MODELS:
+                self.build = REFERENCE_MODELS[self.md5][0]
+                logging.debug(
+                    f"ReferenceLibrary: Identified build as {self.build} from MD5"
+                )
+                # Normalize hs37d5 etc to hg19 for file lookups
+                if self.build == "hs37d5":
+                    self.build = "hg19"
+                # Normalize hs38DH etc to hg38
+                if self.build == "hs38DH":
+                    self.build = "hg38"
+
+        # Build identification from SN count (contig count) as fallback
+        # Use input_path if provided, else root_path if it's a file
+        target_for_header = (
+            input_path
+            if input_path
+            else (root_path if os.path.isfile(root_path) else None)
+        )
+        if not self.build and target_for_header:
+            try:
+                header = get_bam_header(target_for_header)
+                if header:
+                    from wgsextract_cli.core.constants import REFGEN_BY_SNCOUNT
+
+                    sq_lines = [
+                        line for line in header.splitlines() if line.startswith("@SQ")
+                    ]
+                    sn_count = len(sq_lines)
+                    logging.debug(f"ReferenceLibrary: Detected {sn_count} SQ lines")
+                    if not sn_count:
+                        # Try VCF contig count
+                        sn_count = len(
+                            [
+                                line
+                                for line in header.splitlines()
+                                if line.startswith("##contig=")
+                            ]
+                        )
+                        logging.debug(
+                            f"ReferenceLibrary: Detected {sn_count} VCF contigs"
+                        )
+
+                    if sn_count in REFGEN_BY_SNCOUNT:
+                        resolved_file = str(REFGEN_BY_SNCOUNT[sn_count][1]).lower()
+                        if (
+                            "37" in resolved_file
+                            or "hg19" in resolved_file
+                            or "hs37" in resolved_file
+                        ):
+                            self.build = "hg19"
+                        elif (
+                            "38" in resolved_file
+                            or "hg38" in resolved_file
+                            or "hs38" in resolved_file
+                            or "grch38" in resolved_file
+                        ):
+                            self.build = "hg38"
+                        else:
+                            # Fallback to heuristics if filename is ambiguous
+                            if sn_count > 190:
+                                self.build = "hg38"
+                            else:
+                                self.build = "hg19"
+                    elif sn_count > 190:  # Heuristic for hg38
+                        self.build = "hg38"
+                    elif sn_count > 80:  # Heuristic for hg19
+                        self.build = "hg19"
+
+                    logging.debug(
+                        f"ReferenceLibrary: Identified build as {self.build} from SN count {sn_count}"
+                    )
+                else:
+                    logging.debug(
+                        f"ReferenceLibrary: No header retrieved from {target_for_header}"
+                    )
+            except Exception as e:
+                logging.debug(f"ReferenceLibrary: Error reading header: {e}")
+
+        # Build identification from path (fallback)
+        if not self.build and self.fasta:
             f_lower = self.fasta.lower()
             if "hg38" in f_lower or "grch38" in f_lower:
                 self.build = "hg38"
@@ -297,6 +380,55 @@ class ReferenceLibrary:
                 self.build = "hg38"
             elif "hg19" in d.lower() or "grch37" in d.lower():
                 self.build = "hg19"
+
+        # Re-resolve FASTA if build was found from MD5/Header but path-based resolution found something else
+        if self.build and self.fasta:
+            f_lower = self.fasta.lower()
+            is_hg38_path = "hg38" in f_lower or "grch38" in f_lower
+            is_hg19_path = (
+                "hg19" in f_lower or "grch37" in f_lower or "hs37d5" in f_lower
+            )
+
+            mismatch = (self.build == "hg38" and is_hg19_path) or (
+                self.build == "hg19" and is_hg38_path
+            )
+
+            if mismatch:
+                logging.debug(
+                    f"Build mismatch detected (Build={self.build}, Path={f_lower}). Re-resolving FASTA..."
+                )
+                original_fasta = self.fasta
+                self.fasta = None
+                # Check direct directory and 'genomes' subdirectory for the CORRECT build
+                for search_dir in [d, os.path.join(d, "genomes")]:
+                    if not os.path.isdir(search_dir):
+                        continue
+                    # Prioritize genomes that match our build
+                    for build_key, f_name in REF_GENOME_FILENAMES.items():
+                        # We only want to match the target build (hg38 or hg19)
+                        match_hg19 = self.build == "hg19" and (
+                            "37" in build_key or "19" in build_key
+                        )
+                        match_hg38 = self.build == "hg38" and (
+                            "38" in build_key or "hs38" in build_key
+                        )
+
+                        if match_hg19 or match_hg38:
+                            potential = os.path.join(search_dir, f_name)
+                            if os.path.exists(potential):
+                                self.fasta = potential
+                                break
+                    if self.fasta:
+                        break
+
+                if not self.fasta:
+                    logging.warning(
+                        f"Could not find {self.build} genome, reverting to {original_fasta}"
+                    )
+                    self.fasta = original_fasta
+
+        if not self.fasta:
+            return
 
         # Look for .dict
         self.dict_file = (
@@ -374,12 +506,30 @@ class ReferenceLibrary:
                     ]
                 )
 
-        # Check in root, ref/, and microarray/ subdirectories
-        for search_dir in [
+        # Check in root, ref/, and microarray/ subdirectories, plus build-specific ones
+        search_dirs = [
             self.root,
             os.path.join(self.root, "ref"),
             os.path.join(self.root, "microarray"),
-        ]:
+        ]
+        if self.build:
+            search_dirs.extend(
+                [
+                    os.path.join(self.root, self.build),
+                    os.path.join(self.root, "ref", self.build),
+                    os.path.join(self.root, "microarray", self.build),
+                ]
+            )
+            # Add alt build too
+            if alt_build:
+                search_dirs.extend(
+                    [
+                        os.path.join(self.root, alt_build),
+                        os.path.join(self.root, "ref", alt_build),
+                    ]
+                )
+
+        for search_dir in search_dirs:
             if not os.path.isdir(search_dir):
                 continue
             for v in potential_vcf_names:
@@ -483,10 +633,26 @@ class ReferenceLibrary:
                 if self.pharmgkb_vcf:
                     break
 
+        # Look for Liftover Chain (hg38 -> hg19)
+        if self.build == "hg38":
+            for search_dir in [
+                self.root,
+                os.path.join(self.root, "ref"),
+                os.path.join(self.root, "microarray"),
+            ]:
+                if not os.path.isdir(search_dir):
+                    continue
+                potential = os.path.join(search_dir, "hg38ToHg19.over.chain.gz")
+                if os.path.exists(potential):
+                    self.liftover_chain = potential
+                    break
 
-def resolve_reference(ref_path, md5_sig):
+
+def resolve_reference(ref_path, md5_sig, input_path=None):
     """Find specific .fa.gz from directory or direct path."""
-    lib = ReferenceLibrary(ref_path, md5_sig, skip_full_search=True)
+    lib = ReferenceLibrary(
+        ref_path, md5_sig, skip_full_search=True, input_path=input_path
+    )
     return lib.fasta if lib.fasta else ref_path
 
 

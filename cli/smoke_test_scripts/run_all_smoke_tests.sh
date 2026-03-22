@@ -47,6 +47,7 @@ BASICS_TESTS=(
     "test_extract_basics.sh"
     "test_info_coverage.sh"
     "test_align_basics.sh"
+    "test_perf_boost.sh"
     "test_ref_basics.sh"
     "test_ref_library_basics.sh"
     "test_repair_basics.sh"
@@ -76,7 +77,15 @@ VCF_TESTS=(
     "test_vcf_gnomad.sh"
     "test_vcf_pathogenicity_new.sh"
     "test_vcf_chain_annotate.sh"
-    )
+    "test_vcf_real_ref_db.sh"
+)
+
+BENCHMARK_TESTS=(
+    "test_benchmark_haplogrep.sh"
+    "test_benchmark_lineage.sh"
+    "test_benchmark_lineage_vcf.sh"
+    "test_benchmark_yleaf.sh"
+)
 
 
 REAL_DATA_TESTS=(
@@ -111,6 +120,9 @@ run_test_group "Basics" "${BASICS_TESTS[@]}"
 
 # Run VCF Workflows
 run_test_group "VCF Workflows" "${VCF_TESTS[@]}"
+
+# Run Benchmarks
+run_test_group "Benchmarks" "${BENCHMARK_TESTS[@]}"
 
 # Run Real Data Workflows if configured
 if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then

@@ -18,6 +18,12 @@ echo ">>> Starting FULL GENOME CRAM Smoke Test..."
 echo "Input: $INPUT_FILE"
 echo "Mode: Parallel Variant Calling"
 
+# GOALS of this test:
+# 1. Performance: Parallel variant calling should finish 30x genome in < 30 minutes.
+# 2. Build Detection: Should identify build (hg38/hg19) from CRAM header and resolve reference.
+# 3. Parallelism: Should successfully split by chromosome and merge results.
+# 4. Correctness: CombinedKit.txt should contain valid genotypes (non-NN).
+
 # Run the command
 uv run wgsextract microarray \
     --input "$INPUT_FILE" \
@@ -38,6 +44,17 @@ FILES=(
 for file in "${FILES[@]}"; do
     if [ -s "$file" ]; then
         echo "✅ Found: $(basename "$file") ($(du -h "$file" | cut -f1))"
+        # Check for valid genotypes (at least some rows shouldn't be NN)
+        if [[ "$file" == *"CombinedKit.txt" ]]; then
+            # We look for A, C, G, T in the 4th column
+            valid_genotypes=$(grep -v "^#" "$file" | head -n 1000 | awk '$4 ~ /[ACGT][ACGT]/' | wc -l)
+            if [ "$valid_genotypes" -gt 0 ]; then
+                echo "   ✅ Valid genotypes found (non-NN calls)."
+            else
+                echo "   ❌ ERROR: No valid genotypes found (all NN?). Check variant calling."
+                exit 1
+            fi
+        fi
     else
         echo "❌ Missing or empty: $file"
         exit 1
