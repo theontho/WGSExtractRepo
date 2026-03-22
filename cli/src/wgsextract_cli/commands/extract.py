@@ -9,6 +9,7 @@ from wgsextract_cli.core.utils import (
     ensure_vcf_indexed,
     get_chr_name,
     get_resource_defaults,
+    get_sam_index_cmd,
     resolve_reference,
     run_command,
     verify_paths_exist,
@@ -183,7 +184,7 @@ def cmd_mito_fasta(args):
             + cram_opt
             + ["-@", threads, "-o", out_bam, args.input, chr_m]
         )
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
 
         # 2. Call variants
         p1 = subprocess.Popen(
@@ -243,7 +244,7 @@ def cmd_mito_vcf(args):
             + cram_opt
             + ["-@", threads, "-o", out_bam, args.input, chr_m]
         )
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
 
         logging.info(LOG_MESSAGES["calling_mito_variants"].format(output=out_vcf))
         p1 = subprocess.Popen(
@@ -287,7 +288,7 @@ def cmd_mt_bam(args):
             + cram_opt
             + ["-@", threads, "-o", out_file, args.input, mt_chr]
         )
-        run_command(["samtools", "index", out_file])
+        run_command(get_sam_index_cmd(out_file, threads=threads))
     except Exception as e:
         logging.error(f"mtDNA extraction failed: {e}")
 
@@ -343,7 +344,7 @@ def cmd_ydna_bam(args):
             + cram_opt
             + ["-@", threads, "-o", out_bam, args.input, chr_y]
         )
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
     except Exception as e:
         logging.error(f"Y BAM extraction failed: {e}")
 
@@ -372,7 +373,7 @@ def cmd_ydna_vcf(args):
             + cram_opt
             + ["-@", threads, "-o", out_bam, args.input, chr_y]
         )
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
 
         logging.info(LOG_MESSAGES["calling_y_variants"].format(output=out_vcf))
         p1 = subprocess.Popen(
@@ -415,7 +416,7 @@ def cmd_y_mt_extract(args):
             + cram_opt
             + ["-@", threads, "-o", out_bam, args.input, chr_y, chr_m]
         )
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
     except Exception as e:
         logging.error(f"Y+MT extraction failed: {e}")
 
@@ -468,6 +469,6 @@ def cmd_custom(args):
             + cram_opt
             + ["-@", threads, "-o", out_bam, args.input, region]
         )
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
     except Exception as e:
         logging.error(f"Custom extraction failed: {e}")

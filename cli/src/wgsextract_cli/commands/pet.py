@@ -2,11 +2,17 @@
 
 import logging
 import os
+import shutil
 import subprocess
 
 from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
-from wgsextract_cli.core.utils import get_resource_defaults, run_command
+from wgsextract_cli.core.utils import (
+    get_resource_defaults,
+    get_sam_index_cmd,
+    get_sam_sort_cmd,
+    run_command,
+)
 
 
 def register(subparsers, base_parser):
@@ -83,21 +89,36 @@ def run(args):
     r2_args = [args.r2] if args.r2 else []
 
     try:
-        # Samtools sort (BAM/CRAM)
-        sam_args = ["samtools", "sort", "-t", threads]
-        if args.format == "CRAM":
-            sam_args += ["--reference", ref_file, "-O", "CRAM"]
-        else:
-            sam_args += ["-O", "BAM"]
-        sam_args += ["-o", out_bam]
+        _, memory = get_resource_defaults(args.threads, None)
+        # 1. Mark duplicates (optional)
+        use_blaster = shutil.which("samblaster") is not None
+        if use_blaster:
+            logging.info("Using samblaster for marking duplicates...")
+
+        # 2. Samtools sort (BAM/CRAM)
+        sam_args = get_sam_sort_cmd(
+            out_bam, threads, memory, fmt=args.format, reference=ref_file
+        )
 
         p1 = subprocess.Popen(
             ["bwa", "mem", "-t", threads, ref_file, args.r1] + r2_args,
             stdout=subprocess.PIPE,
         )
-        p2 = subprocess.Popen(sam_args, stdin=p1.stdout)
-        if p1.stdout:
-            p1.stdout.close()
+
+        if use_blaster:
+            p_blaster = subprocess.Popen(
+                ["samblaster"], stdin=p1.stdout, stdout=subprocess.PIPE
+            )
+            if p1.stdout:
+                p1.stdout.close()
+            p2 = subprocess.Popen(sam_args, stdin=p_blaster.stdout)
+            if p_blaster.stdout:
+                p_blaster.stdout.close()
+        else:
+            p2 = subprocess.Popen(sam_args, stdin=p1.stdout)
+            if p1.stdout:
+                p1.stdout.close()
+
         p2.communicate()
 
         if p2.returncode != 0:
@@ -107,7 +128,7 @@ def run(args):
             sys.exit(1)
 
         logging.info(LOG_MESSAGES["pet_indexing"].format(format=args.format))
-        run_command(["samtools", "index", out_bam])
+        run_command(get_sam_index_cmd(out_bam, threads=threads))
 
     except Exception as e:
         logging.error(f"Alignment error: {e}")

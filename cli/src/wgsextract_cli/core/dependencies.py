@@ -19,6 +19,8 @@ MANDATORY_TOOLS = [
 
 OPTIONAL_TOOLS = [
     "minimap2",
+    "sambamba",
+    "samblaster",
     "fastp",
     "fastqc",
     "delly",

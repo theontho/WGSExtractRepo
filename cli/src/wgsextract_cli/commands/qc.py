@@ -6,6 +6,8 @@ from wgsextract_cli.core.dependencies import log_dependency_info, verify_depende
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     get_resource_defaults,
+    get_sam_index_cmd,
+    get_sam_view_cmd,
     run_command,
 )
 
@@ -503,9 +505,12 @@ def generate_fake_genomics_data(
                     f.write("".join([r[1] for r in reads[i : i + batch_size]]))
 
         # Convert SAM to BAM (already sorted)
-        run_command(["samtools", "view", "-bh", sam_path, "-o", bam_path])
+        run_command(
+            get_sam_view_cmd(threads="1", fmt="BAM", is_input_sam=True)
+            + [sam_path, "-o", bam_path]
+        )
 
-        run_command(["samtools", "index", bam_path])
+        run_command(get_sam_index_cmd(bam_path))
         os.remove(sam_path)
         logging.info(f"Created {bam_path} ({len(chroms)} chromosomes)")
 
@@ -513,9 +518,10 @@ def generate_fake_genomics_data(
     if "cram" in types:
         cram_path = os.path.join(outdir, "fake.cram")
         run_command(
-            ["samtools", "view", "-C", "-T", ref_path, bam_path, "-o", cram_path]
+            get_sam_view_cmd(threads="1", fmt="CRAM", reference=ref_path)
+            + [bam_path, "-o", cram_path]
         )
-        run_command(["samtools", "index", cram_path])
+        run_command(get_sam_index_cmd(cram_path))
         logging.info(f"Created {cram_path}")
 
     # 4. Create fake VCF with variants on all chroms

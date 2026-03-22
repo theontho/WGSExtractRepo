@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -137,6 +138,96 @@ def get_resource_defaults(threads_arg=None, memory_arg=None):
             memory = "1G"
 
     return threads, memory
+
+
+def get_sam_sort_cmd(
+    out_file,
+    threads,
+    memory,
+    fmt="BAM",
+    reference=None,
+    name_sort=False,
+    temp_dir=None,
+):
+    """
+    Returns a command list for sorting BAM/CRAM.
+    Uses sambamba if available and format is BAM, else samtools.
+    """
+    threads_val = int(threads)
+    # Convert memory (e.g. "1G") to just "1" for calculation
+    mem_val = int(memory.rstrip("GgMm"))
+    is_gb = memory.lower().endswith("g")
+
+    if shutil.which("sambamba") and fmt == "BAM":
+        # sambamba -m is TOTAL memory
+        total_mem = mem_val * threads_val
+        total_mem_str = f"{total_mem}G" if is_gb else f"{total_mem}M"
+        cmd = [
+            "sambamba",
+            "sort",
+            "-t",
+            threads,
+            "-m",
+            total_mem_str,
+            "-o",
+            out_file,
+            "/dev/stdin",
+        ]
+        if name_sort:
+            cmd.insert(2, "-n")
+        if temp_dir:
+            cmd.insert(2, "--tmpdir")
+            cmd.insert(3, temp_dir)
+        return cmd
+    else:
+        # samtools sort -m is PER THREAD
+        cmd = ["samtools", "sort", "-@", threads, "-m", memory, "-o", out_file]
+        if name_sort:
+            cmd.append("-n")
+        if temp_dir:
+            cmd += ["-T", temp_dir]
+        if fmt == "CRAM":
+            cmd += ["-O", "CRAM"]
+            if reference:
+                cmd += ["--reference", reference]
+        elif fmt == "SAM":
+            cmd += ["-O", "SAM"]
+        else:
+            cmd += ["-O", "BAM"]
+        return cmd
+
+
+def get_sam_index_cmd(file_path, threads="1"):
+    """
+    Returns a command list for indexing BAM/CRAM.
+    Uses sambamba if available and file is BAM, else samtools.
+    """
+    if shutil.which("sambamba") and file_path.lower().endswith(".bam"):
+        return ["sambamba", "index", "-t", threads, file_path]
+    else:
+        return ["samtools", "index", file_path]
+
+
+def get_sam_view_cmd(threads="1", fmt="BAM", reference=None, is_input_sam=False):
+    """
+    Returns a command list for viewing/converting BAM/CRAM.
+    Uses sambamba if available and fmt is BAM, else samtools.
+    """
+    if shutil.which("sambamba") and fmt == "BAM" and not reference:
+        cmd = ["sambamba", "view", "-t", threads, "-f", "bam"]
+        if is_input_sam:
+            cmd += ["-S"]
+        return cmd
+    else:
+        cmd = ["samtools", "view", "-@", threads]
+        if fmt == "CRAM":
+            cmd += ["-O", "CRAM"]
+            if reference:
+                cmd += ["-T", reference]
+        elif fmt == "BAM":
+            cmd += ["-b"]
+
+        return cmd
 
 
 class ReferenceLibrary:

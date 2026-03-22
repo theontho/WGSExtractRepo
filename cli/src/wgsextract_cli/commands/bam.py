@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -9,6 +10,8 @@ from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_chr_name,
     get_resource_defaults,
+    get_sam_index_cmd,
+    get_sam_sort_cmd,
     resolve_reference,
     run_command,
     verify_paths_exist,
@@ -224,18 +227,14 @@ def cmd_sort(args):
             + [args.input]
             + region_args
         )
-        sort_cmd = [
-            "samtools",
-            "sort",
-            "-T",
-            tempdir,
-            "-m",
-            memory,
-            "-@",
-            threads,
-            "-o",
+        sort_cmd = get_sam_sort_cmd(
             out_file,
-        ]
+            threads,
+            memory,
+            fmt="CRAM" if is_cram else "BAM",
+            reference=resolved_ref,
+            temp_dir=tempdir,
+        )
 
         logging.info(
             LOG_MESSAGES["sorting_file"].format(input=args.input, output=out_file)
@@ -279,7 +278,7 @@ def cmd_index(args):
 
     logging.info(LOG_MESSAGES["indexing_file"].format(path=args.input))
     try:
-        run_command(["samtools", "index", args.input])
+        run_command(get_sam_index_cmd(args.input))
     except Exception as e:
         logging.error(f"Indexing failed: {e}")
         import sys
@@ -387,7 +386,7 @@ def cmd_tocram(args):
             + ["-@", threads, "-o", out_file, args.input]
             + region_args
         )
-        run_command(["samtools", "index", out_file])
+        run_command(get_sam_index_cmd(out_file))
     except Exception as e:
         logging.error(f"Conversion to CRAM failed: {e}")
         import sys
@@ -423,7 +422,7 @@ def cmd_tobam(args):
             + ["-@", threads, "-o", out_file, args.input]
             + region_args
         )
-        run_command(["samtools", "index", out_file])
+        run_command(get_sam_index_cmd(out_file))
     except Exception as e:
         logging.error(f"Conversion to BAM failed: {e}")
         import sys
@@ -474,19 +473,14 @@ def cmd_unalign(args):
             + [args.input]
             + region_args
         )
-        sort_cmd = [
-            "samtools",
-            "sort",
-            "-n",
-            "-T",
-            tempdir,
-            "-m",
-            memory,
-            "-@",
+        sort_cmd = get_sam_sort_cmd(
+            "-",  # output to stdout
             threads,
-            "-O",
-            "sam",
-        ]
+            memory,
+            fmt="SAM",
+            name_sort=True,
+            temp_dir=tempdir,
+        )
         fastq_cmd = (
             ["samtools", "fastq", "-1", out_r1, "-2", out_r2]
             + se_arg

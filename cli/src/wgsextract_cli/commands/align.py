@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import subprocess
 
 from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
@@ -7,6 +8,8 @@ from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_resource_defaults,
+    get_sam_index_cmd,
+    get_sam_sort_cmd,
     resolve_reference,
     run_command,
 )
@@ -39,7 +42,7 @@ def run(args):
 def align_bwa(args):
     verify_dependencies(["bwa", "samtools"])
     log_dependency_info(["bwa", "samtools"])
-    threads, _ = get_resource_defaults(args.threads, None)
+    threads, memory = get_resource_defaults(args.threads, args.memory)
 
     # Use --input's path if outdir not set, or r1's path
     input_path = args.input if args.input else args.r1
@@ -82,25 +85,41 @@ def align_bwa(args):
         LOG_MESSAGES["aligning_reads"].format(input=args.r1, output=out_bam, tool="BWA")
     )
     try:
-        # Samtools sort (BAM/CRAM)
-        sam_args = ["samtools", "sort", "-t", threads]
-        if args.format == "CRAM":
-            sam_args += ["--reference", resolved_ref, "-O", "CRAM"]
-        else:
-            sam_args += ["-O", "BAM"]
-        sam_args += ["-o", out_bam]
+        # 1. Aligner command
+        align_cmd = ["bwa", "mem", "-t", threads, resolved_ref, args.r1] + r2_args
 
-        p1 = subprocess.Popen(
-            ["bwa", "mem", "-t", threads, resolved_ref, args.r1] + r2_args,
-            stdout=subprocess.PIPE,
+        # 2. Mark duplicates (optional)
+        use_blaster = shutil.which("samblaster") is not None
+        if use_blaster:
+            logging.info("Using samblaster for marking duplicates...")
+
+        # 3. Sorter command
+        sort_cmd = get_sam_sort_cmd(
+            out_bam, threads, memory, fmt=args.format, reference=resolved_ref
         )
-        p2 = subprocess.Popen(sam_args, stdin=p1.stdout)
-        if p1.stdout:
-            p1.stdout.close()
-        p2.communicate()
+
+        # Pipe align -> [samblaster] -> sort
+        p_align = subprocess.Popen(align_cmd, stdout=subprocess.PIPE)
+
+        if use_blaster:
+            p_blaster = subprocess.Popen(
+                ["samblaster"], stdin=p_align.stdout, stdout=subprocess.PIPE
+            )
+            if p_align.stdout:
+                p_align.stdout.close()
+            p_sort = subprocess.Popen(sort_cmd, stdin=p_blaster.stdout)
+            if p_blaster.stdout:
+                p_blaster.stdout.close()
+        else:
+            p_sort = subprocess.Popen(sort_cmd, stdin=p_align.stdout)
+            if p_align.stdout:
+                p_align.stdout.close()
+
+        p_sort.communicate()
 
         logging.info(LOG_MESSAGES["indexing_output"])
-        subprocess.run(["samtools", "index", out_bam], check=True)
+        index_cmd = get_sam_index_cmd(out_bam, threads=threads)
+        subprocess.run(index_cmd, check=True)
     except Exception as e:
         logging.error(f"BWA alignment failed: {e}")
 
@@ -108,7 +127,7 @@ def align_bwa(args):
 def align_minimap2(args):
     verify_dependencies(["minimap2", "samtools"])
     log_dependency_info(["minimap2", "samtools"])
-    threads, _ = get_resource_defaults(args.threads, None)
+    threads, memory = get_resource_defaults(args.threads, args.memory)
 
     input_path = args.input if args.input else args.r1
     outdir = (
@@ -139,24 +158,49 @@ def align_minimap2(args):
         )
     )
     try:
-        # Samtools sort (BAM/CRAM)
-        sam_args = ["samtools", "sort", "-t", threads]
-        if args.format == "CRAM":
-            sam_args += ["--reference", resolved_ref, "-O", "CRAM"]
-        else:
-            sam_args += ["-O", "BAM"]
-        sam_args += ["-o", out_bam]
+        # 1. Aligner command
+        align_cmd = [
+            "minimap2",
+            "-ax",
+            "sr",
+            "-t",
+            threads,
+            resolved_ref,
+            args.r1,
+        ] + r2_args
 
-        p1 = subprocess.Popen(
-            ["minimap2", "-ax", "sr", "-t", threads, resolved_ref, args.r1] + r2_args,
-            stdout=subprocess.PIPE,
+        # 2. Mark duplicates (optional) - minimap2 typically used for long reads where marking dups might differ
+        # but the --long-read flag handles this.
+        use_blaster = shutil.which("samblaster") is not None and not args.long_read
+        if use_blaster:
+            logging.info("Using samblaster for marking duplicates...")
+
+        # 3. Sorter command
+        sort_cmd = get_sam_sort_cmd(
+            out_bam, threads, memory, fmt=args.format, reference=resolved_ref
         )
-        p2 = subprocess.Popen(sam_args, stdin=p1.stdout)
-        if p1.stdout:
-            p1.stdout.close()
-        p2.communicate()
+
+        # Pipe align -> [samblaster] -> sort
+        p_align = subprocess.Popen(align_cmd, stdout=subprocess.PIPE)
+
+        if use_blaster:
+            p_blaster = subprocess.Popen(
+                ["samblaster"], stdin=p_align.stdout, stdout=subprocess.PIPE
+            )
+            if p_align.stdout:
+                p_align.stdout.close()
+            p_sort = subprocess.Popen(sort_cmd, stdin=p_blaster.stdout)
+            if p_blaster.stdout:
+                p_blaster.stdout.close()
+        else:
+            p_sort = subprocess.Popen(sort_cmd, stdin=p_align.stdout)
+            if p_align.stdout:
+                p_align.stdout.close()
+
+        p_sort.communicate()
 
         logging.info(LOG_MESSAGES["indexing_output"])
-        subprocess.run(["samtools", "index", out_bam], check=True)
+        index_cmd = get_sam_index_cmd(out_bam, threads=threads)
+        subprocess.run(index_cmd, check=True)
     except Exception as e:
         logging.error(f"Minimap2 alignment failed: {e}")
