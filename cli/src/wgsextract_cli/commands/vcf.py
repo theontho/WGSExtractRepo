@@ -1640,7 +1640,7 @@ def cmd_spliceai(args):
             os.remove(normalized_input)
 
     # 4. Finish
-    logging.info(f"SpliceAI annotation complete: {ann_out}")
+    logging.info(LOG_MESSAGES["vcf_spliceai_done"].format(output=ann_out))
 
 
 def cmd_alphamissense(args):
@@ -1755,7 +1755,7 @@ def cmd_alphamissense(args):
         except Exception as e:
             logging.error(f"AlphaMissense filtering failed: {e}")
     else:
-        logging.info(f"AlphaMissense annotation complete: {ann_out}")
+        logging.info(LOG_MESSAGES["vcf_alphamissense_done"].format(output=ann_out))
 
 
 def cmd_pharmgkb(args):

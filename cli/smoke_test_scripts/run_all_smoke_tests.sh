@@ -27,10 +27,12 @@ if [ ! -f "$FAKE_DIR/fake.bam" ]; then
 fi
 
 # Ensure generic names exist for tests
-FASTA=$(ls "$FAKE_DIR"/fake_ref_hg38_*.fa | head -n 1)
-if [ -f "$FASTA" ]; then
-    cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
-    cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
+if [ ! -f "$FAKE_DIR/fake_ref.fa" ]; then
+    FASTA=$(ls "$FAKE_DIR"/fake_ref_hg38_*.fa 2>/dev/null | head -n 1)
+    if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
+        cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
+        cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
+    fi
 fi
 
 if [ -f "$FAKE_DIR/fake_ref.fa" ] && [ ! -f "$FAKE_DIR/fake_ref.fa.fai" ]; then
@@ -55,6 +57,8 @@ BASICS_TESTS=(
     "test_misc_basics.sh"
 )
 
+# Note: DeepVariant and CNV (delly) often have compatibility issues on macOS
+# and may fail depending on the local environment/architecture.
 VCF_TESTS=(
     "test_vcf_snp.sh"
     "test_vcf_indel.sh"
@@ -68,10 +72,10 @@ VCF_TESTS=(
     "test_vcf_trio.sh"
     "test_vcf_clinvar.sh"
     "test_vcf_revel.sh"
-    "test_vcf_phylop.sh",
-    "test_vcf_gnomad.sh",
-    "test_vcf_pathogenicity_new.sh",
-    "test_vcf_chain_annotate.sh",
+    "test_vcf_phylop.sh"
+    "test_vcf_gnomad.sh"
+    "test_vcf_pathogenicity_new.sh"
+    "test_vcf_chain_annotate.sh"
     )
 
 

@@ -26,7 +26,8 @@ if [ ! -f "${CHECKPOINT_BASE}.index" ]; then
     ./scripts/setup_vcf_resources.sh
 fi
 
-CHECKPOINT="$(realpath $CHECKPOINT_BASE)"
+CHECKPOINT_DIR="$(realpath $(dirname "$CHECKPOINT_BASE"))"
+CHECKPOINT="$CHECKPOINT_DIR/$(basename "$CHECKPOINT_BASE")"
 
 
 echo "--------------------------------------------------------"
