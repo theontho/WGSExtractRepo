@@ -388,7 +388,27 @@ def cmd_vep(args):
             ensure_vcf_indexed(current_input)
 
         md5_sig = calculate_bam_md5(current_input, None) if is_bam else None
-        lib = ReferenceLibrary(args.ref, md5_sig)
+        lib = ReferenceLibrary(args.ref, md5_sig, input_path=current_input)
+
+        # If user explicitly requested an assembly, ensure the resolved FASTA doesn't conflict
+        if args.vep_assembly:
+            forced_build = "hg38" if args.vep_assembly == "GRCh38" else "hg19"
+            lib.build = forced_build
+            if lib.fasta:
+                f_lower = str(lib.fasta).lower()
+                is_hg38_path = "hg38" in f_lower or "grch38" in f_lower
+                is_hg19_path = (
+                    "hg19" in f_lower or "grch37" in f_lower or "hs37d5" in f_lower
+                )
+                mismatch = (forced_build == "hg38" and is_hg19_path) or (
+                    forced_build == "hg19" and is_hg38_path
+                )
+                if mismatch:
+                    logging.warning(
+                        f"Discarding auto-resolved FASTA '{lib.fasta}' because it conflicts with --vep-assembly {args.vep_assembly}"
+                    )
+                    lib.fasta = None
+
         resolved_ref = lib.fasta
         logging.debug(f"Resolved reference: {resolved_ref}")
 

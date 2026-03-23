@@ -905,9 +905,23 @@ def get_bam_header(bam_path, cram_opt=None):
     """Retrieve header using samtools view -H."""
     from wgsextract_cli.core.dependencies import get_tool_path
 
+    is_cram = bam_path.lower().endswith(".cram")
+    is_vcf = bam_path.lower().endswith((".vcf", ".vcf.gz", ".bgz", ".bcf"))
+
+    if is_vcf:
+        try:
+            bcftools = get_tool_path("bcftools")
+            cmd = [bcftools, "view", "-h", bam_path]
+            # Execute without check=True to avoid printing red error logs if it fails
+            result = run_command(cmd, capture_output=True, check=False)
+            if result.returncode == 0:
+                return result.stdout
+        except Exception:
+            pass
+        return ""
+
     samtools = get_tool_path("samtools")
     cmd = [samtools, "view", "-H"]
-    is_cram = bam_path.lower().endswith(".cram")
 
     if is_cram and cram_opt:
         if isinstance(cram_opt, list):
