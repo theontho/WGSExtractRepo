@@ -11,35 +11,7 @@ LOG_DIR="out/smoke_test_logs"
 mkdir -p "$FAKE_DIR"
 mkdir -p "$LOG_DIR"
 
-echo "========================================================"
-echo "  WGS Extract CLI: Master Smoke Test Runner"
-echo "========================================================"
-
-# 1. Prepare shared fake data if missing
-if [ ! -f "$FAKE_DIR/fake.bam" ]; then
-    echo ":: Generating shared fake data (30x scaled hg38)..."
-    uv run wgsextract qc fake-data \
-        --outdir "$FAKE_DIR" \
-        --build hg38 \
-        --type bam,vcf,fastq \
-        --coverage 0.1 \
-        --seed 123
-fi
-
-# Ensure generic names exist for tests
-if [ ! -f "$FAKE_DIR/fake_ref.fa" ]; then
-    FASTA=$(ls "$FAKE_DIR"/fake_ref_hg38_*.fa 2>/dev/null | head -n 1)
-    if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
-        cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
-        cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
-    fi
-fi
-
-if [ -f "$FAKE_DIR/fake_ref.fa" ] && [ ! -f "$FAKE_DIR/fake_ref.fa.fai" ]; then
-    uv run wgsextract ref index --ref "$FAKE_DIR/fake_ref.fa"
-fi
-
-# List of tests to run
+# List of tests to run (grouped by directory)
 BASICS_TESTS=(
     "test_deps_check.sh"
     "test_qc_fake_data.sh"
@@ -58,8 +30,6 @@ BASICS_TESTS=(
     "test_misc_basics.sh"
 )
 
-# Note: DeepVariant and CNV (delly) often have compatibility issues on macOS
-# and may fail depending on the local environment/architecture.
 VCF_TESTS=(
     "test_vcf_snp.sh"
     "test_vcf_indel.sh"
@@ -87,53 +57,105 @@ BENCHMARK_TESTS=(
     "test_benchmark_yleaf.sh"
 )
 
+echo "========================================================"
+echo "  WGS Extract CLI: Master Smoke Test Runner"
+echo "========================================================"
 
-REAL_DATA_TESTS=(
-    "test_vcf_microarray.sh"
-    "test_cram_microarray.sh"
-)
+if [[ "$1" == "--describe" ]]; then
+    echo "Summary of all smoke tests:"
+    echo ""
+
+    describe_group() {
+        local group_name=$1
+        local group_dir=$2
+        shift 2
+        local tests=("$@")
+
+        echo "--- Group: $group_name ---"
+        for test_script in "${tests[@]}"; do
+            echo ":: $test_script"
+            ./smoke_test_scripts/"$group_dir"/"$test_script" --describe
+            echo ""
+        done
+    }
+
+    describe_group "Basics" "basics" "${BASICS_TESTS[@]}"
+    describe_group "VCF Workflows" "vcf" "${VCF_TESTS[@]}"
+    describe_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
+    describe_group "Real Data" "real_data" "test_vcf_microarray.sh" "test_cram_microarray.sh"
+
+    exit 0
+fi
+
+# 1. Prepare shared fake data if missing
+if [ ! -f "$FAKE_DIR/fake.bam" ]; then
+    echo ":: Generating shared fake data (30x scaled hg38)..."
+    uv run wgsextract qc fake-data \
+        --outdir "$FAKE_DIR" \
+        --build hg38 \
+        --type bam,vcf,fastq \
+        --coverage 0.1 \
+        --seed 123
+fi
+
+# Ensure generic names exist for tests
+if [ ! -f "$FAKE_DIR/fake_ref.fa" ]; then
+    FASTA=$(ls "$FAKE_DIR"/fake_ref_hg38_*.fa 2>/dev/null | head -n 1)
+    if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
+        cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
+        cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
+    fi
+fi
+
+if [ -f "$FAKE_DIR/fake_ref.fa" ] && [ ! -f "$FAKE_DIR/fake_ref.fa.fai" ]; then
+    uv run wgsextract ref index --ref "$FAKE_DIR/fake_ref.fa"
+fi
 
 run_test_group() {
     local group_name=$1
-    shift
+    local group_dir=$2
+    shift 2
     local tests=("$@")
 
     echo ""
     echo "--- Running Group: $group_name ---"
     for test_script in "${tests[@]}"; do
         echo -n ":: Running $test_script... "
-        ./smoke_test_scripts/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1
+        ./smoke_test_scripts/"$group_dir"/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1
         if [ $? -eq 0 ]; then
             echo "✅ PASSED"
         else
             echo "❌ FAILED (Check $LOG_DIR/${test_script}.log)"
-            # For mandatory tests, we might want to stop, but for smoke tests let's continue
         fi
     done
 }
 
 # Ensure all scripts are executable
-chmod +x smoke_test_scripts/*.sh
+chmod +x smoke_test_scripts/*.sh 2>/dev/null || true
+chmod +x smoke_test_scripts/basics/*.sh
+chmod +x smoke_test_scripts/vcf/*.sh
+chmod +x smoke_test_scripts/benchmarks/*.sh
+chmod +x smoke_test_scripts/real_data/*.sh
 
 # Run Basics
-run_test_group "Basics" "${BASICS_TESTS[@]}"
+run_test_group "Basics" "basics" "${BASICS_TESTS[@]}"
 
 # Run VCF Workflows
-run_test_group "VCF Workflows" "${VCF_TESTS[@]}"
+run_test_group "VCF Workflows" "vcf" "${VCF_TESTS[@]}"
 
 # Run Benchmarks
-run_test_group "Benchmarks" "${BENCHMARK_TESTS[@]}"
+run_test_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
 
 # Run Real Data Workflows if configured
 if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then
-    run_test_group "Real Data (VCF)" "test_vcf_microarray.sh"
+    run_test_group "Real Data (VCF)" "real_data" "test_vcf_microarray.sh"
 else
     echo ""
     echo ":: Skipping Real Data VCF tests (WGSE_INPUT_VCF not set)"
 fi
 
 if [ -n "$WGSE_INPUT_CRAM" ] && [ -n "$WGSE_REF" ]; then
-    run_test_group "Real Data (CRAM)" "test_cram_microarray.sh"
+    run_test_group "Real Data (CRAM)" "real_data" "test_cram_microarray.sh"
 else
     echo ""
     echo ":: Skipping Real Data CRAM tests (WGSE_INPUT_CRAM not set)"
