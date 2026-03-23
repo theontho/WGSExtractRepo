@@ -18,7 +18,9 @@ from wgsextract_cli.core.utils import (
     calculate_bsd_sum,
     ensure_vcf_indexed,
     get_resource_defaults,
+    popen,
     run_command,
+    verify_paths_exist,
 )
 
 
@@ -212,7 +214,7 @@ def cmd_vep_download(args):
             return False
 
         logging.info(LOG_MESSAGES["vep_extracting"].format(filename=filename))
-        subprocess.run(["tar", "-xzf", target_path, "-C", cache_root], check=True)
+        run_command(["tar", "-xzf", target_path, "-C", cache_root])
         logging.info(LOG_MESSAGES["vep_extraction_complete"])
         logging.info(LOG_MESSAGES["vep_ready"].format(path=f"{cache_root}/{species}"))
         os.remove(target_path)
@@ -421,9 +423,10 @@ def cmd_vep(args):
                     ploidy_args = ["--ploidy", alias]
 
                 assert resolved_ref is not None
-                p1 = subprocess.Popen(
+                bcftools = get_tool_path("bcftools")
+                p1 = popen(
                     [
-                        "bcftools",
+                        bcftools,
                         "mpileup",
                         "-B",
                         "-I",
@@ -437,8 +440,8 @@ def cmd_vep(args):
                     + [current_input],
                     stdout=subprocess.PIPE,
                 )
-                p2 = subprocess.Popen(
-                    ["bcftools", "call"]
+                p2 = popen(
+                    [bcftools, "call"]
                     + ploidy_args
                     + ["-mv", "-P", "0", "--threads", threads, "-Oz", "-o", temp_vcf],
                     stdin=p1.stdout,

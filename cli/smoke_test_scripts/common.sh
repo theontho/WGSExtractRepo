@@ -8,24 +8,35 @@ if [ -f .env.local ]; then
     export $(grep -v '^#' .env.local | xargs)
 fi
 
-# Add common paths for bioinformatics tools
+# Add common system paths for bioinformatics tools
 NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
 export PATH="$NEW_PATH"
 
 # Function to check for required tools and exit with 77 (SKIP) if any are missing
 check_deps() {
+    local tools=("$@")
     local missing=()
-    for tool in "$@"; do
-        if ! command -v "$tool" &> /dev/null; then
+
+    # Use the CLI itself to check if tools are available (including Pixi fallback)
+    # We can check all tools in one go if we wanted to parse output, but for now
+    # let's just make sure the loop is efficient.
+    for tool in "${tools[@]}"; do
+        # Use a faster check if it's already in PATH
+        if command -v "$tool" &> /dev/null; then
+            continue
+        fi
+
+        if ! uv run python3 -m wgsextract_cli.main deps check --tool "$tool" &> /dev/null; then
             missing+=("$tool")
         fi
     done
 
-    if [ ${#missing[@]} -gt 0 ]; then
+    if [ ${#missing[@]} -ne 0 ]; then
         echo "⏭️  SKIP: Missing required tools: ${missing[*]}"
         exit 77
     fi
 }
+
 
 # Function to check for mandatory tools (samtools, bcftools, tabix, bgzip, bwa)
 check_mandatory_deps() {
@@ -49,10 +60,21 @@ ensure_fake_data() {
 
         # Ensure generic names exist for tests
         local FASTA
-        FASTA=$(find "$FAKE_DIR" -name "fake_ref_hg38_*.fa" 2>/dev/null | head -n 1)
+        FASTA=$(find "$FAKE_DIR" -name "fake_ref_hg38_*.fa" | head -n 1)
         if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
             cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
             cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
+        fi
+
+        # Generate a dummy map file for CNV tests
+        if [ ! -f "$FAKE_DIR/fake.map" ]; then
+            echo ">chr1" > "$FAKE_DIR/fake.map"
+            # 500kb of 1s (mappable)
+            # Using a loop instead of printf to avoid 'argument list too long'
+            for _ in {1..50}; do
+                printf '1%.0s' {1..10000} >> "$FAKE_DIR/fake.map"
+            done
+            echo "" >> "$FAKE_DIR/fake.map"
         fi
     fi
 

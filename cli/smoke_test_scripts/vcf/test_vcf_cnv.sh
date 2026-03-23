@@ -13,6 +13,7 @@ fi
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
 REF_FASTA="out/fake_30x/fake_ref.fa"
+MAP_FILE="out/fake_30x/fake.map"
 OUTDIR="out/smoke_test_vcf_cnv"
 REGION="chr1"
 
@@ -23,6 +24,7 @@ mkdir -p "$OUTDIR"
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: VCF CNV Smoke Test"
 echo "  Input: $(basename "$INPUT_BAM")"
+echo "  Map:   $(basename "$MAP_FILE")"
 echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
@@ -33,6 +35,7 @@ ensure_fake_data
 if uv run wgsextract vcf cnv \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
+    --map "$MAP_FILE" \
     --outdir "$OUTDIR" \
     --region "$REGION" && [ -f "$OUTDIR/cnv.vcf.gz" ]; then
     echo "SUCCESS: VCF CNV completed."

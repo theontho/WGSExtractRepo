@@ -3,13 +3,18 @@ import os
 import shutil
 import subprocess
 
-from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
+from wgsextract_cli.core.dependencies import (
+    get_tool_path,
+    log_dependency_info,
+    verify_dependencies,
+)
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     calculate_bam_md5,
     get_resource_defaults,
     get_sam_index_cmd,
     get_sam_sort_cmd,
+    popen,
     resolve_reference,
     run_command,
 )
@@ -68,7 +73,8 @@ def align_bwa(args):
             f"BWA index missing for {resolved_ref}. Generating now (may take a while)..."
         )
         try:
-            run_command(["bwa", "index", resolved_ref])
+            bwa = get_tool_path("bwa")
+            run_command([bwa, "index", resolved_ref])
         except Exception as e:
             logging.error(f"Automatic indexing failed: {e}")
             return
@@ -85,11 +91,15 @@ def align_bwa(args):
         LOG_MESSAGES["aligning_reads"].format(input=args.r1, output=out_bam, tool="BWA")
     )
     try:
+        # Resolve tools
+        bwa = get_tool_path("bwa")
+        samblaster = get_tool_path("samblaster")
+
         # 1. Aligner command
-        align_cmd = ["bwa", "mem", "-t", threads, resolved_ref, args.r1] + r2_args
+        align_cmd = [bwa, "mem", "-t", threads, resolved_ref, args.r1] + r2_args
 
         # 2. Mark duplicates (optional)
-        use_blaster = shutil.which("samblaster") is not None
+        use_blaster = samblaster is not None
         if use_blaster:
             logging.info("Using samblaster for marking duplicates...")
 
@@ -99,19 +109,19 @@ def align_bwa(args):
         )
 
         # Pipe align -> [samblaster] -> sort
-        p_align = subprocess.Popen(align_cmd, stdout=subprocess.PIPE)
+        p_align = popen(align_cmd, stdout=subprocess.PIPE)
 
         if use_blaster:
-            p_blaster = subprocess.Popen(
-                ["samblaster"], stdin=p_align.stdout, stdout=subprocess.PIPE
+            p_blaster = popen(
+                [samblaster], stdin=p_align.stdout, stdout=subprocess.PIPE
             )
             if p_align.stdout:
                 p_align.stdout.close()
-            p_sort = subprocess.Popen(sort_cmd, stdin=p_blaster.stdout)
+            p_sort = popen(sort_cmd, stdin=p_blaster.stdout)
             if p_blaster.stdout:
                 p_blaster.stdout.close()
         else:
-            p_sort = subprocess.Popen(sort_cmd, stdin=p_align.stdout)
+            p_sort = popen(sort_cmd, stdin=p_align.stdout)
             if p_align.stdout:
                 p_align.stdout.close()
 
@@ -119,7 +129,7 @@ def align_bwa(args):
 
         logging.info(LOG_MESSAGES["indexing_output"])
         index_cmd = get_sam_index_cmd(out_bam, threads=threads)
-        subprocess.run(index_cmd, check=True)
+        run_command(index_cmd)
     except Exception as e:
         logging.error(f"BWA alignment failed: {e}")
 
@@ -158,9 +168,13 @@ def align_minimap2(args):
         )
     )
     try:
+        # Resolve tools
+        minimap2 = get_tool_path("minimap2")
+        samblaster = get_tool_path("samblaster")
+
         # 1. Aligner command
         align_cmd = [
-            "minimap2",
+            minimap2,
             "-ax",
             "sr",
             "-t",
@@ -169,9 +183,8 @@ def align_minimap2(args):
             args.r1,
         ] + r2_args
 
-        # 2. Mark duplicates (optional) - minimap2 typically used for long reads where marking dups might differ
-        # but the --long-read flag handles this.
-        use_blaster = shutil.which("samblaster") is not None and not args.long_read
+        # 2. Mark duplicates (optional)
+        use_blaster = samblaster is not None and not args.long_read
         if use_blaster:
             logging.info("Using samblaster for marking duplicates...")
 
@@ -181,19 +194,19 @@ def align_minimap2(args):
         )
 
         # Pipe align -> [samblaster] -> sort
-        p_align = subprocess.Popen(align_cmd, stdout=subprocess.PIPE)
+        p_align = popen(align_cmd, stdout=subprocess.PIPE)
 
         if use_blaster:
-            p_blaster = subprocess.Popen(
-                ["samblaster"], stdin=p_align.stdout, stdout=subprocess.PIPE
+            p_blaster = popen(
+                [samblaster], stdin=p_align.stdout, stdout=subprocess.PIPE
             )
             if p_align.stdout:
                 p_align.stdout.close()
-            p_sort = subprocess.Popen(sort_cmd, stdin=p_blaster.stdout)
+            p_sort = popen(sort_cmd, stdin=p_blaster.stdout)
             if p_blaster.stdout:
                 p_blaster.stdout.close()
         else:
-            p_sort = subprocess.Popen(sort_cmd, stdin=p_align.stdout)
+            p_sort = popen(sort_cmd, stdin=p_align.stdout)
             if p_align.stdout:
                 p_align.stdout.close()
 
@@ -201,6 +214,6 @@ def align_minimap2(args):
 
         logging.info(LOG_MESSAGES["indexing_output"])
         index_cmd = get_sam_index_cmd(out_bam, threads=threads)
-        subprocess.run(index_cmd, check=True)
+        run_command(index_cmd)
     except Exception as e:
         logging.error(f"Minimap2 alignment failed: {e}")

@@ -4,7 +4,11 @@ import shutil
 import subprocess
 import sys
 
-from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
+from wgsextract_cli.core.dependencies import (
+    get_tool_path,
+    log_dependency_info,
+    verify_dependencies,
+)
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
     ReferenceLibrary,
@@ -12,6 +16,8 @@ from wgsextract_cli.core.utils import (
     ensure_vcf_indexed,
     ensure_vcf_prepared,
     get_resource_defaults,
+    get_sam_view_cmd,
+    popen,
     run_command,
     verify_paths_exist,
 )
@@ -362,14 +368,15 @@ def cmd_snp(args):
         )
         return
 
-    p1 = subprocess.Popen(
-        ["bcftools", "mpileup", "-B", "-I", "-C", "50", "-f", ref, "-Ou"]
+    bcftools = get_tool_path("bcftools")
+    p1 = popen(
+        [bcftools, "mpileup", "-B", "-I", "-C", "50", "-f", ref, "-Ou"]
         + region_args
         + [args.input],
         stdout=subprocess.PIPE,
     )
-    p2 = subprocess.Popen(
-        ["bcftools", "call"]
+    p2 = popen(
+        [bcftools, "call"]
         + ploidy_args
         + [
             "-V",
@@ -394,7 +401,7 @@ def cmd_snp(args):
     if p2.returncode != 0:
         logging.error(f"bcftools call failed with return code {p2.returncode}")
         if stderr:
-            logging.error(stderr.decode())
+            logging.error(stderr.decode(errors="replace"))
         return
 
     ensure_vcf_indexed(out_vcf)
@@ -428,14 +435,15 @@ def cmd_indel(args):
         )
         return
 
-    p1 = subprocess.Popen(
-        ["bcftools", "mpileup", "-B", "-C", "50", "-f", ref, "-Ou"]
+    bcftools = get_tool_path("bcftools")
+    p1 = popen(
+        [bcftools, "mpileup", "-B", "-C", "50", "-f", ref, "-Ou"]
         + region_args
         + [args.input],
         stdout=subprocess.PIPE,
     )
-    p2 = subprocess.Popen(
-        ["bcftools", "call"]
+    p2 = popen(
+        [bcftools, "call"]
         + ploidy_args
         + ["-V", "snps", "-v", "-m", "-P", "0", "--threads", threads, "-Ou"],
         stdin=p1.stdout,
@@ -449,11 +457,11 @@ def cmd_indel(args):
     if p2.returncode != 0:
         logging.error(f"bcftools call failed with return code {p2.returncode}")
         if stderr:
-            logging.error(stderr.decode())
+            logging.error(stderr.decode(errors="replace"))
         return
 
-    p3 = subprocess.Popen(
-        ["bcftools", "norm", "-f", ref, "--threads", threads, "-Oz", "-o", out_vcf],
+    p3 = popen(
+        [bcftools, "norm", "-f", ref, "--threads", threads, "-Oz", "-o", out_vcf],
         stdin=subprocess.PIPE,
     )
     p3.communicate(input=stdout)
@@ -915,8 +923,9 @@ def cmd_cnv(args):
         os.close(fd)
         logging.info(f"Extracting region {args.region} to temporary BAM...")
         try:
+            samtools = get_tool_path("samtools")
             view_cmd = [
-                "samtools",
+                samtools,
                 "view",
                 "-bh",
             ]
@@ -931,8 +940,8 @@ def cmd_cnv(args):
                     temp_bam,
                 ]
             )
-            subprocess.run(view_cmd, check=True)
-            subprocess.run(["samtools", "index", temp_bam], check=True)
+            run_command(view_cmd)
+            run_command([samtools, "index", temp_bam])
             input_file = temp_bam
         except Exception as e:
             logging.error(f"Failed to extract region: {e}")
@@ -942,10 +951,12 @@ def cmd_cnv(args):
 
     try:
         # delly cnv -g ref.fa -o cnv.bcf input.bam
-        cmd = ["delly", "cnv", "-g", ref, "-o", out_bcf] + map_args + [input_file]
-        subprocess.run(cmd, check=True)
+        delly = get_tool_path("delly")
+        bcftools = get_tool_path("bcftools")
+        cmd = [delly, "cnv", "-g", ref, "-o", out_bcf] + map_args + [input_file]
+        run_command(cmd)
         # convert bcf to vcf.gz
-        subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
+        run_command([bcftools, "view", "-Oz", "-o", out_vcf, out_bcf])
         ensure_vcf_indexed(out_vcf)
         if os.path.exists(out_bcf):
             os.remove(out_bcf)
@@ -984,8 +995,9 @@ def cmd_sv(args):
         os.close(fd)
         logging.info(f"Extracting region {args.region} to temporary BAM...")
         try:
+            samtools = get_tool_path("samtools")
             view_cmd = [
-                "samtools",
+                samtools,
                 "view",
                 "-bh",
             ]
@@ -1000,8 +1012,8 @@ def cmd_sv(args):
                     temp_bam,
                 ]
             )
-            subprocess.run(view_cmd, check=True)
-            subprocess.run(["samtools", "index", temp_bam], check=True)
+            run_command(view_cmd)
+            run_command([samtools, "index", temp_bam])
             input_file = temp_bam
         except Exception as e:
             logging.error(f"Failed to extract region: {e}")
@@ -1011,10 +1023,12 @@ def cmd_sv(args):
 
     try:
         # delly call -g ref.fa -o sv.bcf input.bam
-        cmd = ["delly", "call", "-g", ref, "-o", out_bcf, input_file]
-        subprocess.run(cmd, check=True)
+        delly = get_tool_path("delly")
+        bcftools = get_tool_path("bcftools")
+        cmd = [delly, "call", "-g", ref, "-o", out_bcf, input_file]
+        run_command(cmd)
         # convert bcf to vcf.gz
-        subprocess.run(["bcftools", "view", "-Oz", "-o", out_vcf, out_bcf], check=True)
+        run_command([bcftools, "view", "-Oz", "-o", out_vcf, out_bcf])
         ensure_vcf_indexed(out_vcf)
         if os.path.exists(out_bcf):
             os.remove(out_bcf)
@@ -1874,51 +1888,59 @@ def cmd_freebayes(args):
     is_cram = args.input.lower().endswith(".cram")
 
     try:
+        freebayes = get_tool_path("freebayes")
+        bcftools = get_tool_path("bcftools")
+        samtools = get_tool_path("samtools")
+
         if is_cram:
             # freebayes doesn't always handle CRAM perfectly via stdin
-            view_cmd = ["samtools", "view", "-uh", "-T", use_ref, args.input]
+            view_cmd = [samtools, "view", "-uh", "-T", use_ref, args.input]
             if args.region:
                 view_cmd.extend(
                     ["-r", args.region] if "-r" not in region_args else region_args
                 )
 
-            p_view = subprocess.Popen(view_cmd, stdout=subprocess.PIPE)
-            p_fb = subprocess.Popen(
-                ["freebayes", "-f", use_ref, "--stdin"],
+            p_view = popen(view_cmd, stdout=subprocess.PIPE)
+            p_fb = popen(
+                [freebayes, "-f", use_ref, "--stdin"],
                 stdin=p_view.stdout,
                 stdout=subprocess.PIPE,
             )
-            p_vcf = subprocess.Popen(
-                ["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p_fb.stdout
-            )
+            p_vcf = popen([bcftools, "view", "-Oz", "-o", out_vcf], stdin=p_fb.stdout)
 
             if p_view.stdout:
                 p_view.stdout.close()
             if p_fb.stdout:
                 p_fb.stdout.close()
-            p_vcf.communicate()
+            _, stderr = p_vcf.communicate()
 
             if p_vcf.returncode != 0:
                 logging.error(
                     f"Freebayes/bcftools pipeline failed with return code {p_vcf.returncode}"
                 )
+                if stderr:
+                    logging.error(stderr.decode(errors="replace"))
         else:
             # BAM handling
-            p1 = subprocess.Popen(
-                ["freebayes", "-f", use_ref] + region_args + [args.input],
+            p1 = popen(
+                [freebayes, "-f", use_ref] + region_args + [args.input],
                 stdout=subprocess.PIPE,
             )
-            p2 = subprocess.Popen(
-                ["bcftools", "view", "-Oz", "-o", out_vcf], stdin=p1.stdout
+            p2 = popen(
+                [bcftools, "view", "-Oz", "-o", out_vcf],
+                stdin=p1.stdout,
+                stderr=subprocess.PIPE,
             )
             if p1.stdout:
                 p1.stdout.close()
-            p2.communicate()
+            _, stderr = p2.communicate()
 
             if p2.returncode != 0:
                 logging.error(
                     f"Freebayes/bcftools failed with return code {p2.returncode}"
                 )
+                if stderr:
+                    logging.error(stderr.decode(errors="replace"))
 
         ensure_vcf_indexed(out_vcf)
     except Exception as e:
@@ -1961,9 +1983,12 @@ def cmd_gatk(args):
     region_args = ["-L", args.region] if args.region else []
 
     try:
+        from wgsextract_cli.core.dependencies import get_tool_path
+
+        gatk_tool = get_tool_path("gatk")
         # Use system gatk binary
         cmd = [
-            "gatk",
+            gatk_tool,
             "HaplotypeCaller",
             "-R",
             ref,
@@ -1972,7 +1997,7 @@ def cmd_gatk(args):
             "-O",
             out_vcf,
         ] + region_args
-        subprocess.run(cmd, check=True)
+        run_command(cmd)
         ensure_vcf_indexed(out_vcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"GATK failed: {e}")

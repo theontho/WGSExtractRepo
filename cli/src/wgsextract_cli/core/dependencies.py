@@ -72,7 +72,7 @@ def get_jar_dir():
 
 def check_dependencies(tool_list, jar_dir=None):
     """
-    Checks if all required tools or JAR files are available in the PATH.
+    Checks if all required tools or JAR files are available in the PATH or Pixi.
     Returns a list of missing tools.
     """
     missing = []
@@ -84,7 +84,7 @@ def check_dependencies(tool_list, jar_dir=None):
             if not os.path.exists(os.path.join(jar_dir, tool)):
                 missing.append(f"{tool} (in {jar_dir})")
         else:
-            if shutil.which(tool) is None:
+            if get_tool_path(tool) is None:
                 missing.append(tool)
     return missing
 
@@ -230,22 +230,47 @@ def get_tool_path(tool):
     pixi_map = {
         "yleaf": "yleaf",
         "vep": "vep",
-        "deepvariant": "deepvariant",
+        "run_deepvariant": "deepvariant",
+        "haplogrep": "default",
+        "gatk": "default",
+        "delly": "default",
+        "freebayes": "default",
+        "samtools": "default",
+        "bcftools": "default",
+        "bgzip": "default",
+        "tabix": "default",
+        "java": "default",
     }
     if tool in pixi_map:
         env = pixi_map[tool]
-        # Check if pixi is available and if the environment can run the tool
-        try:
-            res = subprocess.run(
-                ["pixi", "run", "-e", env, "which", tool],
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-            if res.returncode == 0:
-                return f"pixi run -e {env} {tool}"
-        except:
-            pass
+
+        # Resolve 'pixi' command
+        pixi_cmd = shutil.which("pixi")
+        if not pixi_cmd:
+            # Try some common locations
+            for p in [
+                "/opt/homebrew/bin/pixi",
+                "/usr/local/bin/pixi",
+                "~/.pixi/bin/pixi",
+            ]:
+                expanded = os.path.expanduser(p)
+                if os.path.exists(expanded):
+                    pixi_cmd = expanded
+                    break
+
+        if pixi_cmd:
+            try:
+                # Use absolute path to pixi to be safe
+                res = subprocess.run(
+                    [pixi_cmd, "run", "-e", env, "which", tool],
+                    capture_output=True,
+                    text=True,
+                    timeout=2,
+                )
+                if res.returncode == 0:
+                    return f"{pixi_cmd} run -e {env} {tool}"
+            except Exception:
+                pass
 
     return None
 

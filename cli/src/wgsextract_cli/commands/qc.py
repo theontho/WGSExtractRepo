@@ -389,9 +389,9 @@ def generate_fake_genomics_data(
         chroms = {}
         for i in range(1, 23):
             name = f"chr{i}" if not is_hg19 else str(i)
-            chroms[name] = 10000 + (i * 100)  # variety
-        chroms["chrX" if not is_hg19 else "X"] = 30000
-        chroms["chrY" if not is_hg19 else "Y"] = 25000
+            chroms[name] = 500000 + (i * 1000)  # variety
+        chroms["chrX" if not is_hg19 else "X"] = 600000
+        chroms["chrY" if not is_hg19 else "Y"] = 400000
         chroms["chrM" if not is_hg19 else "MT"] = 16569  # Real length for chrM
 
     # Add a dummy contig to avoid collision with known SN counts in info.py (e.g. 25)
@@ -503,12 +503,16 @@ def generate_fake_genomics_data(
                         if pos1 <= v_pos < pos1 + rl1:
                             rel_pos = v_pos - pos1
                             if not is_indel:
-                                # Ensure alt is different from ref
-                                if r1_seq_list[rel_pos] == v_val:
-                                    r1_seq_list[rel_pos] = "A" if v_val != "A" else "C"
-                                else:
-                                    r1_seq_list[rel_pos] = v_val
-                            elif rel_pos > 10 and rel_pos < rl1 - 20:
+                                # Ensure rel_pos is valid after possible previous indels
+                                if rel_pos < len(r1_seq_list):
+                                    # Ensure alt is different from ref
+                                    if r1_seq_list[rel_pos] == v_val:
+                                        r1_seq_list[rel_pos] = (
+                                            "A" if v_val != "A" else "C"
+                                        )
+                                    else:
+                                        r1_seq_list[rel_pos] = v_val
+                            elif rel_pos > 10 and rel_pos < len(r1_seq_list) - 20:
                                 # Real Deletion: 5bp
                                 del_seq = (
                                     r1_seq_list[:rel_pos] + r1_seq_list[rel_pos + 5 :]
@@ -522,11 +526,14 @@ def generate_fake_genomics_data(
                         if pos2 <= v_pos < pos2 + rl2:
                             rel_pos = v_pos - pos2
                             if not is_indel:
-                                if r2_seq_list[rel_pos] == v_val:
-                                    r2_seq_list[rel_pos] = "A" if v_val != "A" else "C"
-                                else:
-                                    r2_seq_list[rel_pos] = v_val
-                            elif rel_pos > 10 and rel_pos < rl2 - 20:
+                                if rel_pos < len(r2_seq_list):
+                                    if r2_seq_list[rel_pos] == v_val:
+                                        r2_seq_list[rel_pos] = (
+                                            "A" if v_val != "A" else "C"
+                                        )
+                                    else:
+                                        r2_seq_list[rel_pos] = v_val
+                            elif rel_pos > 10 and rel_pos < len(r2_seq_list) - 20:
                                 del_seq = (
                                     r2_seq_list[:rel_pos] + r2_seq_list[rel_pos + 5 :]
                                 )

@@ -13,10 +13,30 @@ def register(subparsers, base_parser):
     check_parser = deps_subparsers.add_parser(
         "check", parents=[base_parser], help=CLI_HELP["cmd_check-deps"]
     )
+    check_parser.add_argument(
+        "--tool", help="Check for a specific tool and return exit code 1 if missing."
+    )
     check_parser.set_defaults(func=run)
 
 
 def run(args):
+    if args.tool:
+        from wgsextract_cli.core.dependencies import get_tool_path
+
+        path = get_tool_path(args.tool)
+        if path:
+            if not args.debug:
+                print(path)
+            else:
+                logging.debug(f"Found {args.tool} at {path}")
+            return
+        else:
+            if not args.debug:
+                logging.error(f"Tool not found: {args.tool}")
+            import sys
+
+            sys.exit(1)
+
     logging.info("Verifying bioinformatics tool installations...")
     results = check_all_dependencies()
 

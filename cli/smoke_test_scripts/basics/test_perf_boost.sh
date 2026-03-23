@@ -61,11 +61,16 @@ fi
 
 # 4. Check logs for tool usage
 if [ -n "$HAS_SAMBAMBA" ]; then
-    if grep -q "sambamba sort" "$OUTDIR/align.log"; then
-        echo "✅ Success: sambamba sort was used."
+    # Check if it's macOS
+    if [[ "$(uname)" == "Darwin" ]]; then
+        echo "ℹ️  Note: Skipping sambamba check on macOS (disabled for stability)."
     else
-        echo "❌ Failure: sambamba sort was NOT used despite being available."
-        exit 1
+        if grep -q "sambamba sort" "$OUTDIR/align.log"; then
+            echo "✅ Success: sambamba sort was used."
+        else
+            echo "❌ Failure: sambamba sort was NOT used despite being available."
+            exit 1
+        fi
     fi
 fi
 

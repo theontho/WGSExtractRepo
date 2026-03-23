@@ -14,11 +14,7 @@ OUTDIR="out/smoke_test_misc_basics"
 FAKEDATA="out/smoke_test_qc_fake/hg38"
 
 # Ensure fake data exists
-if [ ! -f "$FAKEDATA/fake.bam" ]; then
-    echo ":: Generating dependency fake data..."
-    chmod +x smoke_test_scripts/test_qc_fake_data.sh
-    ./smoke_test_scripts/test_qc_fake_data.sh
-fi
+ensure_fake_data
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

@@ -15,6 +15,7 @@ from wgsextract_cli.core.utils import (
     get_resource_defaults,
     get_vcf_build,
     get_vcf_chr_name,
+    popen,
     run_command,
     verify_paths_exist,
 )
@@ -194,19 +195,39 @@ def cmd_ydna(args):
             temp_dir = tempfile.mkdtemp(prefix="yleaf_")
             temp_vcf = os.path.join(temp_dir, "input.vcf.gz")
 
+            bcftools = get_tool_path("bcftools")
+            bgzip = get_tool_path("bgzip")
+
             run_command(
-                ["bcftools", "view", "-r", chr_y, "-Oz", "-o", temp_vcf, args.input]
+                [bcftools, "view", "-r", chr_y, "-Oz", "-o", temp_vcf, args.input]
             )
             # Force lowercase 'chry' in both header and body using sed for maximum compatibility
             # because some bcftools versions might handle --rename-chrs differently with temp files.
             # We use a temp file for sed output then move it back.
             sed_vcf = temp_vcf + ".sed.gz"
-            sed_cmd = (
-                f"bgzip -dc {temp_vcf} | sed 's/^{chr_y}/chry/' | bgzip -c > {sed_vcf}"
-            )
-            subprocess.run(sed_cmd, shell=True, check=True, executable="/bin/bash")
+            # Note: sed is usually a system tool, but bgzip might be from Pixi
+            import shlex
+
+            bgzip_list = shlex.split(bgzip)
+            bgzip_bin = bgzip_list[0]
+            # If bgzip is 'pixi run -e default bgzip', we need to be careful with redirection
+            # But run_command handles it if we pass it as a list.
+            # For shell=True pipes, it's harder. Let's use a more robust way.
+
+            # Alternative: use python to do the sed-like replacement to avoid shell escaping issues
+            import gzip
+
+            with gzip.open(temp_vcf, "rt") as f_in, gzip.open(sed_vcf, "wt") as f_out:
+                for line in f_in:
+                    if line.startswith(f"{chr_y}\t"):
+                        f_out.write(line.replace(f"{chr_y}\t", "chry\t", 1))
+                    elif line.startswith("##contig=<ID=" + chr_y):
+                        f_out.write(line.replace("ID=" + chr_y, "ID=chry", 1))
+                    else:
+                        f_out.write(line)
+
             os.rename(sed_vcf, temp_vcf)
-            run_command(["bcftools", "index", "-t", temp_vcf])
+            run_command([bcftools, "index", "-t", temp_vcf])
 
             input_file = temp_vcf
             logging.debug(f"Created shell-safe temp_vcf at: {temp_vcf}")
@@ -257,9 +278,8 @@ def cmd_ydna(args):
             final_cmd.extend([a for a in extra if a != "-force"])
 
         # Execute and WAIT explicitly
-        logging.debug(f"Executing: {' '.join(final_cmd)}")
-        result = subprocess.run(final_cmd, check=True)
-        logging.debug(f"Yleaf execution finished with return code {result.returncode}")
+        run_command(final_cmd)
+        logging.debug("Yleaf execution finished successfully")
 
     except Exception as e:
         logging.error(f"Yleaf failed: {e}")
@@ -339,9 +359,10 @@ def cmd_mtdna(args):
             chr_m = get_chr_name(input_file, "MT", cram_opt)
 
             # Fast variant calling for MT region
-            p1 = subprocess.Popen(
+            bcftools = get_tool_path("bcftools")
+            p1 = popen(
                 [
-                    "bcftools",
+                    bcftools,
                     "mpileup",
                     "-Ou",
                     "-r",
@@ -353,8 +374,8 @@ def cmd_mtdna(args):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
-            p2 = subprocess.Popen(
-                ["bcftools", "call", "-mv", "-Oz", "-o", temp_vcf],
+            p2 = popen(
+                [bcftools, "call", "-mv", "-Oz", "-o", temp_vcf],
                 stdin=p1.stdout,
                 stderr=subprocess.DEVNULL,
             )
@@ -373,17 +394,23 @@ def cmd_mtdna(args):
             logging.info(f"Filtering VCF to {chr_m} for Haplogrep...")
             temp_vcf = os.path.join(outdir, "temp_haplogrep_filtered.vcf.gz")
 
+            bcftools = get_tool_path("bcftools")
             run_command(
-                ["bcftools", "view", "-r", chr_m, "-Oz", "-o", temp_vcf, input_file]
+                [bcftools, "view", "-r", chr_m, "-Oz", "-o", temp_vcf, input_file]
             )
             input_file = temp_vcf
 
         logging.info(LOG_MESSAGES["running_haplogrep"].format(input=input_file))
         # Check if it's a JAR or a wrapper
-        cmd = [haplogrep_path]
         if haplogrep_path.endswith(".jar"):
             verify_dependencies(["java"])
-            cmd = ["java", "-jar", haplogrep_path]
+            java = get_tool_path("java")
+            cmd = [java, "-jar", haplogrep_path]
+        else:
+            # haplogrep_path might already be a 'pixi run' string
+            import shlex
+
+            cmd = shlex.split(haplogrep_path)
 
         run_command(
             cmd

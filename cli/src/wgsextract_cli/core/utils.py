@@ -151,14 +151,18 @@ def get_sam_sort_cmd(
 ):
     """
     Returns a command list for sorting BAM/CRAM.
-    Uses sambamba if available and format is BAM, else samtools.
+    Uses sambamba if available (except on macOS) and format is BAM, else samtools.
     """
     threads_val = int(threads)
     # Convert memory (e.g. "1G") to just "1" for calculation
     mem_val = int(memory.rstrip("GgMm"))
     is_gb = memory.lower().endswith("g")
 
-    if shutil.which("sambamba") and fmt == "BAM":
+    import platform
+
+    is_macos = platform.system() == "Darwin"
+
+    if shutil.which("sambamba") and fmt == "BAM" and not is_macos:
         # sambamba -m is TOTAL memory
         total_mem = mem_val * threads_val
         total_mem_str = f"{total_mem}G" if is_gb else f"{total_mem}M"
@@ -200,9 +204,13 @@ def get_sam_sort_cmd(
 def get_sam_index_cmd(file_path, threads="1"):
     """
     Returns a command list for indexing BAM/CRAM.
-    Uses sambamba if available and file is BAM, else samtools.
+    Uses sambamba if available (except on macOS) and file is BAM, else samtools.
     """
-    if shutil.which("sambamba") and file_path.lower().endswith(".bam"):
+    import platform
+
+    is_macos = platform.system() == "Darwin"
+
+    if shutil.which("sambamba") and file_path.lower().endswith(".bam") and not is_macos:
         return ["sambamba", "index", "-t", threads, file_path]
     else:
         return ["samtools", "index", file_path]
@@ -211,9 +219,13 @@ def get_sam_index_cmd(file_path, threads="1"):
 def get_sam_view_cmd(threads="1", fmt="BAM", reference=None, is_input_sam=False):
     """
     Returns a command list for viewing/converting BAM/CRAM.
-    Uses sambamba if available and fmt is BAM, else samtools.
+    Uses sambamba if available (except on macOS) and fmt is BAM, else samtools.
     """
-    if shutil.which("sambamba") and fmt == "BAM" and not reference:
+    import platform
+
+    is_macos = platform.system() == "Darwin"
+
+    if shutil.which("sambamba") and fmt == "BAM" and not reference and not is_macos:
         cmd = ["sambamba", "view", "-t", threads, "-f", "bam"]
         if is_input_sam:
             cmd += ["-S"]
@@ -673,13 +685,58 @@ def calculate_bsd_sum(file_path):
     return checksum, blocks
 
 
+def popen(cmd, stdout=None, stderr=None, stdin=None, text=False, env=None):
+    """
+    Helper to run subprocess.Popen with shlex splitting and registry.
+    Default text=False to allow binary pipes (BAM/BCF).
+    """
+    import shlex
+
+    if isinstance(cmd, str):
+        cmd_list = shlex.split(cmd)
+    else:
+        cmd_list = []
+        for item in cmd:
+            if isinstance(item, str) and ("pixi run" in item or " " in item):
+                if item == cmd[0]:
+                    cmd_list.extend(shlex.split(item))
+                else:
+                    cmd_list.append(item)
+            else:
+                cmd_list.append(item)
+
+    cmd_str = " ".join(cmd_list)
+    logging.debug(f"Popen: {cmd_str}")
+
+    process = subprocess.Popen(
+        cmd_list, stdout=stdout, stderr=stderr, stdin=stdin, text=text, env=env
+    )
+    proc_registry.register_process(cmd_str, process)
+    return process
+
+
 def run_command(cmd, capture_output=False, check=True, env=None):
     """Helper to run subprocess with logging and registry."""
-    cmd_str = " ".join(cmd)
+    import shlex
+
+    if isinstance(cmd, str):
+        cmd_list = shlex.split(cmd)
+    else:
+        cmd_list = []
+        for item in cmd:
+            if isinstance(item, str) and ("pixi run" in item or " " in item):
+                if item == cmd[0]:
+                    cmd_list.extend(shlex.split(item))
+                else:
+                    cmd_list.append(item)
+            else:
+                cmd_list.append(item)
+
+    cmd_str = " ".join(cmd_list)
     logging.debug(f"Running: {cmd_str}")
 
     process = subprocess.Popen(
-        cmd,
+        cmd_list,
         stdout=subprocess.PIPE if capture_output else None,
         stderr=subprocess.PIPE if capture_output else None,
         text=True,
@@ -709,7 +766,7 @@ def verify_paths_exist(paths_dict):
             continue
 
         # Skip check for commands (like pixi run)
-        if path.startswith("pixi run "):
+        if "pixi run" in str(path):
             continue
 
         if not os.path.exists(path):
@@ -726,8 +783,11 @@ def ensure_vcf_indexed(vcf_path):
 
     index_path = vcf_path + ".tbi"
     if not os.path.exists(index_path):
+        from wgsextract_cli.core.dependencies import get_tool_path
+
+        tabix = get_tool_path("tabix")
         logging.info(LOG_MESSAGES["vcf_indexing"].format(path=vcf_path))
-        subprocess.run(["tabix", "-p", "vcf", vcf_path], check=True)
+        run_command([tabix, "-p", "vcf", vcf_path])
 
 
 def ensure_vcf_prepared(vcf_path):
@@ -744,8 +804,14 @@ def ensure_vcf_prepared(vcf_path):
             ensure_vcf_indexed(gz_path)
             return gz_path
 
+    from wgsextract_cli.core.dependencies import get_tool_path
+
+    bgzip = get_tool_path("bgzip")
     logging.info(f"Compressing VCF: {vcf_path}")
-    subprocess.run(["bgzip", "-c", vcf_path], stdout=open(gz_path, "wb"), check=True)
+    with open(gz_path, "wb") as f_out:
+        import shlex
+
+        subprocess.run(shlex.split(bgzip) + ["-c", vcf_path], stdout=f_out, check=True)
     ensure_vcf_indexed(gz_path)
     return gz_path
 
@@ -808,9 +874,12 @@ def normalize_vcf_chromosomes(vcf_path, target_chroms):
 
     logging.info(f"Normalizing chromosomes in {vcf_path}...")
     try:
-        subprocess.run(
+        from wgsextract_cli.core.dependencies import get_tool_path
+
+        bcftools = get_tool_path("bcftools")
+        run_command(
             [
-                "bcftools",
+                bcftools,
                 "annotate",
                 "--rename-chrs",
                 map_file,
@@ -818,8 +887,7 @@ def normalize_vcf_chromosomes(vcf_path, target_chroms):
                 "-o",
                 norm_vcf,
                 vcf_path,
-            ],
-            check=True,
+            ]
         )
         ensure_vcf_indexed(norm_vcf)
         os.remove(map_file)
@@ -835,7 +903,10 @@ def normalize_vcf_chromosomes(vcf_path, target_chroms):
 
 def get_bam_header(bam_path, cram_opt=None):
     """Retrieve header using samtools view -H."""
-    cmd = ["samtools", "view", "-H"]
+    from wgsextract_cli.core.dependencies import get_tool_path
+
+    samtools = get_tool_path("samtools")
+    cmd = [samtools, "view", "-H"]
     is_cram = bam_path.lower().endswith(".cram")
 
     if is_cram and cram_opt:
@@ -856,7 +927,8 @@ def get_bam_header(bam_path, cram_opt=None):
         # Attempt 2: Try bcftools view -h (often more robust for CRAM)
         try:
             logging.debug("Header fetch with samtools failed, trying bcftools...")
-            bcftools_cmd = ["bcftools", "view", "-h", bam_path]
+            bcftools = get_tool_path("bcftools")
+            bcftools_cmd = [bcftools, "view", "-h", bam_path]
             result = run_command(bcftools_cmd, capture_output=True)
             return result.stdout
         except Exception:
@@ -867,7 +939,7 @@ def get_bam_header(bam_path, cram_opt=None):
             try:
                 logging.debug(LOG_MESSAGES["util_header_retry"])
                 result = run_command(
-                    ["samtools", "view", "-H", bam_path], capture_output=True
+                    [samtools, "view", "-H", bam_path], capture_output=True
                 )
                 return result.stdout
             except Exception:
@@ -1026,9 +1098,13 @@ def is_long_read(bam_path, cram_opt=None, header=None):
 def get_vcf_build(vcf_path):
     """Scan VCF header for build identifiers."""
     try:
-        res = subprocess.run(
-            ["bcftools", "view", "-h", vcf_path], capture_output=True, text=True
-        )
+        from wgsextract_cli.core.dependencies import get_tool_path
+
+        bcftools = get_tool_path("bcftools")
+        import shlex
+
+        cmd = shlex.split(bcftools) + ["view", "-h", vcf_path]
+        res = subprocess.run(cmd, capture_output=True, text=True)
         header = res.stdout.lower()
         if "hg38" in header or "grch38" in header:
             return "hg38"
@@ -1042,9 +1118,13 @@ def get_vcf_build(vcf_path):
 def get_vcf_chr_name(vcf_path, target_chr):
     """Map standard chromosome to VCF-specific naming."""
     try:
-        res = subprocess.run(
-            ["bcftools", "index", "-s", vcf_path], capture_output=True, text=True
-        )
+        from wgsextract_cli.core.dependencies import get_tool_path
+
+        bcftools = get_tool_path("bcftools")
+        import shlex
+
+        cmd = shlex.split(bcftools) + ["index", "-s", vcf_path]
+        res = subprocess.run(cmd, capture_output=True, text=True)
         v_chroms = [l.split("\t")[0] for l in res.stdout.strip().split("\n")]
 
         if target_chr.upper() in ["M", "MT", "CHRM", "CHRMT"]:

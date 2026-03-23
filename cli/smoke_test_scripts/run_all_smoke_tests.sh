@@ -27,6 +27,7 @@ BASICS_TESTS=(
     "test_lineage_basics.sh"
     "test_microarray_basics.sh"
     "test_misc_basics.sh"
+    "test_pixi_fallback.sh"
 )
 
 VCF_TESTS=(
@@ -59,6 +60,13 @@ BENCHMARK_TESTS=(
 echo "========================================================"
 echo "  WGS Extract CLI: Master Smoke Test Runner"
 echo "========================================================"
+
+RUN_REAL_DATA=false
+for arg in "$@"; do
+    if [[ "$arg" == "--real-data" ]]; then
+        RUN_REAL_DATA=true
+    fi
+done
 
 if [[ "$1" == "--describe" ]]; then
     echo "Summary of all smoke tests:"
@@ -103,8 +111,12 @@ run_test_group() {
     echo "--- Running Group: $group_name ---"
     for test_script in "${tests[@]}"; do
         echo -n ":: Running $test_script... "
-        if ./smoke_test_scripts/"$group_dir"/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1; then
+        ./smoke_test_scripts/"$group_dir"/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1
+        local exit_code=$?
+        if [ $exit_code -eq 0 ]; then
             echo "✅ PASSED"
+        elif [ $exit_code -eq 77 ]; then
+            echo "⏭️  SKIPPED"
         else
             echo "❌ FAILED (Check $LOG_DIR/${test_script}.log)"
         fi
@@ -127,19 +139,24 @@ run_test_group "VCF Workflows" "vcf" "${VCF_TESTS[@]}"
 # Run Benchmarks
 run_test_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
 
-# Run Real Data Workflows if configured
-if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then
-    run_test_group "Real Data (VCF)" "real_data" "test_vcf_microarray.sh"
-else
-    echo ""
-    echo ":: Skipping Real Data VCF tests (WGSE_INPUT_VCF not set)"
-fi
+# Run Real Data Workflows if requested and configured
+if [ "$RUN_REAL_DATA" = true ]; then
+    if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then
+        run_test_group "Real Data (VCF)" "real_data" "test_vcf_microarray.sh"
+    else
+        echo ""
+        echo ":: Skipping Real Data VCF tests (WGSE_INPUT_VCF not set)"
+    fi
 
-if [ -n "$WGSE_INPUT_CRAM" ] && [ -n "$WGSE_REF" ]; then
-    run_test_group "Real Data (CRAM)" "real_data" "test_cram_microarray.sh"
+    if [ -n "$WGSE_INPUT_CRAM" ] && [ -n "$WGSE_REF" ]; then
+        run_test_group "Real Data (CRAM)" "real_data" "test_cram_microarray.sh"
+    else
+        echo ""
+        echo ":: Skipping Real Data CRAM tests (WGSE_INPUT_CRAM not set)"
+    fi
 else
     echo ""
-    echo ":: Skipping Real Data CRAM tests (WGSE_INPUT_CRAM not set)"
+    echo "--- Skipping Group: Real Data (Use --real-data to run) ---"
 fi
 
 echo ""

@@ -51,7 +51,7 @@ start_time=$(date +%s)
 INPUT_ABS=$(realpath "$INPUT_VCF")
 OUTDIR_ABS=$(realpath "$OUTDIR")
 
-uv run wgsextract lineage y-dna \
+uv run wgsextract lineage y-haplogroup \
     --input "$INPUT_ABS" \
     --ref "$REF_ROOT" \
     --outdir "$OUTDIR_ABS" \
