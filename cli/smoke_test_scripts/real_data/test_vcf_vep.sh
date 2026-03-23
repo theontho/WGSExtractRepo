@@ -29,17 +29,12 @@ OUT_DIR="out/full_smoke_out_vep"
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-echo ">>> Slicing VCF to chr20:1-1000000 for smoke test..."
-SLICED_VCF="$OUT_DIR/sliced.vcf.gz"
-uv run bcftools view -r chr20:1-1000000 -Oz -o "$SLICED_VCF" "$INPUT_FILE"
-uv run tabix -p vcf "$SLICED_VCF"
-
-echo ">>> Starting FULL GENOME VCF VEP Smoke Test (Sliced Region)..."
-echo "Input: $SLICED_VCF"
+echo ">>> Starting FULL GENOME VCF VEP Smoke Test..."
+echo "Input: $INPUT_FILE"
 echo "Mode: VEP Annotation"
 
 uv run wgsextract vep \
-    --input "$SLICED_VCF" \
+    --input "$INPUT_FILE" \
     --ref "$REF_DIR" \
     --outdir "$OUT_DIR" \
     --vep-cache "$HOME/.vep" \
