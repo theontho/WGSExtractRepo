@@ -397,6 +397,23 @@ def generate_fake_genomics_data(
     # Add a dummy contig to avoid collision with known SN counts in info.py (e.g. 25)
     chroms["chrExtra" if not is_hg19 else "Extra"] = 1000
 
+    # 0. Pre-generate consistent variants for all chromosomes
+    # This ensures that all reads covering a position see the same variant
+    # variants[chrom] = {pos: (ref, alt, is_indel, cigar_change)}
+    consistent_variants = {}
+    for name, length in chroms.items():
+        v_list = {}
+        # 1 variant every 2000 bp
+        num_v = max(2, length // 2000)
+        for _ in range(num_v):
+            v_pos = random.randint(100, length - 100)
+            v_type = random.random()
+            if v_type < 0.8:  # SNP
+                v_list[v_pos] = (random.choice("ACGT"), random.choice("ACGT"), False)
+            else:  # Indel (just a marker for now, we'll do real ones if possible)
+                v_list[v_pos] = (random.choice("ACGT"), "AT", True)
+        consistent_variants[name] = v_list
+
     # 1. Create a reference if none provided
     if not ref_path:
         ref_path = os.path.join(
@@ -411,9 +428,10 @@ def generate_fake_genomics_data(
                 # Writing large files in chunks is faster
                 chunk_size = 1000000
                 for i in range(0, length, chunk_size):
-                    this_chunk = min(chunk_size, length - i)
-                    # Use chromosome-specific noise
-                    f.write(get_noise_seq(idx, i, this_chunk) + "\n")
+                    this_chunk_len = min(chunk_size, length - i)
+                    seq = list(get_noise_seq(idx, i, this_chunk_len))
+                    # Reference should NOT have the variants
+                    f.write("".join(seq) + "\n")
         run_command(["samtools", "faidx", ref_path])
     else:
         logging.info(f"Using reference: {ref_path}")
@@ -453,6 +471,7 @@ def generate_fake_genomics_data(
 
                 # Generate read pairs
                 reads = []
+                cv = consistent_variants.get(name, {})
                 for i in range(num_pairs):
                     # Randomize read length and insert size
                     rl1 = int(random.gauss(base_read_len, 2))
@@ -470,17 +489,61 @@ def generate_fake_genomics_data(
                     read_id = f"read_{name}_{i}"
 
                     # Pull sequences from the deterministic noise buffer
-                    r1_seq = get_noise_seq(idx, pos1 - 1, rl1)
-                    r2_seq = get_noise_seq(idx, pos2 - 1, rl2)
+                    r1_seq_list = list(get_noise_seq(idx, pos1 - 1, rl1))
+                    r2_seq_list = list(get_noise_seq(idx, pos2 - 1, rl2))
+
+                    # Apply consistent variants
+                    # Homozygous for smoke tests to ensure reliable calling
+                    r1_cigar = f"{rl1}M"
+                    r2_cigar = f"{rl2}M"
+
+                    # Check R1
+                    for v_pos, v_data in cv.items():
+                        v_ref, v_val, is_indel = v_data
+                        if pos1 <= v_pos < pos1 + rl1:
+                            rel_pos = v_pos - pos1
+                            if not is_indel:
+                                # Ensure alt is different from ref
+                                if r1_seq_list[rel_pos] == v_val:
+                                    r1_seq_list[rel_pos] = "A" if v_val != "A" else "C"
+                                else:
+                                    r1_seq_list[rel_pos] = v_val
+                            elif rel_pos > 10 and rel_pos < rl1 - 20:
+                                # Real Deletion: 5bp
+                                del_seq = (
+                                    r1_seq_list[:rel_pos] + r1_seq_list[rel_pos + 5 :]
+                                )
+                                r1_seq_list = del_seq
+                                r1_cigar = f"{rel_pos}M5D{len(r1_seq_list) - rel_pos}M"
+
+                    # Check R2
+                    for v_pos, v_data in cv.items():
+                        v_ref, v_val, is_indel = v_data
+                        if pos2 <= v_pos < pos2 + rl2:
+                            rel_pos = v_pos - pos2
+                            if not is_indel:
+                                if r2_seq_list[rel_pos] == v_val:
+                                    r2_seq_list[rel_pos] = "A" if v_val != "A" else "C"
+                                else:
+                                    r2_seq_list[rel_pos] = v_val
+                            elif rel_pos > 10 and rel_pos < rl2 - 20:
+                                del_seq = (
+                                    r2_seq_list[:rel_pos] + r2_seq_list[rel_pos + 5 :]
+                                )
+                                r2_seq_list = del_seq
+                                r2_cigar = f"{rel_pos}M5D{len(r2_seq_list) - rel_pos}M"
+
+                    r1_seq = "".join(r1_seq_list)
+                    r2_seq = "".join(r2_seq_list)
 
                     # R1 (99 = paired, proper pair, mstrand, mate reverse)
                     reads.append(
                         (
                             pos1,
-                            f"{read_id}\t99\t{name}\t{pos1}\t60\t{rl1}M\t=\t{pos2}\t{ins}\t"
+                            f"{read_id}\t99\t{name}\t{pos1}\t60\t{r1_cigar}\t=\t{pos2}\t{ins}\t"
                             + r1_seq
                             + "\t"
-                            + "I" * rl1
+                            + "I" * len(r1_seq)
                             + "\tRG:Z:sample1\n",
                         )
                     )
@@ -488,10 +551,10 @@ def generate_fake_genomics_data(
                     reads.append(
                         (
                             pos2,
-                            f"{read_id}\t147\t{name}\t{pos2}\t60\t{rl2}M\t=\t{pos1}\t-{ins}\t"
+                            f"{read_id}\t147\t{name}\t{pos2}\t60\t{r2_cigar}\t=\t{pos1}\t-{ins}\t"
                             + r2_seq
                             + "\t"
-                            + "I" * rl2
+                            + "I" * len(r2_seq)
                             + "\tRG:Z:sample1\n",
                         )
                     )

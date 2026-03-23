@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates a VCF file with basic metadata and region information."
-    echo "End Goal: Annotated VCF with additional INFO fields.; verified by existence of output file."
+    echo "🌕 End Goal: Annotated VCF with additional INFO fields.; verified by existence of output file."
     exit 0
 fi
 
@@ -20,10 +20,11 @@ rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
 check_mandatory_deps
+ensure_fake_data
+
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: VCF Annotate Smoke Test"
 echo "  Input: $(basename "$INPUT_VCF")"
-check_mandatory_deps
 echo "--------------------------------------------------------"
 
 # Note: Annotate requires --ann-vcf. Since we don't have a small dummy one easily,

@@ -6,46 +6,35 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests DeepVariant integration for variant calling."
-    echo "End Goal: High-accuracy VCF output from DeepVariant.; verified by existence of output file."
+    echo "🌕 End Goal: Valid VCF output from DeepVariant.; verified by existence of output file."
     exit 0
 fi
 
-# Configuration (Hardcode to fake data for smoke test)
+# Configuration
 INPUT_BAM="$(realpath out/fake_30x/fake.bam)"
 REF_FASTA="$(realpath out/fake_30x/fake_ref.fa)"
-CHECKPOINT_BASE="reference/models/deepvariant/WGS/deepvariant.wgs.ckpt"
-OUTDIR="$(realpath out/smoke_test_vcf_deepvariant)"
-REGION="chr1:1-5000"
+OUTDIR="out/smoke_test_vcf_deepvariant"
+CHECKPOINT_DIR="$(realpath reference/models/deepvariant/WGS/deepvariant.wgs.ckpt)"
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
-# Ensure models exist
-if [ ! -f "${CHECKPOINT_BASE}.index" ]; then
-    echo ":: DeepVariant model not found, running setup..."
-    chmod +x scripts/setup_vcf_resources.sh
-    ./scripts/setup_vcf_resources.sh
-fi
-
-CHECKPOINT_DIR="$(realpath "$(dirname "$CHECKPOINT_BASE")")"
-CHECKPOINT="$CHECKPOINT_DIR/$(basename "$CHECKPOINT_BASE")"
-
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: VCF DeepVariant Smoke Test"
 echo "  Input: $(basename "$INPUT_BAM")"
-echo "  Checkpoint: $CHECKPOINT"
+echo "  Checkpoint: $CHECKPOINT_DIR"
 echo "--------------------------------------------------------"
 
-# Check if deepvariant is installed
+# Check dependencies
 check_deps run_deepvariant
+ensure_fake_data
 
 if uv run wgsextract vcf deepvariant \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
-    --checkpoint "$CHECKPOINT" \
     --outdir "$OUTDIR" \
-    --region "$REGION" && [ -f "$OUTDIR/deepvariant.vcf.gz" ]; then
+    --model WGS && [ -f "$OUTDIR/deepvariant.vcf.gz" ]; then
     echo "SUCCESS: VCF DeepVariant completed."
     ls -lh "$OUTDIR/deepvariant.vcf.gz"
 else

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests miscellaneous utility commands (e.g., version, help, config)."
-    echo "End Goal: Successful output of utility information; verified by existence of generated sorted/unsorted BAMs, FASTQ files, and VCF statistics."
+    echo "🌕 End Goal: Successful output of utility information; verified by existence of generated sorted/unsorted BAMs, FASTQ files, and VCF statistics."
     exit 0
 fi
 

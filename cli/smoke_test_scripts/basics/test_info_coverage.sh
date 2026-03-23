@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Calculates genome-wide or regional coverage statistics from a BAM/CRAM file."
-    echo "End Goal: A coverage report with accurate depth calculations; verified by successful completion of 'info' and 'calculate-coverage' commands."
+    echo "🌕 End Goal: A coverage report with accurate depth calculations; verified by successful completion of 'info' and 'calculate-coverage' commands."
     exit 0
 fi
 

@@ -8,7 +8,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Processes real-world CRAM data to produce microarray-compatible outputs."
-    echo "Verified End Goal: Successful extraction and formatting of microarray data from CRAM files."
+    echo "✅ Verified End Goal: Successful extraction and formatting of microarray data from CRAM files."
     exit 0
 fi
 

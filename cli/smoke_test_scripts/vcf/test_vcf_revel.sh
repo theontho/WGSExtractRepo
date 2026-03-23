@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates missense variants with REVEL pathogenicity scores."
-    echo "Verified End Goal: VCF with REVEL scores in the INFO field."
+    echo "✅ Verified End Goal: VCF with REVEL scores in the INFO field."
     exit 0
 fi
 

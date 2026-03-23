@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests VCF calling using GATK HaplotypeCaller."
-    echo "End Goal: Valid VCF output from GATK.; verified by existence of output file."
+    echo "🌕 End Goal: Valid VCF output from GATK.; verified by existence of output file."
     exit 0
 fi
 
@@ -28,6 +28,7 @@ echo "--------------------------------------------------------"
 
 # Check if gatk is installed
 check_deps gatk
+ensure_fake_data
 
 if uv run wgsextract vcf gatk \
     --input "$INPUT_BAM" \

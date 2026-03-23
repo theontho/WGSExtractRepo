@@ -11,7 +11,7 @@ mkdir -p "$OUTDIR"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Evaluates performance optimization flags like multi-threading and buffer sizes."
-    echo "End Goal: Successful execution with optimized settings showing speed improvements."
+    echo "🌕 End Goal: Successful execution with optimized settings showing speed improvements."
     exit 0
 fi
 

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies that all mandatory bioinformatics tools (samtools, bcftools, bwa, etc.) are installed and accessible in the system PATH."
-    echo "Verified End Goal: Success exit code (0) and a report showing mandatory tools as 'verified'; verified by grepping output for 'Verified'."
+    echo "✅ Verified End Goal: Success exit code (0) and a report showing mandatory tools as 'verified'; verified by grepping output for 'Verified'."
     exit 0
 fi
 

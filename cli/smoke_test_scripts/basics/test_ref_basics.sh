@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests reference genome management commands: download, index, count-ns, and verify."
-    echo "End Goal: A verified reference genome with valid index files; verified by existence of downloaded .fa and .fai files, and successful completion of 'ref verify' command."
+    echo "🌕 End Goal: A verified reference genome with valid index files; verified by existence of downloaded .fa and .fai files, and successful completion of 'ref verify' command."
     exit 0
 fi
 

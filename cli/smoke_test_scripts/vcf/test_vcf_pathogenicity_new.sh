@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests the latest pathogenicity scoring integration."
-    echo "End Goal: Comprehensive pathogenicity scores assigned to variants."
+    echo "🌕 End Goal: Comprehensive pathogenicity scores assigned to variants."
     exit 0
 fi
 

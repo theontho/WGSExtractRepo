@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies microarray data processing and conversion from raw formats."
-    echo "End Goal: Processed microarray data in a standard format (e.g., 23andMe)."
+    echo "🌕 End Goal: Processed microarray data in a standard format (e.g., 23andMe)."
     exit 0
 fi
 

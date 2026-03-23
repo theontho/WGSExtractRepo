@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests the alignment pipeline using BWA/minimap2 on small datasets."
-    echo "End Goal: A valid, sorted, and indexed BAM file aligned to the reference; verified by existence of generated BAM and CRAM output files."
+    echo "🌕 End Goal: A valid, sorted, and indexed BAM file aligned to the reference; verified by existence of generated BAM and CRAM output files."
     exit 0
 fi
 

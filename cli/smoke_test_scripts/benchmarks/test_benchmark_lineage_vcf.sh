@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks lineage assignment specifically from VCF input files."
-    echo "End Goal: Performance report for VCF-based lineage identification.; verified by grepping output."
+    echo "🌕 End Goal: Performance report for VCF-based lineage identification.; verified by grepping output."
     exit 0
 fi
 

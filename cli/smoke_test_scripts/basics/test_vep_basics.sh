@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Basic smoke test for Variant Effect Predictor (VEP) integration."
-    echo "End Goal: Annotated VCF with basic consequence predictions; also verifies error handling for missing cache."
+    echo "🌕 End Goal: Annotated VCF with basic consequence predictions; also verifies error handling for missing cache."
     exit 0
 fi
 

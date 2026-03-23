@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Performs joint variant calling and analysis for a family trio (Mother, Father, Proband)."
-    echo "End Goal: Combined VCF with Mendelian inheritance information.; verified by existence of output file."
+    echo "🌕 End Goal: Combined VCF with Mendelian inheritance information.; verified by existence of output file."
     exit 0
 fi
 

@@ -5,8 +5,8 @@
 source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
-    echo "Description: Detects Structural Variations (SVs) like inversions and translocations."
-    echo "End Goal: A VCF file identifying structural variants.; verified by existence of output file."
+    echo "Description: Performs structural variant (SV) calling using Delly."
+    echo "✅ Verified End Goal: A VCF file containing SV records; verified by presence of output file."
     exit 0
 fi
 
@@ -21,15 +21,14 @@ rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
 echo "--------------------------------------------------------"
-echo "  WGS Extract CLI: VCF SV Smoke Test (Delly)"
+echo "  WGS Extract CLI: VCF SV Smoke Test"
 echo "  Input: $(basename "$INPUT_BAM")"
+echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
-# Check if delly is installed
-if ! command -v delly &> /dev/null; then
-    echo "SKIP: delly not found in PATH."
-    exit 0
-fi
+# Check dependencies
+check_deps delly
+ensure_fake_data
 
 if uv run wgsextract vcf sv \
     --input "$INPUT_BAM" \

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks HaploGrep integration for mitochondrial haplogroup assignment."
-    echo "End Goal: Comparison with standard HaploGrep results; extracts and displays the predicted haplogroup from the output."
+    echo "🌕 End Goal: Comparison with standard HaploGrep results; extracts and displays the predicted haplogroup from the output."
     exit 0
 fi
 

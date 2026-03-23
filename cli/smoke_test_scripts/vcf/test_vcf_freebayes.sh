@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests VCF calling using FreeBayes."
-    echo "End Goal: Valid VCF output from FreeBayes with non-empty variant records."
+    echo "🌕 End Goal: Valid VCF output from FreeBayes with non-empty variant records."
     exit 0
 fi
 
@@ -28,6 +28,7 @@ echo "--------------------------------------------------------"
 
 # Check dependencies
 check_deps freebayes
+ensure_fake_data
 
 if uv run wgsextract vcf freebayes \
     --input "$INPUT_BAM" \

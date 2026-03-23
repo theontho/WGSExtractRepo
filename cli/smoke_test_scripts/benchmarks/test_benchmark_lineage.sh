@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks the accuracy and speed of haplogroup/lineage assignment."
-    echo "End Goal: Benchmark report comparing predicted vs. expected lineages.; verified by grepping output."
+    echo "🌕 End Goal: Benchmark report comparing predicted vs. expected lineages.; verified by grepping output."
     exit 0
 fi
 

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks Yleaf integration for Y-chromosomal lineage assignment."
-    echo "End Goal: Comparison with standard Yleaf results; extracts and displays the predicted haplogroup from the report."
+    echo "🌕 End Goal: Comparison with standard Yleaf results; extracts and displays the predicted haplogroup from the report."
     exit 0
 fi
 

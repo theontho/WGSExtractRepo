@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies Pair-End Tag (PET) data handling and extraction."
-    echo "End Goal: Correctly paired and extracted genomic data; verified by existence of generated species-specific BAM file."
+    echo "🌕 End Goal: Correctly paired and extracted genomic data; verified by existence of generated species-specific BAM file."
     exit 0
 fi
 

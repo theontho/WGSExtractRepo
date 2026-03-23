@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Runs multiple annotation steps in a sequential chain."
-    echo "Verified End Goal: Highly annotated VCF with combined information from multiple sources."
+    echo "✅ Verified End Goal: Highly annotated VCF with combined information from multiple sources."
     exit 0
 fi
 

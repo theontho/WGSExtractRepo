@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Manages the local reference library, adding and removing reference genomes."
-    echo "End Goal: Updated library metadata and accessible reference paths; verified by successful completion of 'ref library-list' and 'ref gene-map' commands."
+    echo "🌕 End Goal: Updated library metadata and accessible reference paths; verified by successful completion of 'ref library-list' and 'ref gene-map' commands."
     exit 0
 fi
 

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Performs single-nucleotide polymorphism (SNP) calling from a BAM file."
-    echo "Verified End Goal: A VCF file containing valid, non-zero SNP records for the specified region; verified by zgrep SNP count."
+    echo "✅ Verified End Goal: A VCF file containing valid, non-zero SNP records for the specified region; verified by zgrep SNP count."
     exit 0
 fi
 
@@ -28,6 +28,7 @@ echo "--------------------------------------------------------"
 
 # Check dependencies
 check_mandatory_deps
+ensure_fake_data
 
 if uv run wgsextract vcf snp \
     --input "$INPUT_BAM" \

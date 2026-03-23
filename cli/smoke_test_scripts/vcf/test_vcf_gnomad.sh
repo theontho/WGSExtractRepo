@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with population frequency data from gnomAD."
-    echo "End Goal: VCF with allele frequency information from gnomAD populations."
+    echo "🌕 End Goal: VCF with allele frequency information from gnomAD populations."
     exit 0
 fi
 

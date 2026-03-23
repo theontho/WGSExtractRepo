@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies the core genomic extraction functionality for various formats."
-    echo "End Goal: Extracted sequences matching the requested regions and formats; verified by successful completion of extraction commands and existence of output files (e.g., mt.bam)."
+    echo "🌕 End Goal: Extracted sequences matching the requested regions and formats; verified by successful completion of extraction commands and existence of output files (e.g., mt.bam)."
     exit 0
 fi
 

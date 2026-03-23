@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Generates synthetic genome data (BAM, VCF, FASTQ) using the 'qc fake-data' command."
-    echo "End Goal: Successful creation of a test dataset in the output directory; verified by the existence of generated BAM, VCF, CRAM, and FASTQ files."
+    echo "🌕 End Goal: Successful creation of a test dataset in the output directory; verified by the existence of generated BAM, VCF, CRAM, and FASTQ files."
     exit 0
 fi
 

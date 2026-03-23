@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Detailed test of the 'vcf vep' command wrapper."
-    echo "End Goal: VCF output with full VEP annotations."
+    echo "🌕 End Goal: VCF output with full VEP annotations."
     exit 0
 fi
 

@@ -429,7 +429,7 @@ def cmd_indel(args):
         return
 
     p1 = subprocess.Popen(
-        ["bcftools", "mpileup", "-B", "-I", "-C", "50", "-f", ref, "-Ou"]
+        ["bcftools", "mpileup", "-B", "-C", "50", "-f", ref, "-Ou"]
         + region_args
         + [args.input],
         stdout=subprocess.PIPE,

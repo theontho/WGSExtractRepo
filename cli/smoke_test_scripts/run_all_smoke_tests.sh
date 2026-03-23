@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/common.sh"
 
 # Configuration
 FAKE_DIR="out/fake_30x"
@@ -93,28 +91,7 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # 1. Prepare shared fake data if missing
-if [ ! -f "$FAKE_DIR/fake.bam" ]; then
-    echo ":: Generating shared fake data (30x scaled hg38)..."
-    uv run wgsextract qc fake-data \
-        --outdir "$FAKE_DIR" \
-        --build hg38 \
-        --type bam,vcf,fastq \
-        --coverage 0.1 \
-        --seed 123
-fi
-
-# Ensure generic names exist for tests
-if [ ! -f "$FAKE_DIR/fake_ref.fa" ]; then
-    FASTA=$(find "$FAKE_DIR" -name "fake_ref_hg38_*.fa" 2>/dev/null | head -n 1)
-    if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
-        cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
-        cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
-    fi
-fi
-
-if [ -f "$FAKE_DIR/fake_ref.fa" ] && [ ! -f "$FAKE_DIR/fake_ref.fa.fai" ]; then
-    uv run wgsextract ref index --ref "$FAKE_DIR/fake_ref.fa"
-fi
+ensure_fake_data
 
 run_test_group() {
     local group_name=$1

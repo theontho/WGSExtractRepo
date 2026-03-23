@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with PhyloP conservation scores."
-    echo "Verified End Goal: VCF with conservation scores indicating evolutionary pressure."
+    echo "✅ Verified End Goal: VCF with conservation scores indicating evolutionary pressure."
     exit 0
 fi
 

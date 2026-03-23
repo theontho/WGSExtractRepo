@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests lineage/haplogroup assignment from mitochondrial or Y-chromosomal data."
-    echo "End Goal: Assignment of a valid haplogroup/lineage; also verifies error handling for missing input."
+    echo "🌕 End Goal: Assignment of a valid haplogroup/lineage; also verifies error handling for missing input."
     exit 0
 fi
 

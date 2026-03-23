@@ -8,7 +8,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Processes real-world VCF data to produce microarray-compatible outputs."
-    echo "Verified End Goal: Accurate translation of VCF genotypes into microarray formats."
+    echo "✅ Verified End Goal: Accurate translation of VCF genotypes into microarray formats."
     exit 0
 fi
 

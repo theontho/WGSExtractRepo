@@ -31,3 +31,33 @@ check_deps() {
 check_mandatory_deps() {
     check_deps samtools bcftools tabix bgzip bwa
 }
+
+# Function to ensure shared fake data exists
+ensure_fake_data() {
+    local FAKE_DIR="out/fake_30x"
+    mkdir -p "$FAKE_DIR"
+
+    if [ ! -f "$FAKE_DIR/fake.bam" ] || [ ! -f "$FAKE_DIR/fake_ref.fa" ]; then
+        echo ":: [Common] Shared fake data missing or incomplete. Generating (10x scaled hg38)..."
+        uv run wgsextract qc fake-data \
+            --outdir "$FAKE_DIR" \
+            --build hg38 \
+            --type bam,vcf,fastq \
+            --coverage 10.0 \
+            --seed 123 \
+            --ref "$FAKE_DIR"
+
+        # Ensure generic names exist for tests
+        local FASTA
+        FASTA=$(find "$FAKE_DIR" -name "fake_ref_hg38_*.fa" 2>/dev/null | head -n 1)
+        if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
+            cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
+            cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
+        fi
+    fi
+
+    if [ -f "$FAKE_DIR/fake_ref.fa" ] && [ ! -f "$FAKE_DIR/fake_ref.fa.fai" ]; then
+        echo ":: [Common] Indexing fake reference..."
+        uv run wgsextract ref index --ref "$FAKE_DIR/fake_ref.fa"
+    fi
+}

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with clinical significance from the ClinVar database."
-    echo "End Goal: VCF with ClinVar clinical labels (e.g., Pathogenic, Benign)."
+    echo "🌕 End Goal: VCF with ClinVar clinical labels (e.g., Pathogenic, Benign)."
     exit 0
 fi
 
