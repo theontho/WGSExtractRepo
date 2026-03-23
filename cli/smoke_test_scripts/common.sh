@@ -32,7 +32,7 @@ check_deps() {
     done
 
     if [ ${#missing[@]} -ne 0 ]; then
-        echo "⏭️  SKIP: Missing required tools: ${missing[*]}"
+        echo "⏭️  SKIP: (missing dep) Missing required tools: ${missing[*]}"
         exit 77
     fi
 }

@@ -116,7 +116,13 @@ run_test_group() {
         if [ $exit_code -eq 0 ]; then
             echo "✅ PASSED"
         elif [ $exit_code -eq 77 ]; then
-            echo "⏭️  SKIPPED"
+            local skip_reason
+            skip_reason=$(grep -o '([a-zA-Z ]*)' "$LOG_DIR/${test_script}.log" | tail -n 1)
+            if [ -n "$skip_reason" ]; then
+                echo "⏭️  SKIPPED $skip_reason"
+            else
+                echo "⏭️  SKIPPED"
+            fi
         else
             echo "❌ FAILED (Check $LOG_DIR/${test_script}.log)"
         fi
