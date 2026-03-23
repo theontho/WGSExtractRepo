@@ -36,12 +36,19 @@ echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: Performance Boost Smoke Test"
 echo "--------------------------------------------------------"
 
-# Check if sambamba and samblaster are available
-HAS_SAMBAMBA=$(which sambamba 2>/dev/null)
-HAS_SAMBLASTER=$(which samblaster 2>/dev/null)
+# Check if sambamba and samblaster are available (includes Pixi fallback)
+HAS_SAMBAMBA=""
+if uv run python3 -m wgsextract_cli.main deps check --tool sambamba &> /dev/null; then
+    HAS_SAMBAMBA="YES"
+fi
+
+HAS_SAMBLASTER=""
+if uv run python3 -m wgsextract_cli.main deps check --tool samblaster &> /dev/null; then
+    HAS_SAMBLASTER="YES"
+fi
 
 echo "Tools detected:"
-if [ -n "$HAS_SAMBAMBA" ]; then echo "  - sambamba: FOUND"; else echo "  - sambamba: NOT FOUND (using samtools fallback)"; fi
+if [ -n "$HAS_SAMBAMBA" ]; then echo "  - sambamba: FOUND (fallback mode on macOS)"; else echo "  - sambamba: NOT FOUND (using samtools fallback)"; fi
 if [ -n "$HAS_SAMBLASTER" ]; then echo "  - samblaster: FOUND"; else echo "  - samblaster: NOT FOUND (skipping duplicate marking)"; fi
 
 # 2. Run alignment with BWA

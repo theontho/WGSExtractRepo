@@ -34,7 +34,7 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 - [ ] **BAM/CRAM Merging**: (New) Add `bam merge` utility for multiple alignment files.
 - [ ] **uBAM (Unaligned BAM) Creator**: (New) Convert FASTQ/BAM to unaligned BAM for GATK pipelines.
 - [x] **MD5 Integrity Checks**: Automated MD5sum checking for reference genomes.
-- [ ] **Performance Boost**: Integrate `sambamba` or `samblaster` for faster processing.
+- [x] **Performance Boost**: Integrated `sambamba` and `samblaster` for faster processing (with macOS fallback).
 
 ### Microarray & Specialized Analysis
 - [x] **Pet Sequencing Support**: Dog/cat genome support (align, extract, lineage).
@@ -44,6 +44,7 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 
 ### CLI Improvements
 - [x] **CLI Robustness**: Improved parameter handling and "Auto Mode" reliability.
+- [x] **Pixi Environment Management**: Cross-platform dependency isolation and automatic fallback.
 - [ ] **Parallel Microarray Generation**: (In Progress) Implement `--parallel` flag for per-chromosome calling.
 - [x] **JSON/TSV Output**: Machine-readable formats for all stats and results.
 - [x] **Smoke Test Coverage**: Full CLI coverage with automated tests.
@@ -66,9 +67,9 @@ This document outlines the planned features, improvements, and bug fixes for WGS
 ### Technical Debt
 - [x] **Python Integration**: Ported core Bash scripts to native Python.
 - [x] **Tooling Updates**: Updated samtools, bcftools, and other binaries.
-- [ ] **Path Validation**: Fix the `is_legal_path` logic for restricted directories.
+- [x] **Path Validation**: Fixed `verify_paths_exist` to support Pixi command strings and restricted environments.
 
 ### Known Bugs
 - [x] **Cross-Platform TTY Issues**: Resolved terminal TTY bugs.
 - [ ] **samtools Hangs**: Fix `markdup` and `fastq` hangs on specific MGI/Dante files.
-- [ ] **yleaf Crash**: Fix crash on early HG19 delivered files.
+- [x] **yleaf Integration**: Fixed command naming and resolved execution issues on macOS ARM.

@@ -240,6 +240,10 @@ def get_tool_path(tool):
         "bgzip": "default",
         "tabix": "default",
         "java": "default",
+        "sambamba": "default",
+        "samblaster": "default",
+        "bwa": "default",
+        "minimap2": "default",
     }
     if tool in pixi_map:
         env = pixi_map[tool]
