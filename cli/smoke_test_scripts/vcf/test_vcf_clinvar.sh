@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with clinical significance from the ClinVar database."
-    echo "Verified End Goal: VCF with ClinVar clinical labels (e.g., Pathogenic, Benign)."
+    echo "End Goal: VCF with ClinVar clinical labels (e.g., Pathogenic, Benign)."
     exit 0
 fi
 

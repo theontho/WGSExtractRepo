@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
-    echo "Description: Tests VCF calling using the FreeBayes variant caller."
-    echo "End Goal: Valid VCF output from FreeBayes."
+    echo "Description: Tests VCF calling using FreeBayes."
+    echo "End Goal: Valid VCF output from FreeBayes with non-empty variant records."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
@@ -27,16 +21,13 @@ rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
 echo "--------------------------------------------------------"
-echo "  WGS Extract CLI: VCF Freebayes Smoke Test"
+echo "  WGS Extract CLI: VCF FreeBayes Smoke Test"
 echo "  Input: $(basename "$INPUT_BAM")"
 echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
-# Check if freebayes is installed
-if ! command -v freebayes &> /dev/null; then
-    echo "SKIP: freebayes not found in PATH."
-    exit 0
-fi
+# Check dependencies
+check_deps freebayes
 
 if uv run wgsextract vcf freebayes \
     --input "$INPUT_BAM" \

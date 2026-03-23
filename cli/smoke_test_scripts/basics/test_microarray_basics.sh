@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies microarray data processing and conversion from raw formats."
-    echo "Verified End Goal: Processed microarray data in a standard format (e.g., 23andMe)."
+    echo "End Goal: Processed microarray data in a standard format (e.g., 23andMe)."
     exit 0
 fi
 

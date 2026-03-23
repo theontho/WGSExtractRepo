@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Performs insertion/deletion (indel) calling from a BAM file."
-    echo "End Goal: A VCF file containing valid indel calls."
+    echo "Verified End Goal: A VCF file containing valid, non-zero indel records for the specified region; verified by zgrep indel count."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
@@ -32,6 +26,9 @@ echo "  Input: $(basename "$INPUT_BAM")"
 echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
+# Check dependencies
+check_mandatory_deps
+
 if uv run wgsextract vcf indel \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
@@ -40,6 +37,15 @@ if uv run wgsextract vcf indel \
     --ploidy 1 && [ -f "$OUTDIR/indels.vcf.gz" ]; then
     echo "SUCCESS: VCF Indel completed."
     ls -lh "$OUTDIR/indels.vcf.gz"
+
+    # Verification: Ensure VCF contains indel records (not just header)
+    INDEL_COUNT=$(zgrep -v "^#" "$OUTDIR/indels.vcf.gz" | wc -l)
+    if [ "$INDEL_COUNT" -gt 0 ]; then
+        echo "VERIFIED: VCF contains $INDEL_COUNT indel records."
+    else
+        echo "FAILURE: VCF is empty or missing expected indel records."
+        exit 1
+    fi
 else
     echo "FAILURE: VCF Indel failed."
     exit 1

@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests basic BAM operations like indexing, sorting, and stats extraction."
-    echo "End Goal: Generated .bai file and a non-empty stats report."
+    echo "End Goal: Generated .bai file and a non-empty stats report; verified by existence of generated index, CRAM, and BAM output files."
     exit 0
 fi
 

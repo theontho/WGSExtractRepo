@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests the latest pathogenicity scoring integration."
-    echo "Verified End Goal: Comprehensive pathogenicity scores assigned to variants."
+    echo "End Goal: Comprehensive pathogenicity scores assigned to variants."
     exit 0
 fi
 

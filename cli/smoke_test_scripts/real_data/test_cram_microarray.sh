@@ -1,11 +1,10 @@
 #!/bin/bash
-# Full-Genome Smoke test for CRAM-to-Microarray workflow
 
-# Load environment variables from .env.local
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
+
+# Full-Genome Smoke test for CRAM-to-Microarray workflow
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Processes real-world CRAM data to produce microarray-compatible outputs."

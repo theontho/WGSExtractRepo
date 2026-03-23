@@ -153,10 +153,19 @@ def get_jar_path(jar_name):
 
 def get_tool_version(tool):
     """Attempt to get the version of a tool by running it."""
+    # Use the path/command from get_tool_path to handle pixi correctly
+    cmd_base = get_tool_path(tool)
+    if not cmd_base:
+        return None
+
+    import shlex
+
+    full_cmd = shlex.split(cmd_base)
+
     try:
         # 1. Try --version first (standard)
         res = subprocess.run(
-            [tool, "--version"], capture_output=True, text=True, timeout=5
+            full_cmd + ["--version"], capture_output=True, text=True, timeout=5
         )
         output = (res.stdout or res.stderr).strip()
 
@@ -170,7 +179,7 @@ def get_tool_version(tool):
                 return lines[0]
 
         # 2. Fallback for tools that use bare command or --help
-        res = subprocess.run([tool], capture_output=True, text=True, timeout=5)
+        res = subprocess.run(full_cmd, capture_output=True, text=True, timeout=5)
         output = (res.stdout or res.stderr).strip()
 
         # Check for dyld/library errors
@@ -212,8 +221,33 @@ def get_tool_version(tool):
 
 
 def get_tool_path(tool):
-    """Returns the path to a tool if it exists in the system PATH."""
-    return shutil.which(tool)
+    """Returns the path to a tool if it exists in the system PATH or pixi environments."""
+    path = shutil.which(tool)
+    if path:
+        return path
+
+    # Check for pixi sub-environments
+    pixi_map = {
+        "yleaf": "yleaf",
+        "vep": "vep",
+        "deepvariant": "deepvariant",
+    }
+    if tool in pixi_map:
+        env = pixi_map[tool]
+        # Check if pixi is available and if the environment can run the tool
+        try:
+            res = subprocess.run(
+                ["pixi", "run", "-e", env, "which", tool],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if res.returncode == 0:
+                return f"pixi run -e {env} {tool}"
+        except:
+            pass
+
+    return None
 
 
 def check_all_dependencies(mandatory=None, optional=None):
@@ -242,7 +276,7 @@ def check_all_dependencies(mandatory=None, optional=None):
     for tool in mandatory:
         if tool == "python3":
             continue  # Already checked above as Runtime
-        path = shutil.which(tool)
+        path = get_tool_path(tool)
         version = get_tool_version(tool) if path else None
         is_broken = version and version.startswith("Error:")
 
@@ -255,7 +289,7 @@ def check_all_dependencies(mandatory=None, optional=None):
         )
 
     for tool in optional:
-        path = shutil.which(tool)
+        path = get_tool_path(tool)
         version = get_tool_version(tool) if path else None
 
         display_name = tool
@@ -280,7 +314,7 @@ def check_all_dependencies(mandatory=None, optional=None):
 def log_dependency_info(tool_list):
     """Logs the path and version for a list of tools for diagnostic purposes."""
     for tool in tool_list:
-        path = shutil.which(tool)
+        path = get_tool_path(tool)
         if path:
             version = get_tool_version(tool)
             logging.debug(f"Dependency: {tool} -> {path} ({version})")

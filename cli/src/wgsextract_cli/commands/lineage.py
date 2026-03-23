@@ -168,8 +168,10 @@ def cmd_ydna(args):
     logging.info(LOG_MESSAGES["running_yleaf"].format(input=args.input))
     temp_vcf = None
     try:
+        import shlex
+
         # Check if yleaf_path is a python script or a wrapper
-        cmd = [yleaf_path]
+        cmd = shlex.split(yleaf_path)
         if yleaf_path.endswith(".py"):
             cmd = ["python3", yleaf_path]
 

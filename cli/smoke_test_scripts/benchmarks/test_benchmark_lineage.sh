@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks the accuracy and speed of haplogroup/lineage assignment."
-    echo "End Goal: Benchmark report comparing predicted vs. expected lineages."
+    echo "End Goal: Benchmark report comparing predicted vs. expected lineages.; verified by grepping output."
     exit 0
 fi
 

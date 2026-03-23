@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Performs single-nucleotide polymorphism (SNP) calling from a BAM file."
-    echo "End Goal: A VCF file containing valid SNP calls."
+    echo "Verified End Goal: A VCF file containing valid, non-zero SNP records for the specified region; verified by zgrep SNP count."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
@@ -32,6 +26,9 @@ echo "  Input: $(basename "$INPUT_BAM")"
 echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
+# Check dependencies
+check_mandatory_deps
+
 if uv run wgsextract vcf snp \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
@@ -40,6 +37,15 @@ if uv run wgsextract vcf snp \
     --ploidy 1 && [ -f "$OUTDIR/snps.vcf.gz" ]; then
     echo "SUCCESS: VCF SNP completed."
     ls -lh "$OUTDIR/snps.vcf.gz"
+
+    # Verification: Ensure VCF contains SNP records (not just header)
+    SNP_COUNT=$(zgrep -v "^#" "$OUTDIR/snps.vcf.gz" | wc -l)
+    if [ "$SNP_COUNT" -gt 0 ]; then
+        echo "VERIFIED: VCF contains $SNP_COUNT SNP records."
+    else
+        echo "FAILURE: VCF is empty or missing expected SNP records."
+        exit 1
+    fi
 else
     echo "FAILURE: VCF SNP failed."
     exit 1

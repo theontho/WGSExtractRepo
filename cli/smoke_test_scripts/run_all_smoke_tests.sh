@@ -65,6 +65,10 @@ echo "========================================================"
 if [[ "$1" == "--describe" ]]; then
     echo "Summary of all smoke tests:"
     echo ""
+    echo "Definitions:"
+    echo "  - Verified End Goal: The smoke test actually looks inside data files, stdout output, or similar to verify it's actually returning correct output."
+    echo "  - End Goal: Just checks file existence or a 0 exit code or similar."
+    echo ""
 
     describe_group() {
         local group_name=$1

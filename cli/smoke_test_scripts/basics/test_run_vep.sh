@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
+
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Detailed test of the 'vcf vep' command wrapper."
     echo "End Goal: VCF output with full VEP annotations."
@@ -20,6 +24,9 @@ echo "Starting VEP Batch Processing for ${PERSON}..."
 echo "Input:  $INPUT_DIR"
 echo "Output: $OUTPUT_DIR"
 echo "------------------------------------------------------------"
+
+# Check dependencies
+check_deps vep
 
 # Using the new batch-aware wgsextract vep command
 # --vcf-type auto will detect snp-indel, sv, or cnv from filenames

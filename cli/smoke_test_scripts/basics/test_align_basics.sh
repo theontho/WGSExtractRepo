@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests the alignment pipeline using BWA/minimap2 on small datasets."
-    echo "End Goal: A valid, sorted, and indexed BAM file aligned to the reference."
+    echo "End Goal: A valid, sorted, and indexed BAM file aligned to the reference; verified by existence of generated BAM and CRAM output files."
     exit 0
 fi
 

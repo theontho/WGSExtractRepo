@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Manages the local reference library, adding and removing reference genomes."
-    echo "End Goal: Updated library metadata and accessible reference paths."
+    echo "End Goal: Updated library metadata and accessible reference paths; verified by successful completion of 'ref library-list' and 'ref gene-map' commands."
     exit 0
 fi
 

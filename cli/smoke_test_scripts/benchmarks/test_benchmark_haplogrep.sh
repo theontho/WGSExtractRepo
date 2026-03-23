@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks HaploGrep integration for mitochondrial haplogroup assignment."
-    echo "Verified End Goal: Comparison with standard HaploGrep results; extracts and displays the predicted haplogroup from the output."
+    echo "End Goal: Comparison with standard HaploGrep results; extracts and displays the predicted haplogroup from the output."
     exit 0
 fi
 

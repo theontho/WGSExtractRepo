@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with population frequency data from gnomAD."
-    echo "Verified End Goal: VCF with allele frequency information from gnomAD populations."
+    echo "End Goal: VCF with allele frequency information from gnomAD populations."
     exit 0
 fi
 

@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks Yleaf integration for Y-chromosomal lineage assignment."
-    echo "Verified End Goal: Comparison with standard Yleaf results; extracts and displays the predicted haplogroup from the report."
+    echo "End Goal: Comparison with standard Yleaf results; extracts and displays the predicted haplogroup from the report."
     exit 0
 fi
 
@@ -41,11 +39,7 @@ echo "--------------------------------------------------------"
 
 # --- Verification Step ---
 echo ":: Verifying Local Yleaf Installation..."
-YLEAF_BIN=$(which yleaf)
-if [ -z "$YLEAF_BIN" ]; then
-    echo "❌ Error: 'yleaf' not found in PATH."
-    exit 1
-fi
+check_deps yleaf
 echo "✅ Setup verified (using local editable install)."
 echo ""
 # -------------------------

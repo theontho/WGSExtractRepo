@@ -5,7 +5,11 @@ import shutil
 import subprocess
 import tempfile
 
-from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
+from wgsextract_cli.core.dependencies import (
+    get_tool_path,
+    log_dependency_info,
+    verify_dependencies,
+)
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.ref_library import download_file
 from wgsextract_cli.core.utils import (
@@ -468,7 +472,10 @@ def cmd_vep(args):
                     vcf_type = "snp-indel"
 
             # 4. Construct VEP command
-            vep_cmd = ["vep", "-i", vep_input_vcf, "-o", output_file, "--fork", threads]
+            vep_path = get_tool_path("vep") or "vep"
+
+            vep_cmd = shlex.split(vep_path)
+            vep_cmd.extend(["-i", vep_input_vcf, "-o", output_file, "--fork", threads])
 
             if args.format == "vcf":
                 vep_cmd.append("--vcf")

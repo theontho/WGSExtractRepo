@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests FASTQ/BAM repair and sanitation tools for corrupted or malformed files."
-    echo "Verified End Goal: Cleaned and valid genomic files that can be processed by downstream tools."
+    echo "End Goal: Cleaned and valid genomic files that can be processed by downstream tools."
     exit 0
 fi
 

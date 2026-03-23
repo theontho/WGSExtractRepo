@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
+
 # Configuration
 WGSE_CMD=${WGSE_CMD:-"uv run python -m wgsextract_cli.main"}
 OUTDIR="out/smoke_test_perf_boost"
@@ -7,7 +11,7 @@ mkdir -p "$OUTDIR"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Evaluates performance optimization flags like multi-threading and buffer sizes."
-    echo "Verified End Goal: Successful execution with optimized settings showing speed improvements."
+    echo "End Goal: Successful execution with optimized settings showing speed improvements."
     exit 0
 fi
 

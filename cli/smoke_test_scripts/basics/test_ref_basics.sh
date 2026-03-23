@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests reference genome management commands: download, index, count-ns, and verify."
-    echo "End Goal: A verified reference genome with valid index files."
+    echo "End Goal: A verified reference genome with valid index files; verified by existence of downloaded .fa and .fai files, and successful completion of 'ref verify' command."
     exit 0
 fi
 

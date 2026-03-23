@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Detects Copy Number Variations (CNVs) from sequencing data."
-    echo "End Goal: A VCF/BED file identifying CNV regions."
+    echo "End Goal: A VCF/BED file identifying CNV regions.; verified by existence of output file."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration (Hardcode to fake data for smoke test)
 INPUT_BAM="out/fake_30x/fake.bam"

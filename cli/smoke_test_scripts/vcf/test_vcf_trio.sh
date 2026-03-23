@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Performs joint variant calling and analysis for a family trio (Mother, Father, Proband)."
-    echo "End Goal: Combined VCF with Mendelian inheritance information."
+    echo "End Goal: Combined VCF with Mendelian inheritance information.; verified by existence of output file."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration
 OUTDIR="out/smoke_test_vcf_trio"
@@ -40,9 +34,11 @@ for f in child.vcf mom.vcf dad.vcf; do
     tabix -p vcf "$OUTDIR/$f.gz"
 done
 
+check_mandatory_deps
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: VCF Trio Smoke Test"
 echo "  Mode: denovo"
+check_mandatory_deps
 echo "--------------------------------------------------------"
 
 if uv run wgsextract vcf trio \

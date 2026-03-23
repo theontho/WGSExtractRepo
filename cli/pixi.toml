@@ -1,0 +1,124 @@
+[workspace]
+name = "wgsextract-cli"
+version = "0.1.0"
+description = "A modern, standalone Command-Line Interface for WGS Extract."
+authors = ["WGS Extract Contributors"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["osx-arm64", "osx-64", "linux-64", "win-64"]
+
+[dependencies]
+python = "3.10.*"
+
+[feature.gatk.dependencies]
+openjdk = "17.*"
+gatk4 = ">=4.5.0.0"
+
+[feature.bio-tools.target.osx-arm64.dependencies]
+samtools = ">=1.20"
+bcftools = ">=1.20"
+htslib = ">=1.20"
+bwa = ">=0.7.17"
+minimap2 = ">=2.28"
+fastp = ">=0.23.4"
+fastqc = ">=0.12.1"
+freebayes = ">=1.3.6"
+haplogrep = ">=2.4.0"
+delly = ">=1.1.6"
+sambamba = ">=1.0"
+samblaster = ">=0.1.26"
+curl = ">=8.0"
+wget = ">=1.21"
+gzip = "*"
+tar = "*"
+
+[feature.bio-tools.target.osx-64.dependencies]
+samtools = ">=1.20"
+bcftools = ">=1.20"
+htslib = ">=1.20"
+bwa = ">=0.7.17"
+minimap2 = ">=2.28"
+fastp = ">=0.23.4"
+fastqc = ">=0.12.1"
+freebayes = ">=1.3.6"
+haplogrep = ">=2.4.0"
+delly = ">=1.1.6"
+sambamba = ">=1.0"
+samblaster = ">=0.1.26"
+curl = ">=8.0"
+wget = ">=1.21"
+gzip = "*"
+tar = "*"
+
+[feature.bio-tools.target.linux-64.dependencies]
+samtools = ">=1.20"
+bcftools = ">=1.20"
+htslib = ">=1.20"
+bwa = ">=0.7.17"
+minimap2 = ">=2.28"
+fastp = ">=0.23.4"
+fastqc = ">=0.12.1"
+freebayes = ">=1.3.6"
+haplogrep = ">=2.4.0"
+delly = ">=1.1.6"
+sambamba = ">=1.0"
+samblaster = ">=0.1.26"
+curl = ">=8.0"
+wget = ">=1.21"
+gzip = "*"
+tar = "*"
+
+[feature.deepvariant.target.linux-64.dependencies]
+deepvariant = ">=1.6.0"
+openjdk = "11.*"
+
+[feature.vep.target.osx-64.dependencies]
+ensembl-vep = ">=110"
+
+[feature.vep.target.linux-64.dependencies]
+ensembl-vep = ">=110"
+
+[feature.yleaf.dependencies]
+python = "3.10.*"
+
+[feature.yleaf.pypi-dependencies]
+yleaf = { path = "external/yleaf", editable = true }
+pandas = "*"
+numpy = "*"
+graphviz = "*"
+networkx = "*"
+python-dateutil = "*"
+pytz = "*"
+six = "*"
+
+[environments]
+default = { features = ["gatk", "bio-tools"] }
+deepvariant = { features = ["deepvariant"], no-default-feature = true }
+vep = { features = ["vep"], no-default-feature = true }
+yleaf = { features = ["yleaf"], no-default-feature = true }
+
+[pypi-dependencies]
+python-dotenv = "*"
+pyliftover = "*"
+psutil = "*"
+customtkinter = "*"
+Pillow = "*"
+nicegui = "*"
+pysam = "*"
+# Dev tools
+pytest = "*"
+pytest-asyncio = "*"
+playwright = "*"
+ruff = "*"
+mypy = "*"
+pre-commit = "*"
+selenium = "*"
+# Local projects
+wgsextract-cli = { path = ".", editable = true }
+
+[tasks]
+deps-check = "./wgsextract deps check"
+test = "pytest"
+lint = "ruff check ."
+format = "ruff format ."
+typecheck = "mypy src/wgsextract_cli"
+yleaf = "yleaf"

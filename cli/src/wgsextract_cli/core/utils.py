@@ -703,7 +703,16 @@ def verify_paths_exist(paths_dict):
     """Validate that required files exist before starting a command."""
     all_exist = True
     for label, path in paths_dict.items():
-        if not path or not os.path.exists(path):
+        if not path:
+            logging.error(LOG_MESSAGES["file_not_found"].format(label=label, path=path))
+            all_exist = False
+            continue
+
+        # Skip check for commands (like pixi run)
+        if path.startswith("pixi run "):
+            continue
+
+        if not os.path.exists(path):
             logging.error(LOG_MESSAGES["file_not_found"].format(label=label, path=path))
             all_exist = False
     return all_exist

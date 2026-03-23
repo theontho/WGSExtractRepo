@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests VCF calling using GATK HaplotypeCaller."
-    echo "End Goal: Valid VCF output from GATK."
+    echo "End Goal: Valid VCF output from GATK.; verified by existence of output file."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
@@ -33,10 +27,7 @@ echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
 # Check if gatk is installed
-if ! command -v gatk &> /dev/null; then
-    echo "SKIP: gatk not found in PATH."
-    exit 0
-fi
+check_deps gatk
 
 if uv run wgsextract vcf gatk \
     --input "$INPUT_BAM" \

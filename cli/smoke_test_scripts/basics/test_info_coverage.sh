@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Calculates genome-wide or regional coverage statistics from a BAM/CRAM file."
-    echo "End Goal: A coverage report with accurate depth calculations."
+    echo "End Goal: A coverage report with accurate depth calculations; verified by successful completion of 'info' and 'calculate-coverage' commands."
     exit 0
 fi
 

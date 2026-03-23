@@ -1,14 +1,12 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Basic smoke test for Variant Effect Predictor (VEP) integration."
-    echo "Verified End Goal: Annotated VCF with basic consequence predictions; also verifies error handling for missing cache."
+    echo "End Goal: Annotated VCF with basic consequence predictions; also verifies error handling for missing cache."
     exit 0
 fi
 

@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Load environment variables for data paths
-if [ -f .env.local ]; then
-    # shellcheck disable=SC2046
-    export $(grep -v '^#' .env.local | xargs)
-fi
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests DeepVariant integration for variant calling."
-    echo "End Goal: High-accuracy VCF output from DeepVariant."
+    echo "End Goal: High-accuracy VCF output from DeepVariant.; verified by existence of output file."
     exit 0
 fi
-
-# Add common miniconda and homebrew paths to PATH
-NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
-export PATH="$NEW_PATH"
 
 # Configuration (Hardcode to fake data for smoke test)
 INPUT_BAM="$(realpath out/fake_30x/fake.bam)"
@@ -37,7 +31,6 @@ fi
 CHECKPOINT_DIR="$(realpath "$(dirname "$CHECKPOINT_BASE")")"
 CHECKPOINT="$CHECKPOINT_DIR/$(basename "$CHECKPOINT_BASE")"
 
-
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: VCF DeepVariant Smoke Test"
 echo "  Input: $(basename "$INPUT_BAM")"
@@ -45,10 +38,7 @@ echo "  Checkpoint: $CHECKPOINT"
 echo "--------------------------------------------------------"
 
 # Check if deepvariant is installed
-if ! command -v dv_make_examples.py &> /dev/null; then
-    echo "SKIP: DeepVariant not found in PATH."
-    exit 0
-fi
+check_deps run_deepvariant
 
 if uv run wgsextract vcf deepvariant \
     --input "$INPUT_BAM" \

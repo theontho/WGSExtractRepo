@@ -1,8 +1,12 @@
 #!/bin/bash
 
+# Load common functions
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../common.sh"
+
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests VCF operations using a full-scale reference genome and database."
-    echo "Verified End Goal: Successful processing against production-grade reference files."
+    echo "End Goal: Successful processing against production-grade reference files."
     exit 0
 fi
 
