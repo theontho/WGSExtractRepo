@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -20,9 +21,7 @@ echo "--------------------------------------------------------"
 
 # 1. Test 'ref library-list' (Interactive, we send 0 to exit)
 echo ":: Testing 'ref library-list' (exit immediately)..."
-echo "0" | uv run wgsextract ref library-list --ref "$OUTDIR"
-
-if [ $? -eq 0 ]; then
+if echo "0" | uv run wgsextract ref library-list --ref "$OUTDIR"; then
     echo "✅ Success: 'ref library-list' exited gracefully."
 else
     echo "❌ Failure: 'ref library-list' failed."
@@ -31,9 +30,7 @@ fi
 
 # 2. Test 'ref library' (Interactive, we send 0 to exit)
 echo ":: Testing 'ref library' (exit immediately)..."
-echo "0" | uv run wgsextract ref library --ref "$OUTDIR"
-
-if [ $? -eq 0 ]; then
+if echo "0" | uv run wgsextract ref library --ref "$OUTDIR"; then
     echo "✅ Success: 'ref library' exited gracefully."
 else
     echo "❌ Failure: 'ref library' failed."
@@ -44,9 +41,7 @@ fi
 # We won't actually download unless we want to wait, but we can test the command structure.
 # Let's try to 'delete' them even if they don't exist.
 echo ":: Testing 'ref gene-map --delete'..."
-uv run wgsextract ref gene-map --delete --ref "$OUTDIR"
-
-if [ $? -eq 0 ]; then
+if uv run wgsextract ref gene-map --delete --ref "$OUTDIR"; then
     echo "✅ Success: 'ref gene-map' command finished."
 else
     echo "❌ Failure: 'ref gene-map' failed."

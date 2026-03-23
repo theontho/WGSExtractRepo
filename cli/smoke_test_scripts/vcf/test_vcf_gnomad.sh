@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -62,16 +63,13 @@ echo "--------------------------------------------------------"
 
 # 4. Run gnomad command (Annotation only)
 echo ":: Running gnomAD annotation..."
-$WGSE_CMD vcf gnomad \
+if $WGSE_CMD vcf gnomad \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/gnomad_annotated.vcf.gz" ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/gnomad_annotated.vcf.gz" ]; then
     echo "✅ Success: 'vcf gnomad' completed."
     # Check if annotation worked (AF should be GNOMAD_AF)
-    VAL=$(bcftools query -f '%CHROM:%POS %GNOMAD_AF\n' "$OUTDIR/gnomad_annotated.vcf.gz" | grep "chr1:100 0.005")
-    if [ -n "$VAL" ]; then
+    if bcftools query -f '%CHROM:%POS %GNOMAD_AF\n' "$OUTDIR/gnomad_annotated.vcf.gz" | grep -q "chr1:100 0.005"; then
         echo "✅ Success: Annotation confirmed (GNOMAD_AF=0.005 found)."
     else
         echo "❌ Failure: gnomAD annotation missing or incorrect in output."
@@ -85,13 +83,11 @@ fi
 
 # 5. Run gnomad command (with Filtering)
 echo ":: Running gnomAD annotation + filtering (max AF < 0.01)..."
-$WGSE_CMD vcf gnomad \
+if $WGSE_CMD vcf gnomad \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --max-af 0.01
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/gnomad_af_lt_0.01.vcf.gz" ]; then
+    --max-af 0.01 && [ -f "$OUTDIR/gnomad_af_lt_0.01.vcf.gz" ]; then
     echo "✅ Success: gnomAD filtering produced output."
     # Should have:
     # chr1:100 (0.005 < 0.01)

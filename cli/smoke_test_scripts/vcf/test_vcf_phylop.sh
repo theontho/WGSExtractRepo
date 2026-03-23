@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -55,16 +56,13 @@ echo "--------------------------------------------------------"
 
 # 4. Run phylop command (Annotation only)
 echo ":: Running PhyloP annotation..."
-uv run wgsextract vcf phylop \
+if uv run wgsextract vcf phylop \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/phylop_annotated.vcf.gz" ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/phylop_annotated.vcf.gz" ]; then
     echo "✅ Success: 'vcf phylop' completed."
     # Check if annotation worked
-    VAL=$(zgrep "PHYLOP=2.5" "$OUTDIR/phylop_annotated.vcf.gz")
-    if [ -n "$VAL" ]; then
+    if zgrep "PHYLOP=2.5" "$OUTDIR/phylop_annotated.vcf.gz" | grep -q "."; then
         echo "✅ Success: Annotation confirmed (PHYLOP=2.5 found)."
     else
         echo "❌ Failure: PhyloP annotation missing in output."
@@ -78,13 +76,11 @@ fi
 
 # 5. Run phylop command (with Filtering)
 echo ":: Running PhyloP annotation + filtering (score >= 2.0)..."
-uv run wgsextract vcf phylop \
+if uv run wgsextract vcf phylop \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --min-score 2.0
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/phylop_gt_2.0.vcf.gz" ]; then
+    --min-score 2.0 && [ -f "$OUTDIR/phylop_gt_2.0.vcf.gz" ]; then
     echo "✅ Success: PhyloP filtering produced output."
     # Should only have chr1:100 (2.5), not chr1:200 (0.5)
     COUNT=$(zgrep -v "^#" "$OUTDIR/phylop_gt_2.0.vcf.gz" | wc -l)

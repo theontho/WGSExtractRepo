@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -60,17 +61,14 @@ echo "  WGS Extract CLI: Microarray Basics Smoke Test"
 echo "--------------------------------------------------------"
 
 # 4. Run microarray command
-uv run wgsextract microarray \
+if uv run wgsextract microarray \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --formats "23andme_v5"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/input_23andMe_V5.txt" ]; then
+    --formats "23andme_v5" && [ -f "$OUTDIR/input_23andMe_V5.txt" ]; then
     echo "✅ Success: 'microarray' completed."
     # Check if variant was picked up
-    grep -q "rs1" "$OUTDIR/input_23andMe_V5.txt"
-    if [ $? -eq 0 ]; then
+    if grep -q "rs1" "$OUTDIR/input_23andMe_V5.txt"; then
         echo "✅ Success: Variant rs1 found in output."
     else
         echo "❌ Failure: Variant rs1 missing in output."

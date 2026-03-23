@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -12,7 +13,8 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Add common miniconda and homebrew paths to PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
@@ -30,14 +32,12 @@ echo "  Input: $(basename "$INPUT_BAM")"
 echo "  Region: $REGION"
 echo "--------------------------------------------------------"
 
-uv run wgsextract vcf snp \
+if uv run wgsextract vcf snp \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
     --outdir "$OUTDIR" \
     --region "$REGION" \
-    --ploidy 1
-
-if [ $? -eq 0 ]; then
+    --ploidy 1 && [ -f "$OUTDIR/snps.vcf.gz" ]; then
     echo "SUCCESS: VCF SNP completed."
     ls -lh "$OUTDIR/snps.vcf.gz"
 else

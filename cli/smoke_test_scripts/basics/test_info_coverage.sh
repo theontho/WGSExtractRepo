@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -31,9 +32,7 @@ echo "--------------------------------------------------------"
 
 # 1. Base info command
 echo ":: Testing 'info'..."
-uv run wgsextract info --input "$FAKEDATA/fake.bam"
-
-if [ $? -eq 0 ]; then
+if uv run wgsextract info --input "$FAKEDATA/fake.bam"; then
     echo "✅ Success: base info completed."
 else
     echo "❌ Failure: base info failed."
@@ -42,11 +41,9 @@ fi
 
 # 2. Coverage sampling
 echo ":: Testing 'info coverage-sample'..."
-uv run wgsextract info coverage-sample \
+if uv run wgsextract info coverage-sample \
     --input "$FAKEDATA/fake.bam" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ]; then
+    --outdir "$OUTDIR"; then
     echo "✅ Success: coverage-sample completed."
 else
     echo "❌ Failure: coverage-sample failed."
@@ -55,12 +52,10 @@ fi
 
 # 3. Calculate full coverage (small region to be fast)
 echo ":: Testing 'info calculate-coverage' (region chr1)..."
-uv run wgsextract info calculate-coverage \
+if uv run wgsextract info calculate-coverage \
     --input "$FAKEDATA/fake.bam" \
     --outdir "$OUTDIR" \
-    --region "chr1"
-
-if [ $? -eq 0 ]; then
+    --region "chr1"; then
     echo "✅ Success: calculate-coverage completed."
 else
     echo "❌ Failure: calculate-coverage failed."

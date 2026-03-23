@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -20,12 +21,10 @@ echo "--------------------------------------------------------"
 
 # 1. Test 'vep verify' with non-existent cache
 echo ":: Testing 'vep verify' (expect failure for non-existent cache)..."
-uv run wgsextract vep verify \
+if ! uv run wgsextract vep verify \
     --vep-cache "$OUTDIR/non_existent_cache" \
     --species homo_sapiens \
-    --assembly GRCh38
-
-if [ $? -ne 0 ]; then
+    --assembly GRCh38; then
     echo "✅ Success: 'vep verify' correctly reported missing cache."
 else
     echo "❌ Failure: 'vep verify' should have failed for missing cache."
@@ -39,12 +38,10 @@ MOCK_VERSION_DIR="$MOCK_CACHE/homo_sapiens/115_GRCh38"
 mkdir -p "$MOCK_VERSION_DIR"
 touch "$MOCK_VERSION_DIR/info.txt"
 
-uv run wgsextract vep verify \
+if uv run wgsextract vep verify \
     --vep-cache "$MOCK_CACHE" \
     --species homo_sapiens \
-    --assembly GRCh38
-
-if [ $? -eq 0 ]; then
+    --assembly GRCh38; then
     echo "✅ Success: 'vep verify' passed with mock cache."
 else
     echo "❌ Failure: 'vep verify' failed with mock cache."
@@ -62,8 +59,7 @@ tar -czf "$MOCK_DL_DIR/pub/release-115/variation/indexed_vep_cache/homo_sapiens_
 # It might be hard to mock the whole Ensembl FTP structure perfectly without more effort.
 # But let's try a simple help check at least.
 
-uv run wgsextract vep download --help > /dev/null
-if [ $? -eq 0 ]; then
+if uv run wgsextract vep download --help > /dev/null; then
     echo "✅ Success: 'vep download --help' works."
 else
     echo "❌ Failure: 'vep download --help' failed."

@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -20,8 +21,14 @@ OUTDIR="out/benchmark_results_yleaf"
 YLEAF_ENV="${WGSE_YLEAF_ENV_PATH:-}"
 WGSE_ENV="${WGSE_WGSE_ENV_PATH:-}"
 
-if [ -n "$YLEAF_ENV" ]; then export PATH="$YLEAF_ENV/bin:$PATH"; fi
-if [ -n "$WGSE_ENV" ]; then export PATH="$WGSE_ENV/bin:$PATH"; fi
+if [ -n "$YLEAF_ENV" ]; then
+    PATH="$YLEAF_ENV/bin:$PATH"
+    export PATH
+fi
+if [ -n "$WGSE_ENV" ]; then
+    PATH="$WGSE_ENV/bin:$PATH"
+    export PATH
+fi
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -12,7 +13,8 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Add common miniconda and homebrew paths to PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+export PATH="$NEW_PATH"
 
 # Configuration (Hardcode to fake data for smoke test)
 INPUT_BAM="$(realpath out/fake_30x/fake.bam)"
@@ -32,7 +34,7 @@ if [ ! -f "${CHECKPOINT_BASE}.index" ]; then
     ./scripts/setup_vcf_resources.sh
 fi
 
-CHECKPOINT_DIR="$(realpath $(dirname "$CHECKPOINT_BASE"))"
+CHECKPOINT_DIR="$(realpath "$(dirname "$CHECKPOINT_BASE")")"
 CHECKPOINT="$CHECKPOINT_DIR/$(basename "$CHECKPOINT_BASE")"
 
 
@@ -48,14 +50,12 @@ if ! command -v dv_make_examples.py &> /dev/null; then
     exit 0
 fi
 
-uv run wgsextract vcf deepvariant \
+if uv run wgsextract vcf deepvariant \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
     --checkpoint "$CHECKPOINT" \
     --outdir "$OUTDIR" \
-    --region "$REGION"
-
-if [ $? -eq 0 ]; then
+    --region "$REGION" && [ -f "$OUTDIR/deepvariant.vcf.gz" ]; then
     echo "SUCCESS: VCF DeepVariant completed."
     ls -lh "$OUTDIR/deepvariant.vcf.gz"
 else

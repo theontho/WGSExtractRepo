@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -55,16 +56,13 @@ echo "--------------------------------------------------------"
 
 # 4. Run revel command (Annotation only)
 echo ":: Running REVEL annotation..."
-uv run wgsextract vcf revel \
+if uv run wgsextract vcf revel \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/revel_annotated.vcf.gz" ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/revel_annotated.vcf.gz" ]; then
     echo "✅ Success: 'vcf revel' completed."
     # Check if annotation worked
-    VAL=$(zgrep "REVEL=0.85" "$OUTDIR/revel_annotated.vcf.gz")
-    if [ -n "$VAL" ]; then
+    if zgrep "REVEL=0.85" "$OUTDIR/revel_annotated.vcf.gz" | grep -q "."; then
         echo "✅ Success: Annotation confirmed (REVEL=0.85 found)."
     else
         echo "❌ Failure: REVEL annotation missing in output."
@@ -78,13 +76,11 @@ fi
 
 # 5. Run revel command (with Filtering)
 echo ":: Running REVEL annotation + filtering (score >= 0.5)..."
-uv run wgsextract vcf revel \
+if uv run wgsextract vcf revel \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --min-score 0.5
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/revel_gt_0.5.vcf.gz" ]; then
+    --min-score 0.5 && [ -f "$OUTDIR/revel_gt_0.5.vcf.gz" ]; then
     echo "✅ Success: REVEL filtering produced output."
     # Should only have chr1:100 (0.85), not chr1:200 (0.45)
     COUNT=$(zgrep -v "^#" "$OUTDIR/revel_gt_0.5.vcf.gz" | wc -l)

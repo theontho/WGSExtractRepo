@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -56,16 +57,13 @@ echo "--------------------------------------------------------"
 
 # 4. Run clinvar command
 # We need to point --ref to our fake ref dir so it finds the clinvar vcf
-uv run wgsextract vcf clinvar \
+if uv run wgsextract vcf clinvar \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/clinvar_pathogenic.vcf.gz" ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/clinvar_pathogenic.vcf.gz" ]; then
     echo "✅ Success: 'vcf clinvar' completed and produced pathogenic output."
     # Check if annotation worked
-    zgrep "CLNSIG" "$OUTDIR/clinvar_annotated.vcf.gz" | grep -q "Pathogenic"
-    if [ $? -eq 0 ]; then
+    if zgrep "CLNSIG" "$OUTDIR/clinvar_annotated.vcf.gz" | grep -q "Pathogenic"; then
         echo "✅ Success: Annotation confirmed."
     else
         echo "❌ Failure: Annotation missing in output."

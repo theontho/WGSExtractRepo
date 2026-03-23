@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -12,7 +13,8 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Add common miniconda and homebrew paths to PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+export PATH="$NEW_PATH"
 
 # Configuration
 OUTDIR="out/smoke_test_vcf_trio"
@@ -43,14 +45,12 @@ echo "  WGS Extract CLI: VCF Trio Smoke Test"
 echo "  Mode: denovo"
 echo "--------------------------------------------------------"
 
-uv run wgsextract vcf trio \
+if uv run wgsextract vcf trio \
     --proband "$OUTDIR/child.vcf.gz" \
     --mother "$OUTDIR/mom.vcf.gz" \
     --father "$OUTDIR/dad.vcf.gz" \
     --mode denovo \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/trio_denovo.vcf.gz" ]; then
     echo "SUCCESS: VCF Trio completed."
     ls -lh "$OUTDIR/trio_denovo.vcf.gz"
 else

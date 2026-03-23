@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -12,7 +13,8 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Add common miniconda and homebrew paths to PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_VCF="out/fake_30x/fake.vcf.gz"
@@ -32,13 +34,11 @@ echo "--------------------------------------------------------"
 # we verify that the command routing and error checking works.
 # If we have real data from env, we could use it.
 
-uv run wgsextract vcf annotate \
+if uv run wgsextract vcf annotate \
     --input "$INPUT_VCF" \
     --ann-vcf "$INPUT_VCF" \
     --ref "$REF_FASTA" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/annotated.vcf.gz" ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/annotated.vcf.gz" ]; then
     echo "SUCCESS: VCF Annotate completed."
     ls -lh "$OUTDIR/annotated.vcf.gz"
 else

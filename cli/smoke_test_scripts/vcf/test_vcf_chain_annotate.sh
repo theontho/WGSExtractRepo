@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -88,13 +89,11 @@ echo "--------------------------------------------------------"
 
 # 4. Run chain-annotate command
 echo ":: Running chained annotation (clinvar,revel,phylop,gnomad)..."
-uv run wgsextract vcf chain-annotate \
+if uv run wgsextract vcf chain-annotate \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --annotations "clinvar,revel,phylop,gnomad"
-
-if [ $? -eq 0 ] && [ -f "$OUTDIR/chain_annotated.vcf.gz" ]; then
+    --annotations "clinvar,revel,phylop,gnomad" && [ -f "$OUTDIR/chain_annotated.vcf.gz" ]; then
     echo "✅ Success: 'vcf chain-annotate' completed."
 
     # Check if ALL annotations worked

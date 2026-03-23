@@ -3,6 +3,7 @@
 
 # Load environment variables from .env.local
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 

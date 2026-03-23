@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -100,7 +101,7 @@ fi
 
 # Ensure generic names exist for tests
 if [ ! -f "$FAKE_DIR/fake_ref.fa" ]; then
-    FASTA=$(ls "$FAKE_DIR"/fake_ref_hg38_*.fa 2>/dev/null | head -n 1)
+    FASTA=$(find "$FAKE_DIR" -name "fake_ref_hg38_*.fa" 2>/dev/null | head -n 1)
     if [ -n "$FASTA" ] && [ -f "$FASTA" ]; then
         cp "$FASTA" "$FAKE_DIR/fake_ref.fa"
         cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
@@ -121,8 +122,7 @@ run_test_group() {
     echo "--- Running Group: $group_name ---"
     for test_script in "${tests[@]}"; do
         echo -n ":: Running $test_script... "
-        ./smoke_test_scripts/"$group_dir"/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1
-        if [ $? -eq 0 ]; then
+        if ./smoke_test_scripts/"$group_dir"/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1; then
             echo "✅ PASSED"
         else
             echo "❌ FAILED (Check $LOG_DIR/${test_script}.log)"

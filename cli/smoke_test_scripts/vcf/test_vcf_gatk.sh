@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -12,7 +13,8 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Add common miniconda and homebrew paths to PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_BAM="out/fake_30x/fake.bam"
@@ -36,13 +38,11 @@ if ! command -v gatk &> /dev/null; then
     exit 0
 fi
 
-uv run wgsextract vcf gatk \
+if uv run wgsextract vcf gatk \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
     --outdir "$OUTDIR" \
-    --region "$REGION"
-
-if [ $? -eq 0 ]; then
+    --region "$REGION" && [ -f "$OUTDIR/gatk.vcf.gz" ]; then
     echo "SUCCESS: VCF GATK completed."
     ls -lh "$OUTDIR/gatk.vcf.gz"
 else

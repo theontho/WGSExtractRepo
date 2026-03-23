@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -18,7 +19,8 @@ OUTDIR="out/benchmark_results_haplogrep"
 
 # Path to the specific conda environment for Haplogrep
 HAPLOGREP_BIN="${WGSE_HAPLOGREP_PATH:-haplogrep}"
-export PATH="$(dirname "$HAPLOGREP_BIN"):$PATH"
+PATH="$(dirname "$HAPLOGREP_BIN"):$PATH"
+export PATH
 
 # Ensure output directory is clean
 rm -rf "$OUTDIR"

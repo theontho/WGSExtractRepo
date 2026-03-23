@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -20,8 +21,7 @@ echo "--------------------------------------------------------"
 
 # 1. Test 'lineage y-haplogroup --help'
 echo ":: Testing 'lineage y-haplogroup --help'..."
-uv run wgsextract lineage y-haplogroup --help > /dev/null
-if [ $? -eq 0 ]; then
+if uv run wgsextract lineage y-haplogroup --help > /dev/null; then
     echo "✅ Success: 'lineage y-haplogroup --help' works."
 else
     echo "❌ Failure: 'lineage y-haplogroup --help' failed."
@@ -30,8 +30,7 @@ fi
 
 # 2. Test 'lineage mt-haplogroup --help'
 echo ":: Testing 'lineage mt-haplogroup --help'..."
-uv run wgsextract lineage mt-haplogroup --help > /dev/null
-if [ $? -eq 0 ]; then
+if uv run wgsextract lineage mt-haplogroup --help > /dev/null; then
     echo "✅ Success: 'lineage mt-haplogroup --help' works."
 else
     echo "❌ Failure: 'lineage mt-haplogroup --help' failed."
@@ -40,8 +39,7 @@ fi
 
 # 3. Test 'lineage y-haplogroup' with missing input (expect failure)
 echo ":: Testing 'lineage y-haplogroup' (expect failure for missing input)..."
-uv run wgsextract lineage y-haplogroup --yleaf-path "/tmp/non_existent_yleaf"
-if [ $? -ne 0 ]; then
+if ! uv run wgsextract lineage y-haplogroup --yleaf-path "/tmp/non_existent_yleaf"; then
     echo "✅ Success: 'lineage y-haplogroup' correctly failed with missing input."
 else
     echo "❌ Failure: 'lineage y-haplogroup' should have failed for missing input."

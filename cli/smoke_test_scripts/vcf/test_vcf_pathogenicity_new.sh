@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -82,10 +83,9 @@ echo "--------------------------------------------------------"
 
 # 4. Run SpliceAI Test
 echo ":: Running SpliceAI annotation..."
-$WGSE_CMD vcf spliceai --input "$INPUT_VCF" --ref "$REFDIR" --outdir "$OUTDIR"
-if [ -f "$OUTDIR/spliceai_annotated.vcf.gz" ]; then
+if $WGSE_CMD vcf spliceai --input "$INPUT_VCF" --ref "$REFDIR" --outdir "$OUTDIR" && [ -f "$OUTDIR/spliceai_annotated.vcf.gz" ]; then
     echo "✅ Success: SpliceAI annotation completed."
-    bcftools query -f '%CHROM:%POS %SpliceAI\n' "$OUTDIR/spliceai_annotated.vcf.gz" | grep "chr1:100 G|GENE1|0.1|0.1|0.8|0.1|0|0|0|0" || exit 1
+    bcftools query -f '%CHROM:%POS %SpliceAI\n' "$OUTDIR/spliceai_annotated.vcf.gz" | grep -q "chr1:100 G|GENE1|0.1|0.1|0.8|0.1|0|0|0|0" || exit 1
 else
     echo "❌ Failure: SpliceAI failed."
     exit 1
@@ -93,10 +93,9 @@ fi
 
 # 5. Run AlphaMissense Test
 echo ":: Running AlphaMissense annotation..."
-$WGSE_CMD vcf alphamissense --input "$INPUT_VCF" --ref "$REFDIR" --outdir "$OUTDIR" --min-score 0.5
-if [ -f "$OUTDIR/alphamissense_gt_0.5.vcf.gz" ]; then
+if $WGSE_CMD vcf alphamissense --input "$INPUT_VCF" --ref "$REFDIR" --outdir "$OUTDIR" --min-score 0.5 && [ -f "$OUTDIR/alphamissense_gt_0.5.vcf.gz" ]; then
     echo "✅ Success: AlphaMissense completed."
-    bcftools query -f '%CHROM:%POS %am_class\n' "$OUTDIR/alphamissense_gt_0.5.vcf.gz" | grep "chr1:100 likely_pathogenic" || exit 1
+    bcftools query -f '%CHROM:%POS %am_class\n' "$OUTDIR/alphamissense_gt_0.5.vcf.gz" | grep -q "chr1:100 likely_pathogenic" || exit 1
 else
     echo "❌ Failure: AlphaMissense failed."
     exit 1
@@ -104,10 +103,9 @@ fi
 
 # 6. Run PharmGKB Test
 echo ":: Running PharmGKB annotation..."
-$WGSE_CMD vcf pharmgkb --input "$INPUT_VCF" --ref "$REFDIR" --outdir "$OUTDIR"
-if [ -f "$OUTDIR/pharmgkb_annotated.vcf.gz" ]; then
+if $WGSE_CMD vcf pharmgkb --input "$INPUT_VCF" --ref "$REFDIR" --outdir "$OUTDIR" && [ -f "$OUTDIR/pharmgkb_annotated.vcf.gz" ]; then
     echo "✅ Success: PharmGKB completed."
-    bcftools query -f '%CHROM:%POS %PHARMGKB\n' "$OUTDIR/pharmgkb_annotated.vcf.gz" | grep "chr1:100 Ibuprofen_Slow_Metabolizer" || exit 1
+    bcftools query -f '%CHROM:%POS %PHARMGKB\n' "$OUTDIR/pharmgkb_annotated.vcf.gz" | grep -q "chr1:100 Ibuprofen_Slow_Metabolizer" || exit 1
 else
     echo "❌ Failure: PharmGKB failed."
     exit 1

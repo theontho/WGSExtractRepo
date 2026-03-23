@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -12,11 +13,11 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Add common miniconda and homebrew paths to PATH
-export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+NEW_PATH="/opt/homebrew/bin:/usr/local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/opt/homebrew/Caskroom/miniconda/base/envs/wgse/bin:/opt/homebrew/Caskroom/miniconda/base/envs/yleaf_env/bin:$PATH"
+export PATH="$NEW_PATH"
 
 # Configuration
 INPUT_VCF="out/fake_30x/fake.vcf.gz"
-REF_FASTA="out/fake_30x/fake_ref.fa"
 OUTDIR="out/smoke_test_vcf_filter"
 
 # Ensure output directory is clean
@@ -28,12 +29,10 @@ echo "  WGS Extract CLI: VCF Filter Smoke Test"
 echo "  Input: $(basename "$INPUT_VCF")"
 echo "--------------------------------------------------------"
 
-uv run wgsextract vcf filter \
+if uv run wgsextract vcf filter \
     --vcf-input "$INPUT_VCF" \
     --expr "QUAL>10" \
-    --outdir "$OUTDIR"
-
-if [ $? -eq 0 ]; then
+    --outdir "$OUTDIR" && [ -f "$OUTDIR/filtered.vcf.gz" ]; then
     echo "SUCCESS: VCF Filter completed."
     ls -lh "$OUTDIR/filtered.vcf.gz"
 else

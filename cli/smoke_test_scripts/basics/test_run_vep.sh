@@ -24,7 +24,7 @@ echo "------------------------------------------------------------"
 # Using the new batch-aware wgsextract vep command
 # --vcf-type auto will detect snp-indel, sv, or cnv from filenames
 # --add-chr handles the chromosome prefixing automatically
-wgsextract vep \
+uv run wgsextract vep \
   --input "$INPUT_DIR" \
   --outdir "$OUTPUT_DIR" \
   --ref "$FASTA" \

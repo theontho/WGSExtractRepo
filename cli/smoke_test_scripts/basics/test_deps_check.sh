@@ -2,6 +2,7 @@
 
 # Load environment variables for data paths
 if [ -f .env.local ]; then
+    # shellcheck disable=SC2046
     export $(grep -v '^#' .env.local | xargs)
 fi
 
@@ -17,9 +18,7 @@ echo "--------------------------------------------------------"
 
 # 1. Check dependencies
 echo ":: Running 'deps check'..."
-uv run wgsextract deps check
-
-if [ $? -eq 0 ]; then
+if uv run wgsextract deps check; then
     echo "✅ Success: deps check completed."
 else
     echo "❌ Failure: deps check failed."
