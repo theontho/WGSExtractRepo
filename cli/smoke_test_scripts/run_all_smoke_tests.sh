@@ -148,7 +148,7 @@ run_test_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
 # Run Real Data Workflows if requested and configured
 if [ "$RUN_REAL_DATA" = true ]; then
     if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then
-        run_test_group "Real Data (VCF)" "real_data" "test_vcf_microarray.sh"
+        run_test_group "Real Data (VCF)" "real_data" "test_vcf_microarray.sh" "test_vcf_vep.sh"
     else
         echo ""
         echo ":: Skipping Real Data VCF tests (WGSE_INPUT_VCF not set)"
