@@ -10,6 +10,14 @@ LOG_DIR="out/smoke_test_logs"
 mkdir -p "$FAKE_DIR"
 mkdir -p "$LOG_DIR"
 
+# Handle Ctrl+C (SIGINT) and SIGTERM
+exit_on_signal() {
+    echo ""
+    echo "⚠️  Received signal, terminating all tests..."
+    exit 130
+}
+trap exit_on_signal SIGINT SIGTERM
+
 # List of tests to run (grouped by directory)
 BASICS_TESTS=(
     "test_deps_check.sh"
@@ -71,6 +79,7 @@ for arg in "$@"; do
         RUN_REAL_DATA=true
     fi
 done
+export WGSE_USE_REAL_DATA=$RUN_REAL_DATA
 
 if [[ "$1" == "--describe" ]]; then
     echo "Summary of all smoke tests:"
@@ -127,20 +136,40 @@ run_test_group() {
     echo "--- Running Group: $group_name ---"
     for test_script in "${tests[@]}"; do
         echo -n ":: Running $test_script... "
+        local start_time
+        start_time=$(date +%s)
         ./smoke_test_scripts/"$group_dir"/"$test_script" > "$LOG_DIR/${test_script}.log" 2>&1
         local exit_code=$?
+        local end_time
+        end_time=$(date +%s)
+        local duration=$((end_time - start_time))
+
+        # Check if we were interrupted by SIGINT (Ctrl+C)
+        if [ $exit_code -eq 130 ]; then
+            echo "❌ INTERRUPTED"
+            exit 130
+        fi
+
+        # Format duration
+        local duration_fmt
+        if [ $duration -ge 60 ]; then
+            duration_fmt="$((duration / 60))m $((duration % 60))s"
+        else
+            duration_fmt="${duration}s"
+        fi
+
         if [ $exit_code -eq 0 ]; then
-            echo "✅ PASSED"
+            echo "✅ PASSED ($duration_fmt)"
         elif [ $exit_code -eq 77 ]; then
             local skip_reason
             skip_reason=$(grep -o '([a-zA-Z ]*)' "$LOG_DIR/${test_script}.log" | tail -n 1)
             if [ -n "$skip_reason" ]; then
-                echo "⏭️  SKIPPED $skip_reason"
+                echo "⏭️  SKIPPED $skip_reason ($duration_fmt)"
             else
-                echo "⏭️  SKIPPED"
+                echo "⏭️  SKIPPED ($duration_fmt)"
             fi
         else
-            echo "❌ FAILED (Check $LOG_DIR/${test_script}.log)"
+            echo "❌ FAILED (Check $LOG_DIR/${test_script}.log) ($duration_fmt)"
         fi
     done
 }

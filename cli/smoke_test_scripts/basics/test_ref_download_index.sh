@@ -19,7 +19,7 @@ mkdir -p "$OUT_DIR"
 # For this test, we'll use the one already in the repo if we want to be safe,
 # but the goal is to test 'download'.
 # We'll use a small file from Ensembl or similar.
-TEST_URL="https://raw.githubusercontent.com/samtools/samtools/develop/test/ref.fa"
+TEST_URL="https://raw.githubusercontent.com/lh3/minimap2/master/test/MT-human.fa"
 OUTPUT_FA="$OUT_DIR/test_download.fa"
 
 # Clean up

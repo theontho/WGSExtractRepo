@@ -140,6 +140,13 @@ def cmd_ydna(args):
 
     yleaf_path = args.yleaf_path or get_tool_path("yleaf")
 
+    # If it's just a tool name, resolve it to a full path or pixi command first
+    # so that verify_paths_exist doesn't fail on it.
+    if yleaf_path and not os.path.isabs(yleaf_path) and "/" not in yleaf_path:
+        resolved = get_tool_path(yleaf_path)
+        if resolved:
+            yleaf_path = resolved
+
     if not verify_paths_exist({"--input": args.input, "--yleaf-path": yleaf_path}):
         import sys
 
@@ -217,7 +224,10 @@ def cmd_ydna(args):
             # Alternative: use python to do the sed-like replacement to avoid shell escaping issues
             import gzip
 
-            with gzip.open(temp_vcf, "rt") as f_in, gzip.open(sed_vcf, "wt") as f_out:
+            with (
+                gzip.open(temp_vcf, "rt") as f_in,
+                open(temp_vcf + ".plain", "w") as f_out,
+            ):
                 for line in f_in:
                     if line.startswith(f"{chr_y}\t"):
                         f_out.write(line.replace(f"{chr_y}\t", "chry\t", 1))
@@ -225,6 +235,16 @@ def cmd_ydna(args):
                         f_out.write(line.replace("ID=" + chr_y, "ID=chry", 1))
                     else:
                         f_out.write(line)
+
+            # Recompress with bgzip to ensure it's BGZF
+            import shlex
+
+            bgzip_list = shlex.split(bgzip)
+            with open(sed_vcf, "wb") as f_out:
+                subprocess.run(
+                    bgzip_list + ["-c", temp_vcf + ".plain"], stdout=f_out, check=True
+                )
+            os.remove(temp_vcf + ".plain")
 
             os.rename(sed_vcf, temp_vcf)
             run_command([bcftools, "index", "-t", temp_vcf])
@@ -316,6 +336,17 @@ def cmd_mtdna(args):
         return
 
     haplogrep_path = args.haplogrep_path or get_tool_path("haplogrep")
+
+    # If it's just a tool name, resolve it to a full path or pixi command first
+    # so that verify_paths_exist doesn't fail on it.
+    if (
+        haplogrep_path
+        and not os.path.isabs(haplogrep_path)
+        and "/" not in haplogrep_path
+    ):
+        resolved = get_tool_path(haplogrep_path)
+        if resolved:
+            haplogrep_path = resolved
 
     if not verify_paths_exist(
         {"--input": args.input, "--haplogrep-path": haplogrep_path}

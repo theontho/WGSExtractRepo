@@ -36,7 +36,7 @@ uv run wgsextract info \
 
 # 3. Verify
 echo ">>> Verifying build detection..."
-if grep -q "Build: hg38" "$DETECTION_LOG"; then
+if grep -qE "Reference Genome.*hg38" "$DETECTION_LOG"; then
     echo "   ✅ Success: Correctly detected 'hg38' via chromosome lengths/heuristics."
 else
     echo "❌ Failure: Could not correctly detect build (Expected hg38)."

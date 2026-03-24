@@ -19,10 +19,20 @@ mkdir -p "$OUT_DIR"
 # 1. Create a reference with '1' and a VCF with 'chr1'
 REF_DIR="$OUT_DIR/ref_lib"
 mkdir -p "$REF_DIR/genomes"
+mkdir -p "$REF_DIR/ref"
 echo ">1" > "$REF_DIR/genomes/hg38.fa"
 echo "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT" >> "$REF_DIR/genomes/hg38.fa"
 bgzip -c "$REF_DIR/genomes/hg38.fa" > "$REF_DIR/genomes/hg38.fa.gz"
 samtools faidx "$REF_DIR/genomes/hg38.fa.gz"
+
+# Create a dummy SNP tab file
+SNP_TAB="$REF_DIR/ref/All_SNPs.vcf.gz"
+cat <<EOF > "$OUT_DIR/snps.vcf"
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	20	rs123	A	G	100	PASS	.
+EOF
+bgzip -c "$OUT_DIR/snps.vcf" > "$SNP_TAB"
+tabix -p vcf "$SNP_TAB"
 
 INPUT_VCF="$OUT_DIR/input_chr1.vcf.gz"
 cat <<EOF > "$OUT_DIR/input.vcf"
@@ -48,6 +58,7 @@ if uv run wgsextract microarray \
     --outdir "$OUT_DIR" \
     --formats "23andme_v5" \
     --debug; then
+
 
     echo ">>> Verifying output..."
     CKIT=$(find "$OUT_DIR" -name "*CombinedKit.txt" | head -n 1)

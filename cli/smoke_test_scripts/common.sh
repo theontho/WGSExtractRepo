@@ -66,6 +66,13 @@ ensure_fake_data() {
             cp "$FASTA" "$FAKE_DIR/fake_ref_hg38_scaled.fa"
         fi
 
+        local VCF
+        VCF=$(find "$FAKE_DIR" -name "fake_*.vcf.gz" | head -n 1)
+        if [ -n "$VCF" ] && [ -f "$VCF" ]; then
+            cp "$VCF" "$FAKE_DIR/fake.vcf.gz"
+            cp "$VCF.tbi" "$FAKE_DIR/fake.vcf.gz.tbi" 2>/dev/null || true
+        fi
+
         # Generate a dummy map file for CNV tests
         if [ ! -f "$FAKE_DIR/fake.map" ]; then
             echo ">chr1" > "$FAKE_DIR/fake.map"

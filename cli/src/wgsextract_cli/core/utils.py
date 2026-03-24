@@ -320,6 +320,14 @@ class ReferenceLibrary:
             else (root_path if os.path.isfile(root_path) else None)
         )
         if not self.build and target_for_header:
+            if target_for_header.lower().endswith((".vcf", ".vcf.gz", ".bcf")):
+                self.build = get_vcf_build(target_for_header)
+                if self.build:
+                    logging.debug(
+                        f"ReferenceLibrary: Identified build as {self.build} from VCF header"
+                    )
+
+        if not self.build and target_for_header:
             try:
                 header = get_bam_header(target_for_header)
                 if header:
@@ -769,7 +777,7 @@ def verify_paths_exist(paths_dict):
         if "pixi run" in str(path):
             continue
 
-        if not os.path.exists(path):
+        if not os.path.exists(str(path)) and not shutil.which(str(path)):
             logging.error(LOG_MESSAGES["file_not_found"].format(label=label, path=path))
             all_exist = False
     return all_exist

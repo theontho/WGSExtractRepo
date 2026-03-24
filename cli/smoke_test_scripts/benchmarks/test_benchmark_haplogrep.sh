@@ -11,7 +11,11 @@ if [[ "$1" == "--describe" ]]; then
 fi
 
 # Configuration
-INPUT_CRAM="${WGSE_INPUT:-out/fake_30x/fake.bam}"
+if [ "$WGSE_USE_REAL_DATA" = "true" ] && [ -n "$WGSE_INPUT" ]; then
+    INPUT_CRAM="$WGSE_INPUT"
+else
+    INPUT_CRAM="out/fake_30x/fake.bam"
+fi
 REF_PATH="${WGSE_REF:-reference/chrm/chrM.fa}"
 OUTDIR="out/benchmark_results_haplogrep"
 
