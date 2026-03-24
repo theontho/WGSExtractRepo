@@ -68,6 +68,40 @@ EOF
 bgzip -c "$OUTDIR/gnomad.vcf" > "$GNOMAD_VCF"
 tabix -p vcf "$GNOMAD_VCF"
 
+# SpliceAI VCF
+SPLICEAI_VCF="$REFDIR/ref/spliceai_hg38.vcf.gz"
+cat <<EOF > "$OUTDIR/spliceai.vcf"
+##fileformat=VCFv4.2
+##INFO=<ID=SpliceAI,Number=.,Type=String,Description="SpliceAI scores">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	.	.	SpliceAI=G|GENE1|0.1|0.1|0.8|0.1|0|0|0|0
+EOF
+bgzip -c "$OUTDIR/spliceai.vcf" > "$SPLICEAI_VCF"
+tabix -p vcf "$SPLICEAI_VCF"
+
+# AlphaMissense VCF
+AM_VCF="$REFDIR/ref/alphamissense_hg38.vcf.gz"
+cat <<EOF > "$OUTDIR/am.vcf"
+##fileformat=VCFv4.2
+##INFO=<ID=am_pathogenicity,Number=1,Type=Float,Description="AlphaMissense pathogenicity score">
+##INFO=<ID=am_class,Number=1,Type=String,Description="AlphaMissense classification">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	.	.	am_pathogenicity=0.9;am_class=likely_pathogenic
+EOF
+bgzip -c "$OUTDIR/am.vcf" > "$AM_VCF"
+tabix -p vcf "$AM_VCF"
+
+# PharmGKB VCF
+PHARMGKB_VCF="$REFDIR/ref/pharmgkb_hg38.vcf.gz"
+cat <<EOF > "$OUTDIR/pharmgkb.vcf"
+##fileformat=VCFv4.2
+##INFO=<ID=PHARMGKB,Number=1,Type=String,Description="PharmGKB annotation">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	.	.	PHARMGKB=Ibuprofen_Slow_Metabolizer
+EOF
+bgzip -c "$OUTDIR/pharmgkb.vcf" > "$PHARMGKB_VCF"
+tabix -p vcf "$PHARMGKB_VCF"
+
 # 3. Create a dummy input VCF with two variants
 INPUT_VCF="$OUTDIR/input.vcf.gz"
 cat <<EOF > "$OUTDIR/input.vcf"
@@ -86,22 +120,25 @@ echo "  WGS Extract CLI: VCF Chain Annotate Smoke Test"
 echo "--------------------------------------------------------"
 
 # 4. Run chain-annotate command
-echo ":: Running chained annotation (clinvar,revel,phylop,gnomad)..."
+echo ":: Running chained annotation (clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb)..."
 if uv run wgsextract vcf chain-annotate \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --annotations "clinvar,revel,phylop,gnomad" && [ -f "$OUTDIR/chain_annotated.vcf.gz" ]; then
+    --annotations "clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb" && [ -f "$OUTDIR/chain_annotated.vcf.gz" ]; then
     echo "✅ Success: 'vcf chain-annotate' completed."
 
     # Check if ALL annotations worked
-    # chr1:100 should have CLNSIG, REVEL, PHYLOP, and GNOMAD_AF
+    # chr1:100 should have CLNSIG, REVEL, PHYLOP, GNOMAD_AF, SpliceAI, am_class, PHARMGKB
     VAL=$(zgrep -v "^#" "$OUTDIR/chain_annotated.vcf.gz" | grep "100")
 
     if echo "$VAL" | grep -q "CLNSIG=Pathogenic" && \
        echo "$VAL" | grep -q "REVEL=0.85" && \
        echo "$VAL" | grep -q "PHYLOP=2.5" && \
-       echo "$VAL" | grep -q "GNOMAD_AF=0.001"; then
+       echo "$VAL" | grep -q "GNOMAD_AF=0.001" && \
+       echo "$VAL" | grep -q "SpliceAI=G|GENE1|0.1|0.1|0.8|0.1|0|0|0|0" && \
+       echo "$VAL" | grep -q "am_class=likely_pathogenic" && \
+       echo "$VAL" | grep -q "PHARMGKB=Ibuprofen_Slow_Metabolizer"; then
         echo "✅ Success: All annotations confirmed on variant 1."
     else
         echo "❌ Failure: Missing one or more annotations in output."

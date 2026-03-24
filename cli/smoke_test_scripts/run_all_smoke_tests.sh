@@ -5,6 +5,7 @@
 source "$(dirname "$0")/common.sh"
 
 # Configuration
+GLOBAL_START_TIME=$(date +%s)
 FAKE_DIR="out/fake_30x"
 LOG_DIR="out/smoke_test_logs"
 mkdir -p "$FAKE_DIR"
@@ -29,6 +30,8 @@ BASICS_TESTS=(
     "test_perf_boost.sh"
     "test_ref_basics.sh"
     "test_ref_library_basics.sh"
+    "test_ref_databases.sh"
+    "test_web_gui_basics.sh"
     "test_repair_basics.sh"
     "test_pet_basics.sh"
     "test_vep_basics.sh"
@@ -52,14 +55,13 @@ VCF_TESTS=(
     "test_vcf_cnv.sh"
     "test_vcf_sv.sh"
     "test_vcf_trio.sh"
+    "test_vcf_trio_inheritance.sh"
     "test_vcf_clinvar.sh"
     "test_vcf_revel.sh"
     "test_vcf_phylop.sh"
     "test_vcf_gnomad.sh"
     "test_vcf_pathogenicity_new.sh"
     "test_vcf_chain_annotate.sh"
-    "test_vcf_real_ref_db.sh"
-    "test_vcf_trio_real.sh"
 )
 
 BENCHMARK_TESTS=(
@@ -107,6 +109,8 @@ if [[ "$1" == "--describe" ]]; then
     describe_group "VCF Workflows" "vcf" "${VCF_TESTS[@]}"
     describe_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
     describe_group "Real Data" "real_data" \
+        "test_vcf_real_ref_db.sh" \
+        "test_vcf_trio_real.sh" \
         "test_vcf_microarray.sh" \
         "test_vcf_vep.sh" \
         "test_vcf_clinical_full.sh" \
@@ -192,6 +196,10 @@ run_test_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
 
 # Run Real Data Workflows if requested and configured
 if [ "$RUN_REAL_DATA" = true ]; then
+    run_test_group "Real Data (Base)" "real_data" \
+        "test_vcf_real_ref_db.sh" \
+        "test_vcf_trio_real.sh"
+
     if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then
         run_test_group "Real Data (VCF)" "real_data" \
             "test_vcf_microarray.sh" \
@@ -239,5 +247,15 @@ fi
 echo ""
 echo "========================================================"
 echo "  All Smoke Tests Completed."
+GLOBAL_END_TIME=$(date +%s)
+TOTAL_DURATION=$((GLOBAL_END_TIME - GLOBAL_START_TIME))
+
+if [ $TOTAL_DURATION -ge 60 ]; then
+    TOTAL_DURATION_FMT="$((TOTAL_DURATION / 60))m $((TOTAL_DURATION % 60))s"
+else
+    TOTAL_DURATION_FMT="${TOTAL_DURATION}s"
+fi
+
+echo "  Total Execution Time: $TOTAL_DURATION_FMT"
 echo "  Logs available in: $LOG_DIR"
 echo "========================================================"

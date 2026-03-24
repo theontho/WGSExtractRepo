@@ -135,6 +135,15 @@ if command -v fastp >/dev/null 2>&1; then
     fi
 fi
 
+if command -v fastqc >/dev/null 2>&1; then
+    echo ":: Testing 'qc fastqc'..."
+    if uv run wgsextract qc fastqc \
+        --input "$OUTDIR/unaligned/R1.fastq.gz" \
+        --outdir "$OUTDIR/fastqc"; then
+        echo "✅ Success: qc fastqc completed."
+    fi
+fi
+
 echo ""
 echo "========================================================"
 echo "Misc Basics Smoke Test: PASSED"
