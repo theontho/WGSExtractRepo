@@ -28,6 +28,9 @@ BASICS_TESTS=(
     "test_microarray_basics.sh"
     "test_misc_basics.sh"
     "test_pixi_fallback.sh"
+    "test_ref_download_index.sh"
+    "test_build_detection_robustness.sh"
+    "test_mixed_chrom_naming.sh"
 )
 
 VCF_TESTS=(
@@ -48,6 +51,7 @@ VCF_TESTS=(
     "test_vcf_pathogenicity_new.sh"
     "test_vcf_chain_annotate.sh"
     "test_vcf_real_ref_db.sh"
+    "test_vcf_trio_real.sh"
 )
 
 BENCHMARK_TESTS=(
@@ -93,7 +97,19 @@ if [[ "$1" == "--describe" ]]; then
     describe_group "Basics" "basics" "${BASICS_TESTS[@]}"
     describe_group "VCF Workflows" "vcf" "${VCF_TESTS[@]}"
     describe_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
-    describe_group "Real Data" "real_data" "test_vcf_microarray.sh" "test_cram_microarray.sh"
+    describe_group "Real Data" "real_data" \
+        "test_vcf_microarray.sh" \
+        "test_vcf_vep.sh" \
+        "test_vcf_clinical_full.sh" \
+        "test_vcf_calling_full.sh" \
+        "test_vcf_sv_cnv_full.sh" \
+        "test_cram_microarray.sh" \
+        "test_mito_ydna_full.sh" \
+        "test_lineage_full.sh" \
+        "test_align_full.sh" \
+        "test_pet_align_full.sh" \
+        "test_ref_robustness_full.sh" \
+        "test_low_coverage_microarray.sh"
 
     exit 0
 fi
@@ -148,17 +164,43 @@ run_test_group "Benchmarks" "benchmarks" "${BENCHMARK_TESTS[@]}"
 # Run Real Data Workflows if requested and configured
 if [ "$RUN_REAL_DATA" = true ]; then
     if [ -n "$WGSE_INPUT_VCF" ] && [ -n "$WGSE_REF" ]; then
-        run_test_group "Real Data (VCF)" "real_data" "test_vcf_microarray.sh" "test_vcf_vep.sh"
+        run_test_group "Real Data (VCF)" "real_data" \
+            "test_vcf_microarray.sh" \
+            "test_vcf_vep.sh" \
+            "test_vcf_clinical_full.sh" \
+            "test_vcf_calling_full.sh" \
+            "test_vcf_sv_cnv_full.sh"
     else
         echo ""
         echo ":: Skipping Real Data VCF tests (WGSE_INPUT_VCF not set)"
     fi
 
-    if [ -n "$WGSE_INPUT_CRAM" ] && [ -n "$WGSE_REF" ]; then
-        run_test_group "Real Data (CRAM)" "real_data" "test_cram_microarray.sh"
+    if [ -n "$WGSE_INPUT" ] && [ -n "$WGSE_REF" ]; then
+        run_test_group "Real Data (BAM/CRAM)" "real_data" \
+            "test_cram_microarray.sh" \
+            "test_mito_ydna_full.sh" \
+            "test_lineage_full.sh" \
+            "test_ref_robustness_full.sh" \
+            "test_low_coverage_microarray.sh"
     else
         echo ""
-        echo ":: Skipping Real Data CRAM tests (WGSE_INPUT_CRAM not set)"
+        echo ":: Skipping Real Data BAM/CRAM tests (WGSE_INPUT not set)"
+    fi
+
+    if [ -n "$WGSE_FASTQ_R1" ] && [ -n "$WGSE_REF" ]; then
+        run_test_group "Real Data (Alignment)" "real_data" \
+            "test_align_full.sh"
+    else
+        echo ""
+        echo ":: Skipping Real Data Alignment tests (WGSE_FASTQ_R1 not set)"
+    fi
+
+    if [ -n "$WGSE_PET_R1" ] && [ -n "$WGSE_PET_REF" ]; then
+        run_test_group "Real Data (Pet)" "real_data" \
+            "test_pet_align_full.sh"
+    else
+        echo ""
+        echo ":: Skipping Real Data Pet tests (WGSE_PET_R1 not set)"
     fi
 else
     echo ""
