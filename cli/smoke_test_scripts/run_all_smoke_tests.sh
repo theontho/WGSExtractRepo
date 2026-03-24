@@ -45,6 +45,8 @@ BASICS_TESTS=(
     "test_ref_download_index.sh"
     "test_build_detection_robustness.sh"
     "test_robustness_ux.sh"
+    "test_special_paths.sh"
+    "test_cleanup.sh"
     "test_mixed_chrom_naming.sh"
 )
 
