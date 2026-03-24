@@ -83,3 +83,74 @@ ensure_fake_data() {
         uv run wgsextract ref index --ref "$FAKE_DIR/fake_ref.fa"
     fi
 }
+
+# Helper to verify a BAM/CRAM file
+verify_bam() {
+    local file=$1
+    local allow_empty=$2
+    if [ ! -f "$file" ]; then
+        echo "❌ Failure: BAM/CRAM file missing: $file"
+        return 1
+    fi
+    if ! samtools quickcheck "$file"; then
+        echo "❌ Failure: BAM/CRAM file corrupted: $file"
+        return 1
+    fi
+    # Check if it has any reads
+    if [ "$allow_empty" != "allow_empty" ] && [ "$allow_empty" != "1" ]; then
+        local count
+        count=$(samtools view -c "$file")
+        if [ "$count" -eq 0 ]; then
+            echo "❌ Failure: BAM/CRAM file is empty: $file"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Helper to verify a VCF file
+verify_vcf() {
+    local file=$1
+    local allow_empty=$2
+    if [ ! -f "$file" ]; then
+        echo "❌ Failure: VCF file missing: $file"
+        return 1
+    fi
+    # Check if it's a valid VCF/BCF
+    if ! bcftools view -h "$file" > /dev/null 2>&1; then
+        echo "❌ Failure: VCF file is invalid or corrupted: $file"
+        return 1
+    fi
+
+    # Check if it has any records (excluding header)
+    if [ "$allow_empty" != "allow_empty" ] && [ "$allow_empty" != "1" ]; then
+        local count
+        count=$(bcftools view -H "$file" | head -n 100 | wc -l)
+        if [ "$count" -eq 0 ]; then
+            echo "❌ Failure: VCF file has no records: $file"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Helper to verify a FASTQ file
+verify_fastq() {
+    local file=$1
+    if [ ! -f "$file" ]; then
+        echo "❌ Failure: FASTQ file missing: $file"
+        return 1
+    fi
+    # Check if it has any reads (4 lines per read)
+    local lines
+    if [[ "$file" == *.gz ]]; then
+        lines=$(zcat "$file" | head -n 4 | wc -l)
+    else
+        lines=$(head -n 4 "$file" | wc -l)
+    fi
+    if [ "$lines" -lt 4 ]; then
+        echo "❌ Failure: FASTQ file is empty or malformed: $file"
+        return 1
+    fi
+    return 0
+}

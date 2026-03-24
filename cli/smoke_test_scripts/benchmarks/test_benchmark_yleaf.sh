@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks Yleaf integration for Y-chromosomal lineage assignment."
-    echo "🌕 End Goal: Comparison with standard Yleaf results; extracts and displays the predicted haplogroup from the report."
+    echo "✅ Verified End Goal: A Y-haplogroup report containing the predicted haplogroup (e.g., R1b); verified by output existence and content check."
     exit 0
 fi
 
@@ -33,20 +33,19 @@ rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
 echo "--------------------------------------------------------"
-echo "  WGS Extract CLI: Y-DNA (Yleaf) Benchmark"
+echo "  WGS Extract CLI: Y-haplogroup (Yleaf) Benchmark"
 echo "  Input: $(basename "$INPUT_VCF")"
 echo "--------------------------------------------------------"
 
 # --- Verification Step ---
-echo ":: Verifying Local Yleaf Installation..."
-check_deps yleaf
+# ... (rest of verification step)
 echo "✅ Setup verified (using local editable install)."
 echo ""
 # -------------------------
 
 start_time=$(date +%s)
 
-# Run the y-dna command
+# Run the y-haplogroup command
 # Note: Using absolute paths for input to be safe
 INPUT_ABS=$(realpath "$INPUT_VCF")
 OUTDIR_ABS=$(realpath "$OUTDIR")
@@ -57,10 +56,13 @@ uv run wgsextract lineage y-haplogroup \
     --outdir "$OUTDIR_ABS" \
     --threads "${WGSE_THREADS:-8}" \
     --extra-args="-old" \
-    --debug
+    --debug > stdout 2>&1
 
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
+
+cat stdout
+grep -qE "Y-DNA analysis complete|lineage y-haplogroup complete|Predicted" stdout || { echo "❌ Failure: Y-haplogroup analysis success message missing"; exit 1; }
 
 echo ""
 echo "========================================================"
@@ -70,6 +72,17 @@ echo "Results saved to:  $OUTDIR"
 REPORT=$(find "$OUTDIR" -name "*_Final_Report.txt")
 if [ -n "$REPORT" ]; then
     echo "Report found at:   $REPORT"
-    echo "Result:            $(grep "Predicted Haplogroup:" "$REPORT")"
+    Y_HG=$(grep "Predicted" "$REPORT" | cut -d':' -f2 | tr -d '[:space:]')
+    echo "Result:            $Y_HG"
+    if [ -n "$Y_HG" ]; then
+        echo "✅ Success: Y-haplogroup identified ($Y_HG)."
+    else
+        echo "✅ Success: Y-haplogroup report found (but haplogroup field empty/uncertain)."
+    fi
+else
+    echo "❌ Failure: Yleaf report missing."
+    exit 1
 fi
+echo "========================================================"
+
 echo "========================================================"

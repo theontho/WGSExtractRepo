@@ -476,7 +476,7 @@ def cmd_indel(args):
 def cmd_annotate(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -595,7 +595,7 @@ def cmd_annotate(args):
 def cmd_filter(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1048,7 +1048,7 @@ def cmd_sv(args):
 def cmd_clinvar(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1135,7 +1135,7 @@ def cmd_clinvar(args):
 def cmd_revel(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1302,7 +1302,7 @@ def cmd_revel(args):
 def cmd_phylop(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1470,7 +1470,7 @@ def cmd_phylop(args):
 def cmd_gnomad(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1589,7 +1589,7 @@ def cmd_gnomad(args):
 def cmd_spliceai(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1660,7 +1660,7 @@ def cmd_spliceai(args):
 def cmd_alphamissense(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -1775,7 +1775,7 @@ def cmd_alphamissense(args):
 def cmd_pharmgkb(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 
@@ -2207,7 +2207,7 @@ def cmd_chain_annotate(args):
     import shutil
 
     verify_dependencies(["bcftools", "tabix"])
-    input_file = args.vcf_input if args.vcf_input else args.input
+    input_file = args.input if args.input else args.vcf_input
     if not input_file:
         return logging.error(LOG_MESSAGES["input_required"])
 

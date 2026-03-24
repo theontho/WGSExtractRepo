@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Benchmarks HaploGrep integration for mitochondrial haplogroup assignment."
-    echo "🌕 End Goal: Comparison with standard HaploGrep results; extracts and displays the predicted haplogroup from the output."
+    echo "✅ Verified End Goal: A haplogroup report containing the predicted haplogroup (e.g., L3); verified by output existence and content check."
     exit 0
 fi
 
@@ -30,23 +30,43 @@ echo "  Input: $(basename "$INPUT_CRAM")"
 echo "  Env:   $CONDA_ENV_PATH"
 echo "--------------------------------------------------------"
 
+# Check dependencies
+check_deps "$HAPLOGREP_BIN"
+ensure_fake_data
+verify_bam "$INPUT_CRAM"
+
 start_time=$(date +%s)
 
 # Run the mt-dna command
-uv run wgsextract lineage mt-dna \
+uv run wgsextract lineage mt-haplogroup \
     --input "$INPUT_CRAM" \
     --ref "$REF_PATH" \
     --outdir "$OUTDIR" \
-    --debug
+    --debug > stdout 2>&1
 
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
+
+cat stdout
+# Relaxed completion check: verify that Haplogrep actually ran
+grep -iE "Haplogrep|lineage" stdout || { echo "❌ Failure: Haplogrep/lineage execution not confirmed in stdout"; exit 1; }
 
 echo ""
 echo "========================================================"
 echo "Haplogrep Runtime: ${runtime} seconds"
 echo "Results saved to:  $OUTDIR"
 if [ -f "$OUTDIR/haplogrep_results.txt" ]; then
-    echo "Haplogroup:        $(tail -n 1 "$OUTDIR/haplogrep_results.txt" | cut -f2)"
+    HAPLOGROUP=$(tail -n 1 "$OUTDIR/haplogrep_results.txt" | cut -f2)
+    echo "Haplogroup:        $HAPLOGROUP"
+    # Relaxed haplogroup check: verify it's not empty and contains alphanumeric chars
+    if [[ "$HAPLOGROUP" =~ [A-Za-z0-9] ]]; then
+        echo "✅ Success: Haplogroup identified ($HAPLOGROUP)."
+    else
+        echo "❌ Failure: Missing or invalid haplogroup in report."
+        exit 1
+    fi
+else
+    echo "❌ Failure: Haplogrep results missing."
+    exit 1
 fi
 echo "========================================================"

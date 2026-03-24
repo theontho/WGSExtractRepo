@@ -6,11 +6,13 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with clinical significance from the ClinVar database."
-    echo "🌕 End Goal: VCF with ClinVar clinical labels (e.g., Pathogenic, Benign)."
+    echo "✅ Verified End Goal: A VCF annotated with ClinVar clinical significance; verified by output existence, validity (bcftools), and presence of 'CLNSIG' in the INFO field."
     exit 0
 fi
 
 OUTDIR="out/vcf_clinvar_out"
+# Ensure output directory is clean
+rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
 # 1. Create a fake reference structure
@@ -58,13 +60,21 @@ echo "--------------------------------------------------------"
 if uv run wgsextract vcf clinvar \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
-    --outdir "$OUTDIR" && [ -f "$OUTDIR/clinvar_pathogenic.vcf.gz" ]; then
-    echo "✅ Success: 'vcf clinvar' completed and produced pathogenic output."
-    # Check if annotation worked
-    if zgrep "CLNSIG" "$OUTDIR/clinvar_annotated.vcf.gz" | grep -q "Pathogenic"; then
-        echo "✅ Success: Annotation confirmed."
+    --outdir "$OUTDIR" && verify_vcf "$OUTDIR/clinvar_annotated.vcf.gz"; then
+    echo "✅ Success: 'vcf clinvar' completed and produced output."
+
+    # Verify annotation worked: check for CLNSIG in header and record
+    if bcftools view -h "$OUTDIR/clinvar_annotated.vcf.gz" | grep -q "CLNSIG"; then
+        echo "✅ Success: CLNSIG found in header."
     else
-        echo "❌ Failure: Annotation missing in output."
+        echo "❌ Failure: CLNSIG NOT found in header."
+        exit 1
+    fi
+
+    if bcftools view -H "$OUTDIR/clinvar_annotated.vcf.gz" | grep -q "CLNSIG=Pathogenic"; then
+        echo "✅ Success: 'CLNSIG=Pathogenic' found in records."
+    else
+        echo "❌ Failure: 'CLNSIG=Pathogenic' NOT found in records."
         exit 1
     fi
 else

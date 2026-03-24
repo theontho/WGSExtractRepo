@@ -6,14 +6,16 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates variants with population frequency data from gnomAD."
-    echo "🌕 End Goal: VCF with allele frequency information from gnomAD populations."
+    echo "✅ Verified End Goal: A VCF annotated with population frequency data; verified by output existence, validity (bcftools), and 'GNOMAD_AF' presence in the INFO field."
     exit 0
 fi
 
-# Ensure we're using the correct entry point (can be overridden by environment)
-WGSE_CMD=${WGSE_CMD:-"uv run python -m wgsextract_cli.main"}
+# Ensure we're using the correct entry point
+WGSE_CMD="uv run wgsextract"
 
 OUTDIR="out/vcf_gnomad_out"
+# Ensure output directory is clean
+rm -rf "$OUTDIR"
 mkdir -p "$OUTDIR"
 
 # 1. Create a fake reference structure
@@ -64,9 +66,17 @@ echo ":: Running gnomAD annotation..."
 if $WGSE_CMD vcf gnomad \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
-    --outdir "$OUTDIR" && [ -f "$OUTDIR/gnomad_annotated.vcf.gz" ]; then
+    --outdir "$OUTDIR" && verify_vcf "$OUTDIR/gnomad_annotated.vcf.gz"; then
     echo "✅ Success: 'vcf gnomad' completed."
-    # Check if annotation worked (AF should be GNOMAD_AF)
+
+    # Verify annotation worked: check for GNOMAD_AF in header and records
+    if bcftools view -h "$OUTDIR/gnomad_annotated.vcf.gz" | grep -q "GNOMAD_AF"; then
+        echo "✅ Success: GNOMAD_AF found in header."
+    else
+        echo "❌ Failure: GNOMAD_AF NOT found in header."
+        exit 1
+    fi
+
     if bcftools query -f '%CHROM:%POS %GNOMAD_AF\n' "$OUTDIR/gnomad_annotated.vcf.gz" | grep -q "chr1:100 0.005"; then
         echo "✅ Success: Annotation confirmed (GNOMAD_AF=0.005 found)."
     else
@@ -85,7 +95,7 @@ if $WGSE_CMD vcf gnomad \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --max-af 0.01 && [ -f "$OUTDIR/gnomad_af_lt_0.01.vcf.gz" ]; then
+    --max-af 0.01 && verify_vcf "$OUTDIR/gnomad_af_lt_0.01.vcf.gz" 1; then
     echo "✅ Success: gnomAD filtering produced output."
     # Should have:
     # chr1:100 (0.005 < 0.01)

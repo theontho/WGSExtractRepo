@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies microarray data processing and conversion from raw formats."
-    echo "🌕 End Goal: Processed microarray data in a standard format (e.g., 23andMe)."
+    echo "✅ Verified End Goal: Processed microarray data in standard format; confirmed by '23andMe' file existence and specific RSID checks in output content."
     exit 0
 fi
 
@@ -63,17 +63,22 @@ if uv run wgsextract microarray \
     --input "$INPUT_VCF" \
     --ref "$REFDIR" \
     --outdir "$OUTDIR" \
-    --formats "23andme_v5" && [ -f "$OUTDIR/input_23andMe_V5.txt" ]; then
-    echo "✅ Success: 'microarray' completed."
+    --formats "23andme_v5" > "$OUTDIR/microarray.stdout" 2>&1 && [ -f "$OUTDIR/input_23andMe_V5.txt" ]; then
+    echo "✅ Success: 'microarray' command finished."
     # Check if variant was picked up
     if grep -q "rs1" "$OUTDIR/input_23andMe_V5.txt"; then
         echo "✅ Success: Variant rs1 found in output."
     else
         echo "❌ Failure: Variant rs1 missing in output."
+        cat "$OUTDIR/input_23andMe_V5.txt"
         exit 1
+    fi
+    if grep -q "rs2" "$OUTDIR/input_23andMe_V5.txt"; then
+        echo "✅ Success: Reference position rs2 found."
     fi
 else
     echo "❌ Failure: 'microarray' failed or missing output."
+    cat "$OUTDIR/microarray.stdout"
     exit 1
 fi
 

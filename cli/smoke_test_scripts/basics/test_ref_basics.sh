@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests reference genome management commands: download, index, count-ns, and verify."
-    echo "🌕 End Goal: A verified reference genome with valid index files; verified by existence of downloaded .fa and .fai files, and successful completion of 'ref verify' command."
+    echo "✅ Verified End Goal: A verified reference genome with valid index files; confirmed by presence of .fa and .fai, and 'ref verify' confirming integrity via stdout checks."
     exit 0
 fi
 
@@ -29,12 +29,13 @@ uv run wgsextract qc fake-data \
     --type fastq \
     --coverage 0.0001 \
     --seed 123 \
-    --ref "$FAKEREFDIR" # Passing dir without fasta forces creation
+    --ref "$FAKEREFDIR" > "$OUTDIR/fake_gen.stdout" 2>&1 # Passing dir without fasta forces creation
 
 REF_PATH=$(find "$FAKEREFDIR" -name "fake_ref_hg38_*.fa" | head -n 1)
 
 if [ ! -f "$REF_PATH" ]; then
     echo "❌ Failure: Fake reference generation failed."
+    cat "$OUTDIR/fake_gen.stdout"
     exit 1
 fi
 
@@ -49,42 +50,46 @@ sleep 2
 
 if uv run wgsextract ref download \
     --url "http://localhost:8080/$(basename "$REF_PATH")" \
-    --out "$OUTDIR/downloaded.fa" && [ -f "$OUTDIR/downloaded.fa" ]; then
+    --out "$OUTDIR/downloaded.fa" > "$OUTDIR/download.stdout" 2>&1 && [ -f "$OUTDIR/downloaded.fa" ]; then
     kill "$HTTP_PID"
     echo "✅ Success: 'ref download' completed."
 else
     kill "$HTTP_PID"
     echo "❌ Failure: 'ref download' failed."
+    cat "$OUTDIR/download.stdout"
     exit 1
 fi
 
 # 3. Test 'ref index'
 echo ":: Testing 'ref index'..."
 if uv run wgsextract ref index \
-    --ref "$OUTDIR/downloaded.fa" && [ -f "$OUTDIR/downloaded.fa.fai" ]; then
+    --ref "$OUTDIR/downloaded.fa" > "$OUTDIR/index.stdout" 2>&1 && [ -f "$OUTDIR/downloaded.fa.fai" ]; then
     echo "✅ Success: 'ref index' completed."
 else
     echo "❌ Failure: 'ref index' failed."
+    cat "$OUTDIR/index.stdout"
     exit 1
 fi
 
 # 4. Test 'ref count-ns'
 echo ":: Testing 'ref count-ns'..."
 if uv run wgsextract ref count-ns \
-    --ref "$OUTDIR/downloaded.fa"; then
-    echo "✅ Success: 'ref count-ns' completed."
+    --ref "$OUTDIR/downloaded.fa" > "$OUTDIR/count_ns.stdout" 2>&1 && grep -q "Processing" "$OUTDIR/count_ns.stdout"; then
+    echo "✅ Success: 'ref count-ns' completed and reported counts."
 else
-    echo "❌ Failure: 'ref count-ns' failed."
+    echo "❌ Failure: 'ref count-ns' failed or did not report counts."
+    cat "$OUTDIR/count_ns.stdout"
     exit 1
 fi
 
 # 5. Test 'ref verify'
 echo ":: Testing 'ref verify'..."
 if uv run wgsextract ref verify \
-    --ref "$OUTDIR/downloaded.fa"; then
-    echo "✅ Success: 'ref verify' completed."
+    --ref "$OUTDIR/downloaded.fa" > "$OUTDIR/verify.stdout" 2>&1 && grep -q "appears to be valid" "$OUTDIR/verify.stdout"; then
+    echo "✅ Success: 'ref verify' completed and confirmed validity."
 else
-    echo "❌ Failure: 'ref verify' failed."
+    echo "❌ Failure: 'ref verify' failed or reported invalidity."
+    cat "$OUTDIR/verify.stdout"
     exit 1
 fi
 

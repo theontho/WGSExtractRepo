@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests VCF calling using GATK HaplotypeCaller."
-    echo "🌕 End Goal: Valid VCF output from GATK.; verified by existence of output file."
+    echo "✅ Verified End Goal: A valid VCF from GATK HaplotypeCaller; verified by output existence, validity (bcftools), and record presence."
     exit 0
 fi
 
@@ -34,9 +34,17 @@ if uv run wgsextract vcf gatk \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
     --outdir "$OUTDIR" \
-    --region "$REGION" && [ -f "$OUTDIR/gatk.vcf.gz" ]; then
+    --region "$REGION" && verify_vcf "$OUTDIR/gatk.vcf.gz"; then
     echo "SUCCESS: VCF GATK completed."
     ls -lh "$OUTDIR/gatk.vcf.gz"
+
+    # Verify tool name in header
+    if bcftools view -h "$OUTDIR/gatk.vcf.gz" | grep -iq "GATK"; then
+        echo "✅ Success: Found 'GATK' in VCF header."
+    else
+        echo "❌ Failure: 'GATK' NOT found in VCF header."
+        exit 1
+    fi
 else
     echo "FAILURE: VCF GATK failed."
     exit 1

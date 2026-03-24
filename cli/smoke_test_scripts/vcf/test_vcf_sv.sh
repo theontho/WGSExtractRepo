@@ -34,7 +34,7 @@ if uv run wgsextract vcf sv \
     --input "$INPUT_BAM" \
     --ref "$REF_FASTA" \
     --outdir "$OUTDIR" \
-    --region "$REGION" && [ -f "$OUTDIR/sv.vcf.gz" ]; then
+    --region "$REGION" && verify_vcf "$OUTDIR/sv.vcf.gz" 1; then
     echo "SUCCESS: VCF SV completed."
     ls -lh "$OUTDIR/sv.vcf.gz"
 else

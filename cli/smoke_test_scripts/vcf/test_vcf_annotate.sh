@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Annotates a VCF file with basic metadata and region information."
-    echo "🌕 End Goal: Annotated VCF with additional INFO fields.; verified by existence of output file."
+    echo "✅ Verified End Goal: Annotated VCF with additional INFO fields; verified by output existence, validity, and header check."
     exit 0
 fi
 
@@ -27,17 +27,24 @@ echo "  WGS Extract CLI: VCF Annotate Smoke Test"
 echo "  Input: $(basename "$INPUT_VCF")"
 echo "--------------------------------------------------------"
 
-# Note: Annotate requires --ann-vcf. Since we don't have a small dummy one easily,
-# we verify that the command routing and error checking works.
-# If we have real data from env, we could use it.
-
+# Note: Annotate requires --ann-vcf.
+# We use the same VCF as annotation source for testing connectivity.
 if uv run wgsextract vcf annotate \
     --input "$INPUT_VCF" \
     --ann-vcf "$INPUT_VCF" \
+    --cols "ID,QUAL" \
     --ref "$REF_FASTA" \
-    --outdir "$OUTDIR" && [ -f "$OUTDIR/annotated.vcf.gz" ]; then
+    --outdir "$OUTDIR" && verify_vcf "$OUTDIR/annotated.vcf.gz"; then
     echo "SUCCESS: VCF Annotate completed."
     ls -lh "$OUTDIR/annotated.vcf.gz"
+
+    # Check for bcftools annotate command in header to confirm tool was used
+    if bcftools view -h "$OUTDIR/annotated.vcf.gz" | grep -q "bcftools_annotateCommand"; then
+        echo "✅ Success: bcftools annotation command found in header."
+    else
+        echo "❌ Failure: bcftools annotation command NOT found in header."
+        exit 1
+    fi
 else
     echo "FAILURE: VCF Annotate failed."
     exit 1

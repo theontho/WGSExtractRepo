@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests FASTQ/BAM repair and sanitation tools for corrupted or malformed files."
-    echo "🌕 End Goal: Cleaned and valid genomic files that can be processed by downstream tools."
+    echo "✅ Verified End Goal: Cleaned and valid genomic files; confirmed by 'verify_vcf' on repaired VCF and stdout checks for fixed fields."
     exit 0
 fi
 
@@ -27,11 +27,17 @@ read 1	99	chr1	100	60	100M	=	200	100	AAAAAAAAAA	##########
 EOF
 
 # Run repair. Input is stdin, output is stdout.
-if uv run wgsextract repair ftdna-bam < "$OUTDIR/test.sam" > "$OUTDIR/repaired.sam" && grep -q "read:1" "$OUTDIR/repaired.sam"; then
-    echo "✅ Success: 'repair ftdna-bam' completed and fixed QNAME."
+if uv run wgsextract repair ftdna-bam < "$OUTDIR/test.sam" > "$OUTDIR/repaired.sam" 2> "$OUTDIR/repair_bam.stderr"; then
+    if grep -q "read:1" "$OUTDIR/repaired.sam"; then
+        echo "✅ Success: 'repair ftdna-bam' completed and fixed QNAME."
+    else
+        echo "❌ Failure: 'repair ftdna-bam' did not fix QNAME."
+        cat "$OUTDIR/repaired.sam"
+        exit 1
+    fi
 else
-    echo "❌ Failure: 'repair ftdna-bam' failed or did not fix QNAME."
-    cat "$OUTDIR/repaired.sam"
+    echo "❌ Failure: 'repair ftdna-bam' command failed."
+    cat "$OUTDIR/repair_bam.stderr"
     exit 1
 fi
 
@@ -48,11 +54,24 @@ echo ":: Testing 'repair ftdna-vcf'..."
 } > "$OUTDIR/test.vcf"
 
 # Run repair.
-if uv run wgsextract repair ftdna-vcf < "$OUTDIR/test.vcf" > "$OUTDIR/repaired.vcf" && grep -q "DP1" "$OUTDIR/repaired.vcf"; then
-    echo "✅ Success: 'repair ftdna-vcf' completed and fixed FILTER."
+if uv run wgsextract repair ftdna-vcf < "$OUTDIR/test.vcf" > "$OUTDIR/repaired.vcf" 2> "$OUTDIR/repair_vcf.stderr"; then
+    if grep -q "DP1" "$OUTDIR/repaired.vcf"; then
+        echo "✅ Success: 'repair ftdna-vcf' completed and fixed FILTER."
+        # Verify it's still a valid VCF (even if small)
+        if verify_vcf "$OUTDIR/repaired.vcf"; then
+             echo "✅ Success: 'repaired.vcf' verified by bcftools."
+        else
+             echo "❌ Failure: 'repaired.vcf' failed verification."
+             exit 1
+        fi
+    else
+        echo "❌ Failure: 'repair ftdna-vcf' did not fix FILTER."
+        cat "$OUTDIR/repaired.vcf"
+        exit 1
+    fi
 else
-    echo "❌ Failure: 'repair ftdna-vcf' failed or did not fix FILTER."
-    cat "$OUTDIR/repaired.vcf"
+    echo "❌ Failure: 'repair ftdna-vcf' command failed."
+    cat "$OUTDIR/repair_vcf.stderr"
     exit 1
 fi
 

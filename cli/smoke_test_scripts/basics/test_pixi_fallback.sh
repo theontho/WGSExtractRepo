@@ -6,9 +6,12 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies the CLI's internal fallback to Pixi environments when tools are missing from the system PATH."
-    echo "🌕 End Goal: Successful detection and execution of a tool (yleaf) using the CLI's 'pixi run' fallback mechanism."
+    echo "✅ Verified End Goal: Successful detection and execution of a tool (yleaf) using Pixi fallback; confirmed by Python check confirming 'pixi run' in tool path and successful help execution with a cleaned PATH."
     exit 0
 fi
+
+OUTDIR="out/smoke_test_pixi_fallback"
+mkdir -p "$OUTDIR"
 
 echo "--------------------------------------------------------"
 echo "  WGS Extract CLI: Pixi Fallback Smoke Test"
@@ -47,7 +50,15 @@ elif path:
     print(f'ℹ️ INFO: Resolved to {path} (might be system path)')
 else:
     print('❌ FAILURE: CLI could not find yleaf at all')
-"
+" > "$OUTDIR/python_check.stdout" 2>&1
+
+if grep -q "SUCCESS" "$OUTDIR/python_check.stdout" || grep -q "INFO" "$OUTDIR/python_check.stdout"; then
+    cat "$OUTDIR/python_check.stdout"
+else
+    echo "❌ FAILURE: CLI could not resolve yleaf."
+    cat "$OUTDIR/python_check.stdout"
+    exit 1
+fi
 
 # Now test if a command that needs yleaf works even if we pretend it's missing
 # We'll use a modified PATH for this specific execution
@@ -59,10 +70,17 @@ CLEAN_PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PIXI_PATH:$UV_PATH:$PY_PATH"
 echo ":: Running 'lineage y-haplogroup' with hidden system tools..."
 # We use a real input file if possible, or just check help
 # Help is safer as it doesn't need data.
-if PATH="$CLEAN_PATH" uv run python3 -m wgsextract_cli.main lineage y-haplogroup --help > /dev/null 2>&1; then
-    echo "✅ SUCCESS: CLI command worked with tool hidden from PATH (via Pixi fallback)."
+if PATH="$CLEAN_PATH" uv run python3 -m wgsextract_cli.main lineage y-haplogroup --help > "$OUTDIR/y_help_fallback.stdout" 2>&1; then
+    if grep -qE "yleaf-path|--help" "$OUTDIR/y_help_fallback.stdout"; then
+        echo "✅ SUCCESS: CLI command worked with tool hidden from PATH (via Pixi fallback)."
+    else
+        echo "❌ FAILURE: CLI command worked but output was unexpected."
+        cat "$OUTDIR/y_help_fallback.stdout"
+        exit 1
+    fi
 else
     echo "❌ FAILURE: CLI command failed when tool was hidden from PATH."
+    cat "$OUTDIR/y_help_fallback.stdout"
     exit 1
 fi
 

@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Tests basic BAM operations like indexing, sorting, and stats extraction."
-    echo "🌕 End Goal: Generated .bai file and a non-empty stats report; verified by existence of generated index, CRAM, and BAM output files."
+    echo "✅ Verified End Goal: Validated BAM/CRAM output files and non-empty stats report; verified by samtools quickcheck and read counts."
     exit 0
 fi
 
@@ -37,10 +37,10 @@ fi
 echo ":: Testing 'bam index'..."
 # Create a copy to avoid modifying the fake data source
 cp "$FAKEDATA/fake.bam" "$OUTDIR/test.bam"
-if uv run wgsextract bam index --input "$OUTDIR/test.bam" && [ -f "$OUTDIR/test.bam.bai" ]; then
-    echo "✅ Success: bam index completed."
+if uv run wgsextract bam index --input "$OUTDIR/test.bam" && [ -f "$OUTDIR/test.bam.bai" ] && verify_bam "$OUTDIR/test.bam"; then
+    echo "✅ Success: bam index completed and verified."
 else
-    echo "❌ Failure: bam index failed."
+    echo "❌ Failure: bam index failed or verification failed."
     exit 1
 fi
 
@@ -50,10 +50,10 @@ REF=$(find "$FAKEDATA" -name "fake_ref_hg38_*.fa" | head -n 1)
 if uv run wgsextract bam to-cram \
     --input "$OUTDIR/test.bam" \
     --outdir "$OUTDIR" \
-    --ref "$REF" && [ -f "$OUTDIR/test.cram" ]; then
-    echo "✅ Success: bam to-cram completed."
+    --ref "$REF" && verify_bam "$OUTDIR/test.cram"; then
+    echo "✅ Success: bam to-cram completed and verified."
 else
-    echo "❌ Failure: bam to-cram failed."
+    echo "❌ Failure: bam to-cram failed or verification failed."
     exit 1
 fi
 
@@ -62,10 +62,10 @@ echo ":: Testing 'bam to-bam'..."
 if uv run wgsextract bam to-bam \
     --input "$OUTDIR/test.cram" \
     --outdir "$OUTDIR" \
-    --ref "$REF" && [ -f "$OUTDIR/test.bam" ]; then
-    echo "✅ Success: bam to-bam completed."
+    --ref "$REF" && verify_bam "$OUTDIR/test.bam"; then
+    echo "✅ Success: bam to-bam completed and verified."
 else
-    echo "❌ Failure: bam to-bam failed."
+    echo "❌ Failure: bam to-bam failed or verification failed."
     exit 1
 fi
 

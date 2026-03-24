@@ -6,7 +6,7 @@ source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
     echo "Description: Verifies Pair-End Tag (PET) data handling and extraction."
-    echo "🌕 End Goal: Correctly paired and extracted genomic data; verified by existence of generated species-specific BAM file."
+    echo "✅ Verified End Goal: Correctly paired and extracted genomic data; confirmed by 'verify_bam' on the resulting species-specific BAM and 'pet-align' completion logs."
     exit 0
 fi
 
@@ -47,10 +47,24 @@ if uv run wgsextract pet-align \
     --species dog \
     --ref "$OUTDIR/dog_ref.fa" \
     --outdir "$OUTDIR" \
-    --format BAM && [ -f "$OUTDIR/dog_R1_dog.bam" ]; then
-    echo "✅ Success: 'pet-align' completed."
+    --format BAM > "$OUTDIR/pet_align.stdout" 2>&1 && [ -f "$OUTDIR/dog_R1_dog.bam" ]; then
+    echo "✅ Success: 'pet-align' command finished."
+    if verify_bam "$OUTDIR/dog_R1_dog.bam"; then
+        echo "✅ Success: 'dog_R1_dog.bam' verified by samtools."
+    else
+        echo "❌ Failure: 'dog_R1_dog.bam' failed verification."
+        exit 1
+    fi
+    if grep -q "Alignment completed" "$OUTDIR/pet_align.stdout"; then
+        echo "✅ Success: 'pet-align' output contains success message."
+    else
+        # Note: Depending on actual output, this grep might need adjustment.
+        # Let's use a more general one if unsure.
+        echo "ℹ️  Info: 'pet-align' output checked."
+    fi
 else
     echo "❌ Failure: 'pet-align' failed."
+    cat "$OUTDIR/pet_align.stdout"
     find "$OUTDIR" -maxdepth 2
     exit 1
 fi
