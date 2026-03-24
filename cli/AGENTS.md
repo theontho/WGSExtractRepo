@@ -6,7 +6,7 @@ In general, test and run the code you write.  You are not done if all you do is 
 
 You have a large budget and a lot of time to do things correctly.  Favor 'the best practice' or 'correct' way over trying to achieve a solution quickly.  This does not mean doing something in an overly verbose way is "correct", conciseness is it's own virtue.
 
-When outputting test run results, put it in a gitignored out/ or tmp/ dir instead of in the repo root or similar.
+When outputting test run results, logs, or stdout captures, **always** put them in a gitignored `out/` or `tmp/` directory (or a subdirectory within them). Never output these files to the repository root.
 
 ## Python Formatting & Linting
 

@@ -60,11 +60,11 @@ $WGSE_CMD vcf alphamissense \
     --input "$INPUT_VCF" \
     --ref "$OUTDIR/fake_genome/hg38.fa.gz" \
     --am-file "$REFDIR/ref/alphamissense_hg38.tsv.gz" \
-    --outdir "$OUTDIR" > stdout 2>&1
+    --outdir "$OUTDIR" > "$OUTDIR/stdout" 2>&1
 
 if verify_vcf "$OUTDIR/alphamissense_annotated.vcf.gz"; then
-    cat stdout
-    grep -q "AlphaMissense annotation complete" stdout || { echo "❌ Failure: AlphaMissense success message missing"; exit 1; }
+    cat "$OUTDIR/stdout"
+    grep -q "AlphaMissense annotation complete" "$OUTDIR/stdout" || { echo "❌ Failure: AlphaMissense success message missing"; exit 1; }
     VAL=$(bcftools query -f '%am_class\n' "$OUTDIR/alphamissense_annotated.vcf.gz" | grep -v "^\.$" | head -n 1)
     if [ -n "$VAL" ]; then
         echo "✅ Success: Real AlphaMissense annotation confirmed ($VAL)!"
@@ -87,11 +87,11 @@ $WGSE_CMD vcf revel \
     --input "$INPUT_VCF" \
     --ref "$OUTDIR/fake_genome/hg38.fa.gz" \
     --revel-file "$REFDIR/ref/revel_hg38.tsv.gz" \
-    --outdir "$OUTDIR" > stdout 2>&1
+    --outdir "$OUTDIR" > "$OUTDIR/stdout" 2>&1
 
 if verify_vcf "$OUTDIR/revel_annotated.vcf.gz"; then
-    cat stdout
-    grep -q "REVEL annotation and filtering complete" stdout || { echo "❌ Failure: REVEL success message missing"; exit 1; }
+    cat "$OUTDIR/stdout"
+    grep -q "REVEL annotation and filtering complete" "$OUTDIR/stdout" || { echo "❌ Failure: REVEL success message missing"; exit 1; }
     VAL=$(bcftools query -f '%REVEL\n' "$OUTDIR/revel_annotated.vcf.gz" | grep -v "^\.$" | head -n 1)
     if [ -n "$VAL" ]; then
         echo "✅ Success: Real REVEL annotation confirmed ($VAL)!"
@@ -115,11 +115,11 @@ $WGSE_CMD vcf clinvar \
     --input "$INPUT_VCF" \
     --ref "$OUTDIR/fake_genome/hg38.fa.gz" \
     --clinvar-file "$REFDIR/ref/clinvar_hg38.vcf.gz" \
-    --outdir "$OUTDIR" > stdout 2>&1
+    --outdir "$OUTDIR" > "$OUTDIR/stdout" 2>&1
 
 if verify_vcf "$OUTDIR/clinvar_annotated.vcf.gz"; then
-    cat stdout
-    grep -q "ClinVar annotation and filtering complete" stdout || { echo "❌ Failure: ClinVar success message missing"; exit 1; }
+    cat "$OUTDIR/stdout"
+    grep -q "ClinVar annotation and filtering complete" "$OUTDIR/stdout" || { echo "❌ Failure: ClinVar success message missing"; exit 1; }
     VAL=$(bcftools query -f '%CLNSIG\n' "$OUTDIR/clinvar_annotated.vcf.gz" | grep -v "^\.$" | head -n 1)
     if [ -n "$VAL" ]; then
         echo "✅ Success: Real ClinVar annotation confirmed ($VAL)!"

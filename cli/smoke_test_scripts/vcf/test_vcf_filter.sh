@@ -30,9 +30,9 @@ ensure_fake_data
 if uv run wgsextract vcf filter \
     --input "$INPUT_VCF" \
     --expr 'QUAL>10' \
-    --outdir "$OUTDIR" > stdout 2>&1 && verify_vcf "$OUTDIR/filtered.vcf.gz" 1; then
-    cat stdout
-    grep -qE "VCF Filter complete|Filtering|filtered.vcf.gz" stdout || { echo "❌ Failure: Expected success message missing from stdout"; exit 1; }
+    --outdir "$OUTDIR" > "$OUTDIR/stdout" 2>&1 && verify_vcf "$OUTDIR/filtered.vcf.gz" 1; then
+    cat "$OUTDIR/stdout"
+    grep -qE "VCF Filter complete|Filtering|filtered.vcf.gz" "$OUTDIR/stdout" || { echo "❌ Failure: Expected success message missing from stdout"; exit 1; }
     echo "SUCCESS: VCF Filter completed."
     ls -lh "$OUTDIR/filtered.vcf.gz"
 else

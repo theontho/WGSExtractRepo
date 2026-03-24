@@ -82,6 +82,29 @@ else
     exit 1
 fi
 
+# 5. Run microarray command with --parallel
+echo ":: Testing 'microarray' with --parallel..."
+OUTDIR_PARALLEL="$OUTDIR/parallel"
+mkdir -p "$OUTDIR_PARALLEL"
+if uv run wgsextract microarray \
+    --input "$INPUT_VCF" \
+    --ref "$REFDIR" \
+    --outdir "$OUTDIR_PARALLEL" \
+    --formats "23andme_v5" \
+    --parallel > "$OUTDIR_PARALLEL/microarray_parallel.stdout" 2>&1 && [ -f "$OUTDIR_PARALLEL/input_23andMe_V5.txt" ]; then
+    echo "✅ Success: 'microarray --parallel' command finished."
+    if grep -q "rs1" "$OUTDIR_PARALLEL/input_23andMe_V5.txt"; then
+        echo "✅ Success: Variant rs1 found in parallel output."
+    else
+        echo "❌ Failure: Variant rs1 missing in parallel output."
+        exit 1
+    fi
+else
+    echo "❌ Failure: 'microarray --parallel' failed or missing output."
+    cat "$OUTDIR_PARALLEL/microarray_parallel.stdout"
+    exit 1
+fi
+
 echo ""
 echo "========================================================"
 echo "Microarray Basics Smoke Test: PASSED"

@@ -46,14 +46,14 @@ uv run wgsextract lineage mt-haplogroup \
     --input "$INPUT_CRAM" \
     --ref "$REF_PATH" \
     --outdir "$OUTDIR" \
-    --debug > stdout 2>&1
+    --debug > "$OUTDIR/stdout" 2>&1
 
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
 
-cat stdout
+cat "$OUTDIR/stdout"
 # Relaxed completion check: verify that Haplogrep actually ran
-grep -iE "Haplogrep|lineage" stdout || { echo "❌ Failure: Haplogrep/lineage execution not confirmed in stdout"; exit 1; }
+grep -iE "Haplogrep|lineage" "$OUTDIR/stdout" || { echo "❌ Failure: Haplogrep/lineage execution not confirmed in stdout"; exit 1; }
 
 echo ""
 echo "========================================================"

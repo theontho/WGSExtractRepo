@@ -44,7 +44,7 @@ start_mt=$(date +%s)
 if ! uv run wgsextract lineage mt-haplogroup \
     --input "$INPUT_VCF" \
     --outdir "$OUTDIR/mt_dna" \
-    --haplogrep-path "$HAPLOGREP_BIN" > stdout_mt 2>&1; then
+    --haplogrep-path "$HAPLOGREP_BIN" > "$OUTDIR/mt_dna/stdout_mt" 2>&1; then
     if [ "$WGSE_USE_REAL_DATA" = "true" ]; then
         echo "❌ Failure: MT-haplogroup command failed."
         exit 1
@@ -52,7 +52,7 @@ if ! uv run wgsextract lineage mt-haplogroup \
 fi
 end_mt=$(date +%s)
 runtime_mt=$((end_mt - start_mt))
-cat stdout_mt
+cat "$OUTDIR/mt_dna/stdout_mt"
 
 # 2. Y-DNA Benchmark (Yleaf)
 echo ":: Running Y-haplogroup Lineage (Yleaf)..."
@@ -60,7 +60,7 @@ start_y=$(date +%s)
 if ! uv run wgsextract lineage y-haplogroup \
     --input "$INPUT_VCF" \
     --outdir "$OUTDIR/y_dna" \
-    --threads "${WGSE_THREADS:-8}" > stdout_y 2>&1; then
+    --threads "${WGSE_THREADS:-8}" > "$OUTDIR/y_dna/stdout_y" 2>&1; then
     if [ "$WGSE_USE_REAL_DATA" = "true" ]; then
         echo "❌ Failure: Y-haplogroup command failed."
         exit 1
@@ -68,7 +68,7 @@ if ! uv run wgsextract lineage y-haplogroup \
 fi
 end_y=$(date +%s)
 runtime_y=$((end_y - start_y))
-cat stdout_y
+cat "$OUTDIR/y_dna/stdout_y"
 
 echo ""
 echo "========================================================"

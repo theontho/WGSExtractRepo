@@ -37,15 +37,15 @@ uv run wgsextract vcf cnv \
     --ref "$REF_FASTA" \
     --map "$MAP_FILE" \
     --outdir "$OUTDIR" \
-    --region "$REGION" > stdout 2>&1
+    --region "$REGION" > "$OUTDIR/stdout" 2>&1
 exit_code=$?
 
-cat stdout
+cat "$OUTDIR/stdout"
 
 if [ $exit_code -eq 0 ] && verify_vcf "$OUTDIR/cnv.vcf.gz" 1; then
     echo "SUCCESS: VCF CNV completed."
     ls -lh "$OUTDIR/cnv.vcf.gz"
-elif [ $exit_code -eq 139 ] || grep -q "Segmentation fault" stdout; then
+elif [ $exit_code -eq 139 ] || grep -q "Segmentation fault" "$OUTDIR/stdout"; then
     echo "⏭️ SKIP: Delly segfaulted (exit 139), skipping CNV test."
     exit 0
 else

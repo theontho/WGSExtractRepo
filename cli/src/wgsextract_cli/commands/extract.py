@@ -458,16 +458,23 @@ def cmd_custom(args):
         return
 
     base_name = os.path.basename(args.input).split(".")[0]
-    out_bam = os.path.join(outdir, f"{base_name}_{region.replace(':', '_')}.bam")
+    region_suffix = (
+        os.path.basename(region).replace(":", "_")
+        if os.path.isfile(region)
+        else region.replace(":", "_")
+    )
+    out_bam = os.path.join(outdir, f"{base_name}_{region_suffix}.bam")
 
     logging.info(
         LOG_MESSAGES["extracting_region"].format(region=region, output=out_bam)
     )
     try:
+        region_args = ["-L", region] if os.path.isfile(region) else [region]
         run_command(
             ["samtools", "view", "-bh"]
             + cram_opt
-            + ["-@", threads, "-o", out_bam, args.input, region]
+            + ["-@", threads, "-o", out_bam, args.input]
+            + region_args
         )
         run_command(get_sam_index_cmd(out_bam, threads=threads))
     except Exception as e:

@@ -60,7 +60,7 @@ if ! uv run wgsextract lineage y-haplogroup \
     --outdir "$OUTDIR_ABS" \
     --threads "${WGSE_THREADS:-8}" \
     --extra-args="-old" \
-    --debug > stdout 2>&1; then
+    --debug > "$OUTDIR/stdout" 2>&1; then
     if [ "$WGSE_USE_REAL_DATA" = "true" ]; then
         echo "❌ Failure: Y-haplogroup command failed."
         exit 1
@@ -70,9 +70,9 @@ fi
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
 
-cat stdout
+cat "$OUTDIR/stdout"
 # Verification
-if grep -qE "Y-DNA analysis complete|lineage y-haplogroup complete|Predicted" stdout; then
+if grep -qE "Y-DNA analysis complete|lineage y-haplogroup complete|Predicted" "$OUTDIR/stdout"; then
     echo "✅ Success: Y-haplogroup analysis completed."
 else
     if [ "$WGSE_USE_REAL_DATA" = "true" ]; then
