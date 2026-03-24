@@ -44,6 +44,7 @@ BASICS_TESTS=(
     "test_pixi_fallback.sh"
     "test_ref_download_index.sh"
     "test_build_detection_robustness.sh"
+    "test_robustness_ux.sh"
     "test_mixed_chrom_naming.sh"
 )
 
