@@ -98,6 +98,33 @@ else
     exit 1
 fi
 
+# 4. Run individual modes
+echo ":: Testing 'vcf trio' with --mode recessive..."
+if uv run wgsextract vcf trio \
+    --proband "$OUTDIR/proband.vcf.gz" \
+    --mother "$OUTDIR/mother.vcf.gz" \
+    --father "$OUTDIR/father.vcf.gz" \
+    --mode recessive \
+    --outdir "$OUTDIR/recessive" && [ -f "$OUTDIR/recessive/trio_recessive.vcf.gz" ]; then
+    echo "✅ Success: 'vcf trio --mode recessive' completed."
+else
+    echo "❌ Failure: 'vcf trio --mode recessive' failed."
+    exit 1
+fi
+
+echo ":: Testing 'vcf trio' with --mode comphet..."
+if uv run wgsextract vcf trio \
+    --proband "$OUTDIR/proband.vcf.gz" \
+    --mother "$OUTDIR/mother.vcf.gz" \
+    --father "$OUTDIR/father.vcf.gz" \
+    --mode comphet \
+    --outdir "$OUTDIR/comphet" && [ -f "$OUTDIR/comphet/trio_comphet.vcf.gz" ]; then
+    echo "✅ Success: 'vcf trio --mode comphet' completed."
+else
+    echo "❌ Failure: 'vcf trio --mode comphet' failed."
+    exit 1
+fi
+
 echo ""
 echo "========================================================"
 echo "Trio Inheritance Smoke Test: PASSED"

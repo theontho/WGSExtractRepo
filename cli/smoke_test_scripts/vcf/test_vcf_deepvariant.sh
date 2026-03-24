@@ -49,3 +49,17 @@ else
     echo "FAILURE: VCF DeepVariant failed."
     exit 1
 fi
+
+# 2. Test --wes flag (parsing/help)
+echo ":: Testing vcf deepvariant --wes (argument parsing)..."
+if uv run wgsextract vcf deepvariant --wes --help > /dev/null 2>&1; then
+    echo "✅ Success: --wes flag accepted."
+else
+    echo "❌ Failure: --wes flag rejected."
+    exit 1
+fi
+
+echo ""
+echo "========================================================"
+echo "VCF DeepVariant Smoke Test: PASSED"
+echo "========================================================"

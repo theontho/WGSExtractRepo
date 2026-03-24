@@ -150,6 +150,29 @@ else
     exit 1
 fi
 
+# 5. Run chain-annotate command with --keep-intermediates
+echo ":: Testing 'vcf chain-annotate' with --keep-intermediates..."
+OUTDIR_KEEP="$OUTDIR/keep_intermediates"
+mkdir -p "$OUTDIR_KEEP"
+if uv run wgsextract vcf chain-annotate \
+    --input "$INPUT_VCF" \
+    --ref "$REFDIR" \
+    --outdir "$OUTDIR_KEEP" \
+    --annotations "clinvar,revel" \
+    --keep-intermediates && [ -f "$OUTDIR_KEEP/chain_annotated.vcf.gz" ]; then
+    # Check if intermediate files exist in subdirectories
+    if [ -f "$OUTDIR_KEEP/chain_step_1_clinvar/clinvar_pathogenic.vcf.gz" ]; then
+        echo "✅ Success: Intermediate file 'clinvar_pathogenic.vcf.gz' found."
+    else
+        echo "❌ Failure: Intermediate file 'clinvar_pathogenic.vcf.gz' NOT found."
+        ls -R "$OUTDIR_KEEP"
+        exit 1
+    fi
+else
+    echo "❌ Failure: 'vcf chain-annotate --keep-intermediates' failed."
+    exit 1
+fi
+
 echo ""
 echo "========================================================"
 echo "VCF Chain Annotate Smoke Test: ALL PASSED"

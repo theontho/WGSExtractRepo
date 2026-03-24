@@ -83,6 +83,29 @@ else
     exit 1
 fi
 
+# 5. Test 'extract custom' (Gene)
+echo ":: Testing 'extract custom' (--gene GENE1)..."
+# Create dummy gene map
+mkdir -p "$OUTDIR/ref"
+echo -e "symbol\tchrom\tstart\tend" > "$OUTDIR/ref/genes_hg38.tsv"
+echo -e "GENE1\tchr1\t1\t2000" >> "$OUTDIR/ref/genes_hg38.tsv"
+
+# We need to point WGSE_REFLIB or similar to this directory
+# Or just use --ref as it often points to the library root
+if WGSE_REFLIB="$OUTDIR" uv run wgsextract extract custom \
+    --input "$FAKEDATA/fake.bam" \
+    --outdir "$OUTDIR" \
+    --gene "GENE1" \
+    --ref "$REF" && \
+    [ -f "$OUTDIR/fake_chr1_1-2000.bam" ] && \
+    verify_bam "$OUTDIR/fake_chr1_1-2000.bam"; then
+    echo "✅ Success: extract custom (gene) completed."
+else
+    echo "❌ Failure: extract custom (gene) failed or output not found."
+    ls -R "$OUTDIR"
+    exit 1
+fi
+
 echo ""
 echo "========================================================"
 echo "Extract Advanced Smoke Test: PASSED"

@@ -37,6 +37,7 @@ BASICS_TESTS=(
     "test_repair_basics.sh"
     "test_pet_basics.sh"
     "test_vep_basics.sh"
+    "test_vep_full.sh"
     "test_lineage_basics.sh"
     "test_microarray_basics.sh"
     "test_misc_basics.sh"

@@ -73,6 +73,24 @@ else
     exit 1
 fi
 
+# 4. Align with Minimap2 (Long Read/SR mode)
+if command -v minimap2 >/dev/null 2>&1; then
+    echo ":: Testing 'align' with Minimap2 (--long-read)..."
+    STDOUT=$(uv run wgsextract align \
+        --r1 "$FASTQDIR/fake_R1.fastq.gz" \
+        --r2 "$FASTQDIR/fake_R2.fastq.gz" \
+        --ref "$REF" \
+        --outdir "$OUTDIR/minimap2" \
+        --long-read 2>&1)
+    echo "$STDOUT"
+    if echo "$STDOUT" | grep -q "Minimap2" && verify_bam "$OUTDIR/minimap2/fake_R1_aligned.bam"; then
+        echo "✅ Success: Minimap2 alignment verified."
+    else
+        echo "❌ Failure: Minimap2 alignment failed."
+        exit 1
+    fi
+fi
+
 echo ""
 echo "========================================================"
 echo "Align Basics Smoke Test: PASSED"
