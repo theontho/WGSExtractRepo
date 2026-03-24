@@ -417,6 +417,8 @@ def render_info(data, detailed=False):
     output_lines.append(
         f"{LOG_MESSAGES['info_ref_genome']:<28}{data.get('ref_model_str', 'Unknown')}"
     )
+    if data.get("md5_signature"):
+        output_lines.append(f"{'MD5 Signature:':<28}{data['md5_signature']}")
     if data.get("refined_ns"):
         output_lines.append(
             f"{LOG_MESSAGES['info_refined_ns']:<28}{LOG_MESSAGES['info_refined_ns_active']}"

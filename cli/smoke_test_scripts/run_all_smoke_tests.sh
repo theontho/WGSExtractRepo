@@ -47,6 +47,7 @@ BASICS_TESTS=(
     "test_robustness_ux.sh"
     "test_special_paths.sh"
     "test_cleanup.sh"
+    "test_expert_scenarios.sh"
     "test_mixed_chrom_naming.sh"
 )
 

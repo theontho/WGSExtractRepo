@@ -459,9 +459,9 @@ def cmd_custom(args):
 
     base_name = os.path.basename(args.input).split(".")[0]
     region_suffix = (
-        os.path.basename(region).replace(":", "_")
+        os.path.basename(region).replace(":", "_").replace(",", "_")
         if os.path.isfile(region)
-        else region.replace(":", "_")
+        else region.replace(":", "_").replace(",", "_")
     )
     out_bam = os.path.join(outdir, f"{base_name}_{region_suffix}.bam")
 
@@ -469,7 +469,12 @@ def cmd_custom(args):
         LOG_MESSAGES["extracting_region"].format(region=region, output=out_bam)
     )
     try:
-        region_args = ["-L", region] if os.path.isfile(region) else [region]
+        if os.path.isfile(region):
+            region_args = ["-L", region]
+        else:
+            # Split comma-separated regions (e.g. chr1:1-100,chr2:200-300)
+            region_args = region.split(",")
+
         run_command(
             ["samtools", "view", "-bh"]
             + cram_opt

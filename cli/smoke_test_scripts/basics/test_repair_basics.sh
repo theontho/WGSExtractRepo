@@ -5,8 +5,8 @@
 source "$(dirname "$0")/../common.sh"
 
 if [[ "$1" == "--describe" ]]; then
-    echo "Description: Tests FASTQ/BAM repair and sanitation tools for corrupted or malformed files."
-    echo "✅ Verified End Goal: Cleaned and valid genomic files; confirmed by 'verify_vcf' on repaired VCF and stdout checks for fixed fields."
+    echo "Description: Tests FASTQ/BAM/VCF repair tools, including Standard Input (Pipe) support."
+    echo "✅ Verified End Goal: Cleaned genomic files via direct execution or Unix pipes; verified by 'verify_vcf' and fixed field checks."
     exit 0
 fi
 

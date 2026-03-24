@@ -101,6 +101,12 @@ def main():
         help=CLI_HELP["arg_debug"],
     )
     base_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        default=os.environ.get("WGSE_QUIET") == "1",
+        help="Suppress all informational logs. (Env: WGSE_QUIET=1)",
+    )
+    base_parser.add_argument(
         "--input",
         "-i",
         default=os.environ.get("WGSE_INPUT"),
@@ -191,6 +197,8 @@ def main():
 
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
+    elif args.quiet:
+        logging.getLogger().setLevel(logging.ERROR)
 
     # Handle signals for clean exit (allows finally blocks to run)
     import signal
