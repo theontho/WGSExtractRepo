@@ -51,3 +51,23 @@ else
     echo "FAILURE: VCF SNP failed."
     exit 1
 fi
+
+# 2. Test SNP calling on a different region
+REGION2="chr1:100-2000"
+echo ":: Testing 'vcf snp' on region $REGION2..."
+if uv run wgsextract vcf snp \
+    --input "$INPUT_BAM" \
+    --ref "$REF_FASTA" \
+    --outdir "$OUTDIR/region2" \
+    --region "$REGION2" \
+    --ploidy 1 && verify_vcf "$OUTDIR/region2/snps.vcf.gz"; then
+    echo "SUCCESS: VCF SNP on region $REGION2 completed."
+else
+    echo "FAILURE: VCF SNP on region $REGION2 failed."
+    exit 1
+fi
+
+echo ""
+echo "========================================================"
+echo "VCF SNP Smoke Test: PASSED"
+echo "========================================================"

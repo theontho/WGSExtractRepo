@@ -50,12 +50,31 @@ else
 fi
 
 # 3. Test 'ref gene-map' (Non-interactive if we use delete or if it's new)
-echo ":: Testing 'ref gene-map --delete'..."
+# 3. Test 'ref gene-map --delete'..."
 if uv run wgsextract ref gene-map --delete --ref "$OUTDIR" > "$OUTDIR/gene_map.stdout" 2>&1; then
     echo "✅ Success: 'ref gene-map' command finished."
 else
     echo "❌ Failure: 'ref gene-map' failed."
     cat "$OUTDIR/gene_map.stdout"
+    exit 1
+fi
+
+# 4. Test library-list detection
+echo ":: Testing 'ref library-list' detection of installed genome..."
+# We use a filename from the known list, e.g., hs38DH.fa.gz
+mkdir -p "$OUTDIR/genomes"
+touch "$OUTDIR/genomes/hs38DH.fa.gz"
+touch "$OUTDIR/genomes/hs38DH.fa.gz.fai"
+if echo "0" | uv run wgsextract ref library-list --ref "$OUTDIR" > "$OUTDIR/lib_list_detect.stdout" 2>&1; then
+    if grep -q "INSTALLED" "$OUTDIR/lib_list_detect.stdout"; then
+        echo "✅ Success: 'ref library-list' detected installed genome."
+    else
+        echo "❌ Failure: 'ref library-list' did not show INSTALLED for hs38DH."
+        cat "$OUTDIR/lib_list_detect.stdout"
+        exit 1
+    fi
+else
+    echo "❌ Failure: 'ref library-list' failed."
     exit 1
 fi
 

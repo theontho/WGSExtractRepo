@@ -51,3 +51,23 @@ else
     echo "FAILURE: VCF Indel failed."
     exit 1
 fi
+
+# 2. Test Indel calling on a different region
+REGION2="chr1:20000-21000"
+echo ":: Testing 'vcf indel' on region $REGION2..."
+if uv run wgsextract vcf indel \
+    --input "$INPUT_BAM" \
+    --ref "$REF_FASTA" \
+    --outdir "$OUTDIR/region2" \
+    --region "$REGION2" \
+    --ploidy 1 && verify_vcf "$OUTDIR/region2/indels.vcf.gz"; then
+    echo "SUCCESS: VCF Indel on region $REGION2 completed."
+else
+    echo "FAILURE: VCF Indel on region $REGION2 failed."
+    exit 1
+fi
+
+echo ""
+echo "========================================================"
+echo "VCF Indel Smoke Test: PASSED"
+echo "========================================================"

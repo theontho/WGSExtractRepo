@@ -85,7 +85,27 @@ else
     exit 1
 fi
 
-# 5. Extract Y-DNA VCF
+# 5. Extract Subset (Gene)
+echo ":: Testing 'extract bam-subset' (--gene GENE1)..."
+mkdir -p "$OUTDIR/ref"
+echo -e "symbol\tchrom\tstart\tend" > "$OUTDIR/ref/genes_hg38.tsv"
+echo -e "GENE1\tchr1\t1\t10000" >> "$OUTDIR/ref/genes_hg38.tsv"
+
+STDOUT=$(WGSE_REFLIB="$OUTDIR" uv run wgsextract extract bam-subset \
+    --input "$FAKEDATA/fake.bam" \
+    --outdir "$OUTDIR/gene_subset" \
+    --gene "GENE1" \
+    --ref "$FAKEDATA/fake_ref_hg38_scaled.fa" \
+    --fraction 1.0 2>&1)
+echo "$STDOUT"
+if echo "$STDOUT" | grep -q "GENE1" && verify_bam "$OUTDIR/gene_subset/fake_subset.bam"; then
+    echo "✅ Success: 'extract bam-subset --gene' verified."
+else
+    echo "❌ Failure: 'extract bam-subset --gene' failed."
+    exit 1
+fi
+
+# 6. Extract Y-DNA VCF
 echo ":: Testing 'extract ydna-vcf'..."
 STDOUT=$(uv run wgsextract extract ydna-vcf \
     --input "$FAKEDATA/fake.bam" \
@@ -99,7 +119,7 @@ else
     exit 1
 fi
 
-# 6. Combined Y-MT Extraction
+# 7. Combined Y-MT Extraction
 echo ":: Testing 'extract y-mt-extract'..."
 STDOUT=$(uv run wgsextract extract y-mt-extract \
     --input "$FAKEDATA/fake.bam" \
@@ -113,7 +133,7 @@ else
     exit 1
 fi
 
-# 7. Extract hg19 CRAM (Verification of CRAM + Ref support)
+# 8. Extract hg19 CRAM (Verification of CRAM + Ref support)
 echo ":: Testing 'extract mt-bam' with hg19 CRAM..."
 # We need to find the correct hg19 ref name
 HG19_REF=$(find "$HG19DATA" -name "fake_ref_hg19_*.fa" | head -n 1)

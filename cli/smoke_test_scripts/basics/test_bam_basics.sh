@@ -58,7 +58,7 @@ else
 fi
 
 # 4. Convert back to BAM
-echo ":: Testing 'bam to-bam'..."
+# 4. Convert back to BAM
 if uv run wgsextract bam to-bam \
     --input "$OUTDIR/test.cram" \
     --outdir "$OUTDIR" \
@@ -66,6 +66,24 @@ if uv run wgsextract bam to-bam \
     echo "✅ Success: bam to-bam completed and verified."
 else
     echo "❌ Failure: bam to-bam failed or verification failed."
+    exit 1
+fi
+
+# 5. Test --gene resolution for to-cram
+echo ":: Testing 'bam to-cram' with --gene..."
+# Create dummy gene map
+mkdir -p "$OUTDIR/ref"
+echo -e "symbol\tchrom\tstart\tend" > "$OUTDIR/ref/genes_hg38.tsv"
+echo -e "GENE1\tchr1\t1\t5000" >> "$OUTDIR/ref/genes_hg38.tsv"
+
+if WGSE_REFLIB="$OUTDIR" uv run wgsextract bam to-cram \
+    --input "$OUTDIR/test.bam" \
+    --outdir "$OUTDIR/gene_test" \
+    --gene "GENE1" \
+    --ref "$REF" && verify_bam "$OUTDIR/gene_test/test.cram"; then
+    echo "✅ Success: 'bam to-cram --gene' completed."
+else
+    echo "❌ Failure: 'bam to-cram --gene' failed."
     exit 1
 fi
 
