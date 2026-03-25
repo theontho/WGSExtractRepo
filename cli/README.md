@@ -202,3 +202,15 @@ Real-world verification using a sorted BAM/CRAM and a reference genome:
 Specific logic for metrics and formatting.
 *   `cli/tests/test_info.py`
 *   `cli/tests/test_warnings.py`
+
+## Project Statistics
+
+You can view the code line count and project breakdown using the included stats script (requires `cloc` to be installed on your system).
+
+```bash
+# Run via pixi
+pixi run stats
+
+# Or directly
+./scripts/project_stats.sh
+```
