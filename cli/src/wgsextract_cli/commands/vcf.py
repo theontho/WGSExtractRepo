@@ -129,6 +129,7 @@ def register(subparsers, base_parser):
     cnv_parser.add_argument(
         "-M", "--map", help="Mappability map file (required for delly cnv)"
     )
+    cnv_parser.add_argument("--ploidy", help="Predefined ploidy name or value")
     cnv_parser.set_defaults(func=cmd_cnv)
 
     sv_parser = vcf_subs.add_parser(
@@ -912,6 +913,8 @@ def cmd_cnv(args):
         sys.exit(1)
 
     map_args = ["-m", map_file]
+    if getattr(args, "ploidy", None):
+        map_args.extend(["-y", args.ploidy])
 
     temp_bam = None
     input_file = args.input
@@ -962,9 +965,21 @@ def cmd_cnv(args):
             os.remove(out_bcf)
     except subprocess.CalledProcessError as e:
         logging.error(f"CNV calling failed: {e}")
-        logging.error(
-            "Hint: If using macOS, ensure 'delly' and 'boost' are correctly installed via Homebrew."
-        )
+        if e.returncode < 0:
+            import signal
+
+            if abs(e.returncode) == signal.SIGSEGV:
+                logging.error("❌: Delly segfaulted (Segmentation Fault).")
+                logging.error(
+                    "     This is common on macOS due to incompatible shared libraries (boost/htslib) in some environments."
+                )
+                logging.error(
+                    "     Hint: Try 'brew install delly' or run in a Linux container."
+                )
+        else:
+            logging.error(
+                "Hint: If using macOS, ensure 'delly' and 'boost' are correctly installed via Homebrew."
+            )
         sys.exit(e.returncode)
     finally:
         if temp_bam and os.path.exists(temp_bam):

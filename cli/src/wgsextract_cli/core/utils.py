@@ -59,9 +59,18 @@ class ProcessRegistry:
             if not self.processes:
                 return
 
-            logging.info(
-                f"Cleanup: Terminating {len(self.processes)} active processes..."
-            )
+            # Safety check: if streams are already closed (atexit), skip logging
+            try:
+                import sys
+
+                if not sys.stderr or sys.stderr.closed:
+                    pass
+                else:
+                    logging.info(
+                        f"Cleanup: Terminating {len(self.processes)} active processes..."
+                    )
+            except (AttributeError, ValueError):
+                pass
 
             # Send termination signals
             for key, proc in self.processes.items():
@@ -805,6 +814,13 @@ def ensure_vcf_indexed(vcf_path):
 
 def ensure_vcf_prepared(vcf_path):
     """Ensure VCF is bgzipped and indexed, returns path to compressed file."""
+    if not vcf_path:
+        return vcf_path
+
+    # If it's a BAM or CRAM, don't try to prepare it as a VCF
+    if vcf_path.lower().endswith((".bam", ".cram")):
+        return vcf_path
+
     if vcf_path.endswith(".gz") or vcf_path.endswith(".bgz"):
         ensure_vcf_indexed(vcf_path)
         return vcf_path

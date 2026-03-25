@@ -26,13 +26,16 @@ class GeneMap:
 
         # Look for local file in reflib (ref/genes_hg38.tsv)
         map_file = os.path.join(self.reflib_dir, "ref", f"genes_{build_key}.tsv")
+        logging.debug(f"GeneMap: Searching for {map_file}")
         if not os.path.exists(map_file):
             # Try root/microarray as fallback
             map_file = os.path.join(
                 self.reflib_dir, "microarray", f"genes_{build_key}.tsv"
             )
+            logging.debug(f"GeneMap: Searching for {map_file}")
 
         if not os.path.exists(map_file):
+            logging.debug("GeneMap: No gene map file found.")
             return False
 
         try:

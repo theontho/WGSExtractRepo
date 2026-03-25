@@ -124,7 +124,9 @@ wgsextract-cli = { path = ".", editable = true }
 
 [tasks]
 deps-check = "./wgsextract deps check"
-test = "pytest"
+test = "pytest --ignore=tests/test_e2e_fast_chrM.py --ignore=tests/test_e2e_full_genome.py --ignore=tests/test_microarray_real_data.py --ignore=tests/test_web_ui_e2e.py"
+test-e2e = "pytest tests/test_e2e_fast_chrM.py tests/test_e2e_full_genome.py tests/test_microarray_real_data.py tests/test_web_ui_e2e.py"
+test-e2e-fake = "WGSE_USE_FAKE_DATA=1 pytest tests/test_e2e_fast_chrM.py tests/test_e2e_full_genome.py"
 lint = "ruff check ."
 format = "ruff format ."
 typecheck = "mypy src/wgsextract_cli"
