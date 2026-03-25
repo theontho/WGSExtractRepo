@@ -88,11 +88,11 @@ class TestInfoCommand(unittest.TestCase):
                 main()
 
         output = f.getvalue()
-        self.assertIn("Reference Genome: hg38 (Chr), rCRS, 1 SNs", output)
-        self.assertIn("File Stats: Sorted, Indexed, 50.0 GBs", output)
-        self.assertIn("Avg Read Length: 150 bp", output)
-        self.assertIn("Avg Insert Size: 300 bp", output)
-        self.assertIn("Sequencer: Illumina NS 6000 (Dante)", output)
+        self.assertIn("Reference Genome            hg38 (Chr), rCRS, 1 SNs", output)
+        self.assertIn("File Stats                  Sorted, Indexed, 50.0 GBs", output)
+        self.assertIn("Avg Read Length             150 bp", output)
+        self.assertIn("Avg Insert Size             300 bp", output)
+        self.assertIn("Sequencer                   Illumina NS 6000 (Dante)", output)
 
     @patch("wgsextract_cli.commands.info.verify_dependencies")
     @patch("wgsextract_cli.commands.info.get_bam_header")

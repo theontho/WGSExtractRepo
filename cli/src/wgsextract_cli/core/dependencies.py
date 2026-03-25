@@ -125,6 +125,9 @@ def verify_dependencies(tool_list, optional_list=None):
     for tool in ["bcftools", "samtools"]:
         if tool in tool_list:
             version_str = get_tool_version(tool)
+            if not version_str:
+                continue
+
             # Handle version strings like "bcftools 1.12" or "Version: 0.1.19"
             import re
 

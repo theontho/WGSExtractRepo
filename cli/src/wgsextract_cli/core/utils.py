@@ -780,6 +780,11 @@ def verify_paths_exist(paths_dict):
         if not os.path.exists(str(path)) and not shutil.which(str(path)):
             logging.error(LOG_MESSAGES["file_not_found"].format(label=label, path=path))
             all_exist = False
+        elif os.path.isdir(str(path)) and not shutil.which(str(path)):
+            logging.error(
+                f"{label} path is a directory, but a file is expected: {path}"
+            )
+            all_exist = False
     return all_exist
 
 

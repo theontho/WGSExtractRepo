@@ -13,15 +13,18 @@ from wgsextract_cli.core.dependencies import verify_dependencies  # noqa: E402
 class TestOptionalDependencies(unittest.TestCase):
     """Tests the new optional dependency handling."""
 
-    @patch("wgsextract_cli.core.dependencies.shutil.which")
+    @patch("wgsextract_cli.core.dependencies.get_tool_path")
+    @patch("wgsextract_cli.core.dependencies.get_jar_dir", return_value="/tmp")
     @patch("sys.exit")
     @patch("logging.error")
     @patch("logging.info")
     def test_verify_optional_missing(
-        self, mock_info, mock_error, mock_exit, mock_which
+        self, mock_info, mock_error, mock_exit, mock_jar, mock_tool_path
     ):
-        # Simulate 'minimap2' (optional) is missing from PATH
-        mock_which.side_effect = lambda x: None if x == "minimap2" else "/usr/bin/" + x
+        # Simulate 'minimap2' (optional) is missing
+        mock_tool_path.side_effect = (
+            lambda x: None if x == "minimap2" else "/usr/bin/" + x
+        )
 
         try:
             verify_dependencies(["minimap2"])
@@ -41,12 +44,17 @@ class TestOptionalDependencies(unittest.TestCase):
 
         mock_exit.assert_called_with(1)
 
-    @patch("wgsextract_cli.core.dependencies.shutil.which")
+    @patch("wgsextract_cli.core.dependencies.get_tool_path")
+    @patch("wgsextract_cli.core.dependencies.get_jar_dir", return_value="/tmp")
     @patch("sys.exit")
     @patch("logging.error")
-    def test_verify_mandatory_missing(self, mock_error, mock_exit, mock_which):
-        # Simulate 'samtools' (mandatory) is missing from PATH
-        mock_which.side_effect = lambda x: None if x == "samtools" else "/usr/bin/" + x
+    def test_verify_mandatory_missing(
+        self, mock_error, mock_exit, mock_jar, mock_tool_path
+    ):
+        # Simulate 'samtools' (mandatory) is missing
+        mock_tool_path.side_effect = (
+            lambda x: None if x == "samtools" else "/usr/bin/" + x
+        )
 
         try:
             verify_dependencies(["samtools"])
@@ -62,16 +70,19 @@ class TestOptionalDependencies(unittest.TestCase):
 
     @patch("wgsextract_cli.core.dependencies.MANDATORY_TOOLS", ["samtools"])
     @patch("wgsextract_cli.core.dependencies.OPTIONAL_TOOLS", ["minimap2"])
-    @patch("wgsextract_cli.core.dependencies.shutil.which")
+    @patch("wgsextract_cli.core.dependencies.get_tool_path")
     @patch("wgsextract_cli.core.dependencies.get_tool_version", return_value="1.0")
-    def test_deps_check_output(self, mock_version, mock_which):
+    def test_deps_check_output(self, mock_version, mock_tool_path):
         from wgsextract_cli.commands.deps import run
 
         # samtools present, minimap2 missing
-        mock_which.side_effect = lambda x: "/usr/bin/" + x if x == "samtools" else None
+        mock_tool_path.side_effect = (
+            lambda x: "/usr/bin/" + x if x == "samtools" else None
+        )
 
         with patch("sys.stdout", new=StringIO()) as fake_out:
             args = MagicMock()
+            args.tool = None
             run(args)
             output = fake_out.getvalue()
 
