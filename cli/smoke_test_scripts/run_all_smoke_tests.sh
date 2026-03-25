@@ -49,6 +49,7 @@ BASICS_TESTS=(
     "test_cleanup.sh"
     "test_expert_scenarios.sh"
     "test_stress_scenarios.sh"
+    "test_integrity_polish.sh"
     "test_mixed_chrom_naming.sh"
 )
 
