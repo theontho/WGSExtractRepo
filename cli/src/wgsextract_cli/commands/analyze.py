@@ -7,9 +7,12 @@ import sys
 from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
 from wgsextract_cli.core.utils import (
+    ReferenceLibrary,
+    calculate_bam_md5,
     ensure_vcf_indexed,
     ensure_vcf_prepared,
     get_resource_defaults,
+    resolve_reference,
     run_command,
     verify_paths_exist,
 )
@@ -66,11 +69,9 @@ def cmd_comprehensive(args):
     outdir = args.outdir if args.outdir else os.getcwd()
     os.makedirs(outdir, exist_ok=True)
 
-    logging.info(
-        LOG_MESSAGES["analyze_comprehensive_start"].format(
-            input=input_file or ", ".join(vcf_inputs)
-        )
-    )
+    print("\n🚀 STAGE: Starting Comprehensive Analysis")
+    print(f"📂 Output Directory: {outdir}")
+    print("-" * 60)
 
     # 1. BAM/CRAM Analysis (Info, QC, Lineage)
     gender = "Unknown"
@@ -80,12 +81,14 @@ def cmd_comprehensive(args):
     # 2. VCF Processing (Independently per type)
     results = []
     if vcf_inputs:
+        print(f"\n🚀 STAGE: Processing Input VCFs ({len(vcf_inputs)} files)")
         for vcf in vcf_inputs:
             v_type = detect_vcf_type(vcf)
             res = run_vcf_workflow(args, vcf, v_type, outdir)
             if res:
                 results.append(res)
     elif input_file and not args.skip_calling:
+        print("\n🚀 STAGE: Variant Calling (No input VCFs provided)")
         # Call SNV and InDels if nothing else provided
         snps_vcf = os.path.join(outdir, "snps.vcf.gz")
         run_cli_subcommand(
@@ -120,22 +123,20 @@ def detect_vcf_type(vcf_path):
 def run_vcf_workflow(args, vcf_path, v_type, outdir):
     """Annotates and filters a single VCF file based on its type."""
     base_name = os.path.basename(vcf_path).split(".")[0]
-    logging.info(f"Processing {v_type.upper()} VCF: {vcf_path}")
+    print(f"\n🔹 Sub-Stage: Processing {v_type.upper()} ({os.path.basename(vcf_path)})")
 
     # Define targeted annotations per type
     if v_type == "snp-indel":
-        # Full chain for SNPs
-        anns = "clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb"
+        # Full chain for SNPs, now including VEP
+        anns = "clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb,vep"
     elif v_type == "cnv":
-        # ClinVar and gnomAD (SV) are most relevant for CNVs
+        # ClinVar and gnomAD are most relevant for CNVs
         anns = "clinvar,gnomad"
     else:  # SV
         anns = "clinvar,gnomad"
 
     work_dir = os.path.join(outdir, f"work_{v_type}_{base_name}")
     os.makedirs(work_dir, exist_ok=True)
-
-    ann_vcf = os.path.join(work_dir, f"{base_name}_annotated.vcf.gz")
 
     run_cli_subcommand(
         [
@@ -151,7 +152,7 @@ def run_vcf_workflow(args, vcf_path, v_type, outdir):
         args,
     )
 
-    # Locate the final annotated file (chain-annotate puts it in outdir)
+    # Locate the final annotated file
     actual_ann_vcf = os.path.join(work_dir, "chain_annotated.vcf.gz")
     if not os.path.exists(actual_ann_vcf):
         logging.warning(f"Annotation failed for {vcf_path}")
@@ -177,32 +178,37 @@ def run_discovery_filter(args, ann_vcf, v_type, out_vcf):
     except Exception:
         header = ""
 
-    filters = []
+    # Build Logic: (Rare) AND (Pathogenic OR High Impact)
+    rare_filters = []
+    if "ID=GNOMAD_AF," in header:
+        rare_filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
+    elif "ID=AF," in header:
+        rare_filters.append('INFO/AF < 0.01 || INFO/AF == "."')
+
+    impact_filters = []
+    if "ID=CLNSIG," in header:
+        impact_filters.append('INFO/CLNSIG ~ "Pathogenic"')
+
     if v_type == "snp-indel":
-        if "ID=GNOMAD_AF," in header:
-            filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
-        elif "ID=AF," in header:
-            filters.append('INFO/AF < 0.01 || INFO/AF == "."')
-
-        if "ID=CLNSIG," in header:
-            filters.append('INFO/CLNSIG ~ "Pathogenic"')
-
         if "ID=REVEL," in header:
-            filters.append("INFO/REVEL > 0.7")
+            impact_filters.append("INFO/REVEL > 0.7")
         if "ID=SpliceAI," in header:
-            filters.append('INFO/SpliceAI ~ "|0.[89]"')
+            impact_filters.append('INFO/SpliceAI ~ "|0.[89]"')
         if "ID=am_pathogenicity," in header:
-            filters.append("INFO/am_pathogenicity > 0.7")
+            impact_filters.append("INFO/am_pathogenicity > 0.7")
 
-    elif v_type in ["cnv", "sv"]:
-        # For CNVs/SVs, we care about Pathogenicity or high population frequency overlaps?
-        # Actually usually we want Pathogenic or very large/rare.
-        if "ID=CLNSIG," in header:
-            filters.append('INFO/CLNSIG ~ "Pathogenic"')
-        # If no specific annotations, maybe just keep anything not PASS-filtered
-        filters.append('FILTER == "PASS"')
+    # Combine
+    rare_expr = f"({' || '.join(rare_filters)})" if rare_filters else None
+    impact_expr = f"({' || '.join(impact_filters)})" if impact_filters else None
 
-    filter_expr = " || ".join(filters) if filters else "QUAL > 30"
+    if rare_expr and impact_expr:
+        filter_expr = f"{rare_expr} && {impact_expr}"
+    elif impact_expr:
+        filter_expr = impact_expr
+    else:
+        filter_expr = "QUAL > 30"
+
+    print(f"🔍 Applying Discovery Filter: {filter_expr}")
 
     try:
         subprocess.run(
@@ -215,7 +221,9 @@ def run_discovery_filter(args, ann_vcf, v_type, out_vcf):
         res = subprocess.run(
             ["bcftools", "view", "-H", out_vcf], capture_output=True, text=True
         )
-        return len(res.stdout.strip().split("\n")) if res.stdout.strip() else 0
+        count = len(res.stdout.strip().split("\n")) if res.stdout.strip() else 0
+        print(f"✅ Found {count} significant variants.")
+        return count
     except Exception as e:
         logging.error(f"Discovery filter failed for {v_type}: {e}")
         return 0
@@ -241,6 +249,8 @@ def generate_summary_report(results, outdir):
 
 def run_bam_chain(args, input_file, outdir):
     """Runs info, qc, and lineage steps. Returns detected gender."""
+    print("\n🚀 STAGE: BAM/CRAM Metrics & Lineage")
+
     # Detect gender and metrics from cache if available to save time
     gender = "Unknown"
     cache_file = os.path.join(outdir, f"{os.path.basename(input_file)}.wgse_info.json")
@@ -255,7 +265,6 @@ def run_bam_chain(args, input_file, outdir):
             pass
 
     if gender == "Unknown":
-        logging.info("Step 1: Running BAM/CRAM basic metrics and QC...")
         # Info (Detailed run to get gender)
         run_cli_subcommand(
             ["info", "--detailed", "--input", input_file, "--outdir", outdir], args
@@ -274,11 +283,7 @@ def run_bam_chain(args, input_file, outdir):
         ["info", "coverage-sample", "--input", input_file, "--outdir", outdir], args
     )
 
-    # Lineage (Y and MT)
-    logging.info("Running lineage analysis...")
-
     # mt-haplogroup (Haplogrep)
-    # We must ensure reference is passed for variant calling from BAM
     run_cli_subcommand(
         ["lineage", "mt-haplogroup", "--input", input_file, "--outdir", outdir], args
     )
@@ -301,12 +306,6 @@ def run_cli_subcommand(cmd_args, args):
     # Use explicit ref if provided, otherwise resolve from env/defaults
     ref_path = args.ref
     if not ref_path:
-        from wgsextract_cli.core.utils import (
-            ReferenceLibrary,
-            calculate_bam_md5,
-            resolve_reference,
-        )
-
         # Try to resolve for BAM/CRAM inputs
         input_path = args.input
         md5_sig = (
