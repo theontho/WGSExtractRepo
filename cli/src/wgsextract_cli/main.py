@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from .commands import (
     align,
+    analyze,
     bam,
     deps,
     extract,
@@ -186,6 +187,7 @@ def main():
         align,
         pet,
         vep,
+        analyze,
     ]:
         cmd_module.register(subparsers, base_parser)
 

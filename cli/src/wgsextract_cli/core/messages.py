@@ -50,6 +50,9 @@ CLI_HELP = {
     "cmd_annotate": "Add external metadata (like population frequencies or disease risk) to your VCF file. (Time: 5-15 mins)",
     "cmd_filter": "Filter your results. Use this to focus on specific genes of interest or to remove low-quality 'noisy' variant calls. (Time: <1 min)",
     "cmd_trio": "Analyze inheritance patterns. Compares a child's VCF with their parents to identify de novo (new) mutations or inherited conditions. (Time: 5-10 mins)",
+    "cmd_analyze": "Comprehensive genomic analysis combining multiple tools into a single workflow.",
+    "cmd_comprehensive": "Run a full-chain analysis: QC, lineage, variant calling, annotation, and significant variant filtering.",
+    "arg_vcf_inputs": "One or more input VCF files (e.g., SNV, CNV, SV). (Env: WGSE_VCF_INPUTS)",
     "cmd_vcf-qc": "Generate statistical reports for your VCF file to check the quality and distribution of your variant calls. (Time: 1-5 mins)",
     "cmd_revel": "Annotate VCF with REVEL pathogenicity scores. REVEL is an ensemble method for predicting the pathogenicity of missense variants. (Time: 5-10 mins)",
     "cmd_phylop": "Annotate VCF with PhyloP conservation scores. PhyloP measures evolutionary conservation at individual nucleotides. (Time: 5-10 mins)",
@@ -483,6 +486,10 @@ LOG_MESSAGES = {
     "ref_required": "--ref is required.",
     "ref_required_for": "--ref is required for {task}.",
     "file_not_found": "{label} file not found: {path}",
+    "analyze_comprehensive_start": "Starting comprehensive analysis for {input}",
+    "analyze_vcf_merge": "Merging {count} VCF files into {output}",
+    "analyze_discovery_start": "Filtering for significant variants (rare, high impact, ClinVar pathogenic)...",
+    "analyze_discovery_complete": "Analysis complete. Significant variants found: {count}. Summary saved to {output}",
 }
 
 # Workflow Graph Text
