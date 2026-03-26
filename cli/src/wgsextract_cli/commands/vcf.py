@@ -479,7 +479,8 @@ def cmd_annotate(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     logging.debug(f"Input file: {os.path.abspath(input_file)}")
 
@@ -598,7 +599,8 @@ def cmd_filter(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     if not verify_paths_exist({"--input": input_file}):
         return
@@ -1065,7 +1067,8 @@ def cmd_clinvar(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -1152,7 +1155,8 @@ def cmd_revel(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -1319,7 +1323,8 @@ def cmd_phylop(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -1487,7 +1492,8 @@ def cmd_gnomad(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -1606,7 +1612,8 @@ def cmd_spliceai(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -1677,7 +1684,8 @@ def cmd_alphamissense(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -1792,7 +1800,8 @@ def cmd_pharmgkb(args):
     log_dependency_info(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
@@ -2224,7 +2233,8 @@ def cmd_chain_annotate(args):
     verify_dependencies(["bcftools", "tabix"])
     input_file = args.input if args.input else args.vcf_input
     if not input_file:
-        return logging.error(LOG_MESSAGES["input_required"])
+        logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
 
     outdir = (
         args.outdir if args.outdir else os.path.dirname(os.path.abspath(input_file))
