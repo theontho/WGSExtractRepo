@@ -149,17 +149,21 @@ def process_vcf_inputs(args, vcf_inputs, outdir):
     merged_vcf = os.path.join(outdir, "merged.vcf.gz")
 
     try:
-        # Use bcftools merge
+        # Use bcftools concat -a to combine SNV, CNV, SV records for the same individual
+        # --allow-overlaps handles cases where different callers report at the same position
+        # and we want to keep both for annotation.
         subprocess.run(
-            ["bcftools", "merge", "--force-samples", "-Oz", "-o", merged_vcf]
+            ["bcftools", "concat", "-a", "--allow-overlaps", "-Oz", "-o", merged_vcf]
             + prepared_vcfs,
             check=True,
         )
         ensure_vcf_indexed(merged_vcf)
         return merged_vcf
     except subprocess.CalledProcessError as e:
-        logging.error(f"VCF merge failed: {e}")
-        return prepared_vcfs[0]  # Fallback to first one if merge fails? Or exit?
+        logging.error(f"VCF concatenation failed: {e}")
+        # Fallback to merge if concat fails? Or just return first?
+        # Concatenation is usually better for SNV + CNV + SV from the same person.
+        return prepared_vcfs[0]
 
 
 def call_variants(args, input_file, outdir):
@@ -209,16 +213,49 @@ def run_discovery_chain(args, vcf_file, outdir):
 
     discovery_vcf = os.path.join(outdir, "significant_variants.vcf.gz")
 
-    # Define "significant":
-    # - ClinVar Pathogenic/Likely Pathogenic (already handled if we use vcf clinvar output)
-    # - High impact: REVEL > 0.7, SpliceAI > 0.8, AlphaMissense > 0.7
-    # - Rare (gnomAD AF < 0.01)
+    # Dynamically build filter expression based on what's in the header
+    # (prevents crashes if some annotation steps were skipped)
+    try:
+        res_h = subprocess.run(
+            ["bcftools", "view", "-h", ann_vcf],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        header = res_h.stdout
+    except Exception as e:
+        logging.error(f"Failed to read VCF header: {e}")
+        header = ""
 
-    # For now, let's use bcftools to filter the annotated file
-    # Rare variants: INFO/GNOMAD_AF < 0.01 or not present
-    # Pathogenic: INFO/CLNSIG ~ "Pathogenic"
+    filters = []
+    # Rare (check both GNOMAD_AF and AF)
+    if "ID=GNOMAD_AF," in header:
+        filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
+    elif "ID=AF," in header:
+        filters.append('INFO/AF < 0.01 || INFO/AF == "."')
 
-    filter_expr = 'INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "." || INFO/CLNSIG ~ "Pathogenic" || INFO/REVEL > 0.7 || INFO/SpliceAI ~ "|0.[89]" || INFO/am_pathogenicity > 0.7'
+    # Pathogenic
+    if "ID=CLNSIG," in header:
+        filters.append('INFO/CLNSIG ~ "Pathogenic"')
+
+    # Impactful
+    if "ID=REVEL," in header:
+        filters.append("INFO/REVEL > 0.7")
+    if "ID=SpliceAI," in header:
+        filters.append('INFO/SpliceAI ~ "|0.[89]"')
+    if "ID=am_pathogenicity," in header:
+        filters.append("INFO/am_pathogenicity > 0.7")
+
+    if not filters:
+        logging.warning(
+            "No annotation tags found in header for significant variant filtering."
+        )
+        # If no tags, maybe just keep everything or common filters?
+        filter_expr = "QUAL > 30"  # Very basic fallback
+    else:
+        filter_expr = " || ".join(filters)
+
+    logging.debug(f"Discovery filter expression: {filter_expr}")
 
     try:
         subprocess.run(
@@ -232,6 +269,8 @@ def run_discovery_chain(args, vcf_file, outdir):
                 discovery_vcf,
                 ann_vcf,
             ],
+            capture_output=True,
+            text=True,
             check=True,
         )
         ensure_vcf_indexed(discovery_vcf)
@@ -268,7 +307,6 @@ def run_cli_subcommand(cmd_args, args):
         # If it's a command that produces direct info output, we might want to see it
         # but the sub-commands usually log their own ℹ️ messages which we've silenced.
         # Actually, for 'info' it prints a table to stdout.
-        # We need to decide if we want to see that.
         if (
             "info" in cmd_args
             and "--detailed" in cmd_args
