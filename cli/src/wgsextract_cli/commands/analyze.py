@@ -241,32 +241,44 @@ def generate_summary_report(results, outdir):
 
 def run_bam_chain(args, input_file, outdir):
     """Runs info, qc, and lineage steps. Returns detected gender."""
-    logging.info("Step 1: Running BAM/CRAM basic metrics and QC...")
-
-    # Info (Detailed run to get gender)
-    run_cli_subcommand(
-        ["info", "--detailed", "--input", input_file, "--outdir", outdir], args
-    )
-
-    # Detect gender from cache
+    # Detect gender and metrics from cache if available to save time
     gender = "Unknown"
     cache_file = os.path.join(outdir, f"{os.path.basename(input_file)}.wgse_info.json")
-    if os.path.exists(cache_file):
+
+    if os.path.exists(cache_file) and not getattr(args, "force", False):
         try:
             with open(cache_file) as f:
                 data = json.load(f)
                 gender = data.get("gender", "Unknown")
-                logging.info(f"Detected biological sex: {gender}")
+                logging.info(f"Using cached BAM metrics (Sex: {gender})")
         except Exception:
             pass
 
-    # QC (coverage-sample)
+    if gender == "Unknown":
+        logging.info("Step 1: Running BAM/CRAM basic metrics and QC...")
+        # Info (Detailed run to get gender)
+        run_cli_subcommand(
+            ["info", "--detailed", "--input", input_file, "--outdir", outdir], args
+        )
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file) as f:
+                    data = json.load(f)
+                    gender = data.get("gender", "Unknown")
+                    logging.info(f"Detected biological sex: {gender}")
+            except Exception:
+                pass
+
+    # QC (coverage-sample) - Subcommand handles its own internal caching
     run_cli_subcommand(
         ["info", "coverage-sample", "--input", input_file, "--outdir", outdir], args
     )
 
     # Lineage (Y and MT)
     logging.info("Running lineage analysis...")
+
+    # mt-haplogroup (Haplogrep)
+    # We must ensure reference is passed for variant calling from BAM
     run_cli_subcommand(
         ["lineage", "mt-haplogroup", "--input", input_file, "--outdir", outdir], args
     )
@@ -285,8 +297,29 @@ def run_bam_chain(args, input_file, outdir):
 def run_cli_subcommand(cmd_args, args):
     """Helper to run a wgsextract subcommand."""
     cmd = ["uv", "run", "wgsextract"] + cmd_args
-    if args.ref:
-        cmd.extend(["--ref", args.ref])
+
+    # Use explicit ref if provided, otherwise resolve from env/defaults
+    ref_path = args.ref
+    if not ref_path:
+        from wgsextract_cli.core.utils import (
+            ReferenceLibrary,
+            calculate_bam_md5,
+            resolve_reference,
+        )
+
+        # Try to resolve for BAM/CRAM inputs
+        input_path = args.input
+        md5_sig = (
+            calculate_bam_md5(input_path, None)
+            if input_path and input_path.lower().endswith((".bam", ".cram"))
+            else None
+        )
+        lib = ReferenceLibrary(None, md5_sig)
+        ref_path = lib.fasta
+
+    if ref_path:
+        cmd.extend(["--ref", ref_path])
+
     if args.threads:
         cmd.extend(["--threads", str(args.threads)])
     if args.debug:
@@ -295,13 +328,17 @@ def run_cli_subcommand(cmd_args, args):
     try:
         # Capture output to prevent spam during comprehensive analysis
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        # If it's a command that produces direct info output, we might want to see it
-        if (
+        # We print output for 'info' and 'lineage' to show results to user
+        is_info = (
             "info" in cmd_args
             and "--detailed" in cmd_args
             and "coverage-sample" not in cmd_args
-        ):
-            print(res.stdout)
+        )
+        is_lineage = "lineage" in cmd_args
+
+        if is_info or is_lineage:
+            if res.stdout.strip():
+                print(res.stdout)
     except subprocess.CalledProcessError as e:
         logging.warning(f"Subcommand failed: {' '.join(cmd)}. Error: {e}")
         if e.stderr:
