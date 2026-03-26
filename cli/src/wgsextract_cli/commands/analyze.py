@@ -77,18 +77,166 @@ def cmd_comprehensive(args):
     if input_file:
         gender = run_bam_chain(args, input_file, outdir)
 
-    # 2. VCF Processing
-    final_vcf = None
+    # 2. VCF Processing (Independently per type)
+    results = []
     if vcf_inputs:
-        final_vcf = process_vcf_inputs(args, vcf_inputs, outdir)
+        for vcf in vcf_inputs:
+            v_type = detect_vcf_type(vcf)
+            res = run_vcf_workflow(args, vcf, v_type, outdir)
+            if res:
+                results.append(res)
     elif input_file and not args.skip_calling:
-        final_vcf = call_variants(args, input_file, outdir)
-    else:
-        logging.warning("No VCF inputs and calling skipped or not possible.")
+        # Call SNV and InDels if nothing else provided
+        snps_vcf = os.path.join(outdir, "snps.vcf.gz")
+        run_cli_subcommand(
+            ["vcf", "snp", "--input", input_file, "--outdir", outdir], args
+        )
 
-    # 3. Annotation & Discovery
-    if final_vcf:
-        run_discovery_chain(args, final_vcf, outdir)
+        indels_vcf = os.path.join(outdir, "indels.vcf.gz")
+        run_cli_subcommand(
+            ["vcf", "indel", "--input", input_file, "--outdir", outdir], args
+        )
+
+        for vcf, v_type in [(snps_vcf, "snp-indel"), (indels_vcf, "snp-indel")]:
+            if os.path.exists(vcf):
+                res = run_vcf_workflow(args, vcf, v_type, outdir)
+                if res:
+                    results.append(res)
+
+    # 3. Final Summary Report
+    generate_summary_report(results, outdir)
+
+
+def detect_vcf_type(vcf_path):
+    """Simple heuristic to detect SNV, CNV, or SV."""
+    fname = os.path.basename(vcf_path).lower()
+    if "cnv" in fname:
+        return "cnv"
+    if "sv" in fname:
+        return "sv"
+    return "snp-indel"
+
+
+def run_vcf_workflow(args, vcf_path, v_type, outdir):
+    """Annotates and filters a single VCF file based on its type."""
+    base_name = os.path.basename(vcf_path).split(".")[0]
+    logging.info(f"Processing {v_type.upper()} VCF: {vcf_path}")
+
+    # Define targeted annotations per type
+    if v_type == "snp-indel":
+        # Full chain for SNPs
+        anns = "clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb"
+    elif v_type == "cnv":
+        # ClinVar and gnomAD (SV) are most relevant for CNVs
+        anns = "clinvar,gnomad"
+    else:  # SV
+        anns = "clinvar,gnomad"
+
+    work_dir = os.path.join(outdir, f"work_{v_type}_{base_name}")
+    os.makedirs(work_dir, exist_ok=True)
+
+    ann_vcf = os.path.join(work_dir, f"{base_name}_annotated.vcf.gz")
+
+    run_cli_subcommand(
+        [
+            "vcf",
+            "chain-annotate",
+            "--input",
+            vcf_path,
+            "--outdir",
+            work_dir,
+            "--annotations",
+            anns,
+        ],
+        args,
+    )
+
+    # Locate the final annotated file (chain-annotate puts it in outdir)
+    actual_ann_vcf = os.path.join(work_dir, "chain_annotated.vcf.gz")
+    if not os.path.exists(actual_ann_vcf):
+        logging.warning(f"Annotation failed for {vcf_path}")
+        return None
+
+    # Run Discovery Filter
+    discovery_vcf = os.path.join(outdir, f"significant_{v_type}_{base_name}.vcf.gz")
+    count = run_discovery_filter(args, actual_ann_vcf, v_type, discovery_vcf)
+
+    return {"type": v_type, "input": vcf_path, "output": discovery_vcf, "count": count}
+
+
+def run_discovery_filter(args, ann_vcf, v_type, out_vcf):
+    """Dynamically builds filter based on type and headers."""
+    try:
+        res_h = subprocess.run(
+            ["bcftools", "view", "-h", ann_vcf],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        header = res_h.stdout
+    except Exception:
+        header = ""
+
+    filters = []
+    if v_type == "snp-indel":
+        if "ID=GNOMAD_AF," in header:
+            filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
+        elif "ID=AF," in header:
+            filters.append('INFO/AF < 0.01 || INFO/AF == "."')
+
+        if "ID=CLNSIG," in header:
+            filters.append('INFO/CLNSIG ~ "Pathogenic"')
+
+        if "ID=REVEL," in header:
+            filters.append("INFO/REVEL > 0.7")
+        if "ID=SpliceAI," in header:
+            filters.append('INFO/SpliceAI ~ "|0.[89]"')
+        if "ID=am_pathogenicity," in header:
+            filters.append("INFO/am_pathogenicity > 0.7")
+
+    elif v_type in ["cnv", "sv"]:
+        # For CNVs/SVs, we care about Pathogenicity or high population frequency overlaps?
+        # Actually usually we want Pathogenic or very large/rare.
+        if "ID=CLNSIG," in header:
+            filters.append('INFO/CLNSIG ~ "Pathogenic"')
+        # If no specific annotations, maybe just keep anything not PASS-filtered
+        filters.append('FILTER == "PASS"')
+
+    filter_expr = " || ".join(filters) if filters else "QUAL > 30"
+
+    try:
+        subprocess.run(
+            ["bcftools", "filter", "-i", filter_expr, "-Oz", "-o", out_vcf, ann_vcf],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        ensure_vcf_indexed(out_vcf)
+        res = subprocess.run(
+            ["bcftools", "view", "-H", out_vcf], capture_output=True, text=True
+        )
+        return len(res.stdout.strip().split("\n")) if res.stdout.strip() else 0
+    except Exception as e:
+        logging.error(f"Discovery filter failed for {v_type}: {e}")
+        return 0
+
+
+def generate_summary_report(results, outdir):
+    """Prints a nice summary of all findings."""
+    print("\n" + "=" * 60)
+    print("GENOMIC ANALYSIS SUMMARY REPORT")
+    print("=" * 60)
+
+    total_sig = 0
+    for res in results:
+        print(f"[{res['type'].upper()}] {os.path.basename(res['input'])}")
+        print(f"  Significant variants: {res['count']}")
+        print(f"  Results file: {res['output']}")
+        total_sig += res["count"]
+        print("-" * 30)
+
+    print(f"\nTOTAL SIGNIFICANT VARIANTS FOUND: {total_sig}")
+    print("=" * 60 + "\n")
 
 
 def run_bam_chain(args, input_file, outdir):
@@ -134,163 +282,6 @@ def run_bam_chain(args, input_file, outdir):
     return gender
 
 
-def process_vcf_inputs(args, vcf_inputs, outdir):
-    """Merges multiple VCFs if necessary."""
-    if len(vcf_inputs) == 1:
-        return ensure_vcf_prepared(vcf_inputs[0])
-
-    logging.info(
-        LOG_MESSAGES["analyze_vcf_merge"].format(
-            count=len(vcf_inputs), output="merged.vcf.gz"
-        )
-    )
-
-    prepared_vcfs = [ensure_vcf_prepared(v) for v in vcf_inputs]
-    merged_vcf = os.path.join(outdir, "merged.vcf.gz")
-
-    try:
-        # Use bcftools concat -a to combine SNV, CNV, SV records for the same individual
-        # --allow-overlaps handles cases where different callers report at the same position
-        # and we want to keep both for annotation.
-        subprocess.run(
-            ["bcftools", "concat", "-a", "--allow-overlaps", "-Oz", "-o", merged_vcf]
-            + prepared_vcfs,
-            check=True,
-        )
-        ensure_vcf_indexed(merged_vcf)
-        return merged_vcf
-    except subprocess.CalledProcessError as e:
-        logging.error(f"VCF concatenation failed: {e}")
-        # Fallback to merge if concat fails? Or just return first?
-        # Concatenation is usually better for SNV + CNV + SV from the same person.
-        return prepared_vcfs[0]
-
-
-def call_variants(args, input_file, outdir):
-    """Calls SNPs and InDels if no VCF is provided."""
-    logging.info("Step 2: No VCF provided. Calling SNPs and InDels...")
-
-    # Use bcftools as default fast caller
-    snps_vcf = os.path.join(outdir, "snps.vcf.gz")
-    run_cli_subcommand(["vcf", "snp", "--input", input_file, "--outdir", outdir], args)
-
-    indels_vcf = os.path.join(outdir, "indels.vcf.gz")
-    run_cli_subcommand(
-        ["vcf", "indel", "--input", input_file, "--outdir", outdir], args
-    )
-
-    # Merge them
-    return process_vcf_inputs(args, [snps_vcf, indels_vcf], outdir)
-
-
-def run_discovery_chain(args, vcf_file, outdir):
-    """Annotates and filters for significant variants."""
-    logging.info("Step 3: Annotating and searching for significant variants...")
-
-    # 1. Chained Annotation (standard set)
-    # clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb
-    ann_vcf = os.path.join(outdir, "chain_annotated.vcf.gz")
-    run_cli_subcommand(
-        [
-            "vcf",
-            "chain-annotate",
-            "--input",
-            vcf_file,
-            "--outdir",
-            outdir,
-            "--annotations",
-            "clinvar,revel,phylop,gnomad,spliceai,alphamissense,pharmgkb",
-        ],
-        args,
-    )
-
-    if not os.path.exists(ann_vcf):
-        logging.error("Annotation chain failed to produce output.")
-        return
-
-    # 2. Discovery / Significant Filtering
-    logging.info(LOG_MESSAGES["analyze_discovery_start"])
-
-    discovery_vcf = os.path.join(outdir, "significant_variants.vcf.gz")
-
-    # Dynamically build filter expression based on what's in the header
-    # (prevents crashes if some annotation steps were skipped)
-    try:
-        res_h = subprocess.run(
-            ["bcftools", "view", "-h", ann_vcf],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        header = res_h.stdout
-    except Exception as e:
-        logging.error(f"Failed to read VCF header: {e}")
-        header = ""
-
-    filters = []
-    # Rare (check both GNOMAD_AF and AF)
-    if "ID=GNOMAD_AF," in header:
-        filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
-    elif "ID=AF," in header:
-        filters.append('INFO/AF < 0.01 || INFO/AF == "."')
-
-    # Pathogenic
-    if "ID=CLNSIG," in header:
-        filters.append('INFO/CLNSIG ~ "Pathogenic"')
-
-    # Impactful
-    if "ID=REVEL," in header:
-        filters.append("INFO/REVEL > 0.7")
-    if "ID=SpliceAI," in header:
-        filters.append('INFO/SpliceAI ~ "|0.[89]"')
-    if "ID=am_pathogenicity," in header:
-        filters.append("INFO/am_pathogenicity > 0.7")
-
-    if not filters:
-        logging.warning(
-            "No annotation tags found in header for significant variant filtering."
-        )
-        # If no tags, maybe just keep everything or common filters?
-        filter_expr = "QUAL > 30"  # Very basic fallback
-    else:
-        filter_expr = " || ".join(filters)
-
-    logging.debug(f"Discovery filter expression: {filter_expr}")
-
-    try:
-        subprocess.run(
-            [
-                "bcftools",
-                "filter",
-                "-i",
-                filter_expr,
-                "-Oz",
-                "-o",
-                discovery_vcf,
-                ann_vcf,
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        ensure_vcf_indexed(discovery_vcf)
-
-        # Count significant
-        res = subprocess.run(
-            ["bcftools", "view", "-H", discovery_vcf], capture_output=True, text=True
-        )
-        count = len(res.stdout.strip().split("\n")) if res.stdout.strip() else 0
-
-        logging.info(
-            LOG_MESSAGES["analyze_discovery_complete"].format(
-                count=count, output=discovery_vcf
-            )
-        )
-
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Discovery filtering failed: {e}")
-
-
 def run_cli_subcommand(cmd_args, args):
     """Helper to run a wgsextract subcommand."""
     cmd = ["uv", "run", "wgsextract"] + cmd_args
@@ -305,8 +296,6 @@ def run_cli_subcommand(cmd_args, args):
         # Capture output to prevent spam during comprehensive analysis
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
         # If it's a command that produces direct info output, we might want to see it
-        # but the sub-commands usually log their own ℹ️ messages which we've silenced.
-        # Actually, for 'info' it prints a table to stdout.
         if (
             "info" in cmd_args
             and "--detailed" in cmd_args
