@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -44,9 +45,22 @@ def cmd_comprehensive(args):
 
     input_file = args.input
     vcf_inputs = args.vcf_inputs if args.vcf_inputs else []
+    env_vcf = os.environ.get("WGSE_VCF_INPUTS")
+    if not vcf_inputs and env_vcf:
+        vcf_inputs = env_vcf.split()
 
     if not input_file and not vcf_inputs:
         logging.error(LOG_MESSAGES["input_required"])
+        sys.exit(1)
+
+    # Pre-flight Validation
+    paths_to_verify = {}
+    if input_file:
+        paths_to_verify["--input"] = input_file
+    for i, v in enumerate(vcf_inputs):
+        paths_to_verify[f"vcf-input-{i}"] = v
+
+    if not verify_paths_exist(paths_to_verify):
         sys.exit(1)
 
     outdir = args.outdir if args.outdir else os.getcwd()
@@ -59,8 +73,9 @@ def cmd_comprehensive(args):
     )
 
     # 1. BAM/CRAM Analysis (Info, QC, Lineage)
+    gender = "Unknown"
     if input_file:
-        run_bam_chain(args, input_file, outdir)
+        gender = run_bam_chain(args, input_file, outdir)
 
     # 2. VCF Processing
     final_vcf = None
@@ -77,14 +92,25 @@ def cmd_comprehensive(args):
 
 
 def run_bam_chain(args, input_file, outdir):
-    """Runs info, qc, and lineage steps."""
+    """Runs info, qc, and lineage steps. Returns detected gender."""
     logging.info("Step 1: Running BAM/CRAM basic metrics and QC...")
 
-    # We call our own CLI subcommands via subprocess to ensure they run in their own environments/scopes
-    # and follow the standard paths.
+    # Info (Detailed run to get gender)
+    run_cli_subcommand(
+        ["info", "--detailed", "--input", input_file, "--outdir", outdir], args
+    )
 
-    # Info
-    run_cli_subcommand(["info", "--input", input_file, "--outdir", outdir], args)
+    # Detect gender from cache
+    gender = "Unknown"
+    cache_file = os.path.join(outdir, f"{os.path.basename(input_file)}.wgse_info.json")
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file) as f:
+                data = json.load(f)
+                gender = data.get("gender", "Unknown")
+                logging.info(f"Detected biological sex: {gender}")
+        except Exception:
+            pass
 
     # QC (coverage-sample)
     run_cli_subcommand(
@@ -97,10 +123,15 @@ def run_bam_chain(args, input_file, outdir):
         ["lineage", "mt-haplogroup", "--input", input_file, "--outdir", outdir], args
     )
 
-    # Y-lineage only if it's likely male or has Y reads (simple check)
-    run_cli_subcommand(
-        ["lineage", "y-haplogroup", "--input", input_file, "--outdir", outdir], args
-    )
+    # Y-lineage only if it's NOT female
+    if gender != "Female":
+        run_cli_subcommand(
+            ["lineage", "y-haplogroup", "--input", input_file, "--outdir", outdir], args
+        )
+    else:
+        logging.info("Skipping Y-lineage analysis for female genome.")
+
+    return gender
 
 
 def process_vcf_inputs(args, vcf_inputs, outdir):
@@ -180,14 +211,12 @@ def run_discovery_chain(args, vcf_file, outdir):
 
     # Define "significant":
     # - ClinVar Pathogenic/Likely Pathogenic (already handled if we use vcf clinvar output)
-    # - High Impact (VEP) - Wait, we didn't run VEP yet in chain-annotate above (it's slow)
+    # - High impact: REVEL > 0.7, SpliceAI > 0.8, AlphaMissense > 0.7
     # - Rare (gnomAD AF < 0.01)
-    # - High REVEL/PhyloP
 
     # For now, let's use bcftools to filter the annotated file
     # Rare variants: INFO/GNOMAD_AF < 0.01 or not present
     # Pathogenic: INFO/CLNSIG ~ "Pathogenic"
-    # High impact: REVEL > 0.7, SpliceAI > 0.8, AlphaMissense > 0.7
 
     filter_expr = 'INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "." || INFO/CLNSIG ~ "Pathogenic" || INFO/REVEL > 0.7 || INFO/SpliceAI ~ "|0.[89]" || INFO/am_pathogenicity > 0.7'
 
