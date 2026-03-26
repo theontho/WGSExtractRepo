@@ -263,6 +263,19 @@ def run_cli_subcommand(cmd_args, args):
         cmd.append("--debug")
 
     try:
-        subprocess.run(cmd, check=True)
+        # Capture output to prevent spam during comprehensive analysis
+        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # If it's a command that produces direct info output, we might want to see it
+        # but the sub-commands usually log their own ℹ️ messages which we've silenced.
+        # Actually, for 'info' it prints a table to stdout.
+        # We need to decide if we want to see that.
+        if (
+            "info" in cmd_args
+            and "--detailed" in cmd_args
+            and "coverage-sample" not in cmd_args
+        ):
+            print(res.stdout)
     except subprocess.CalledProcessError as e:
         logging.warning(f"Subcommand failed: {' '.join(cmd)}. Error: {e}")
+        if e.stderr:
+            logging.error(e.stderr)

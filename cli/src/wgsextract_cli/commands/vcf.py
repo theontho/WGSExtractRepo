@@ -1124,7 +1124,8 @@ def cmd_clinvar(args):
                 "-o",
                 ann_out,
                 normalized_input,
-            ]
+            ],
+            capture_output=True,
         )
         ensure_vcf_indexed(ann_out)
     except Exception as e:
@@ -1142,7 +1143,8 @@ def cmd_clinvar(args):
         # The exact string can vary slightly, so we use a regex/substring match
         filter_expr = 'CLNSIG ~ "Pathogenic" || CLNSIG ~ "Likely_pathogenic"'
         run_command(
-            ["bcftools", "filter", "-i", filter_expr, "-Oz", "-o", path_out, ann_out]
+            ["bcftools", "filter", "-i", filter_expr, "-Oz", "-o", path_out, ann_out],
+            capture_output=True,
         )
         ensure_vcf_indexed(path_out)
         logging.info(LOG_MESSAGES["vcf_clinvar_done"].format(output=path_out))
@@ -1275,7 +1277,7 @@ def cmd_revel(args):
             annotate_args.extend(["-c", cols, "-h", header_tmp])
 
         annotate_args.append(normalized_input)
-        run_command(annotate_args)
+        run_command(annotate_args, capture_output=True)
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"REVEL annotation failed: {e}")
@@ -1308,7 +1310,8 @@ def cmd_revel(args):
                     "-o",
                     path_out,
                     ann_out,
-                ]
+                ],
+                capture_output=True,
             )
             ensure_vcf_indexed(path_out)
             logging.info(LOG_MESSAGES["vcf_revel_done"].format(output=path_out))
@@ -1444,7 +1447,7 @@ def cmd_phylop(args):
             annotate_args.extend(["-c", cols, "-h", header_tmp])
 
         annotate_args.append(normalized_input)
-        run_command(annotate_args)
+        run_command(annotate_args, capture_output=True)
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"PhyloP annotation failed: {e}")
@@ -1477,7 +1480,8 @@ def cmd_phylop(args):
                     "-o",
                     path_out,
                     ann_out,
-                ]
+                ],
+                capture_output=True,
             )
             ensure_vcf_indexed(path_out)
             logging.info(LOG_MESSAGES["vcf_phylop_done"].format(output=path_out))
@@ -1562,7 +1566,8 @@ def cmd_gnomad(args):
                 "-o",
                 ann_out,
                 normalized_input,
-            ]
+            ],
+            capture_output=True,
         )
         ensure_vcf_indexed(ann_out)
     except Exception as e:
@@ -1597,7 +1602,8 @@ def cmd_gnomad(args):
                     "-o",
                     filter_out,
                     ann_out,
-                ]
+                ],
+                capture_output=True,
             )
             ensure_vcf_indexed(filter_out)
             logging.info(f"gnomAD filtering complete: {filter_out}")
@@ -1665,7 +1671,8 @@ def cmd_spliceai(args):
                 "-o",
                 ann_out,
                 normalized_input,
-            ]
+            ],
+            capture_output=True,
         )
         ensure_vcf_indexed(ann_out)
     except Exception as e:
@@ -1759,7 +1766,8 @@ def cmd_alphamissense(args):
                 "-o",
                 ann_out,
                 normalized_input,
-            ]
+            ],
+            capture_output=True,
         )
         ensure_vcf_indexed(ann_out)
     except Exception as e:
@@ -1785,7 +1793,8 @@ def cmd_alphamissense(args):
                     "-o",
                     path_out,
                     ann_out,
-                ]
+                ],
+                capture_output=True,
             )
             ensure_vcf_indexed(path_out)
             logging.info(f"AlphaMissense filtering complete: {path_out}")
@@ -1849,13 +1858,15 @@ def cmd_pharmgkb(args):
                 "-a",
                 pharmgkb_vcf,
                 "-c",
-                "INFO",
+                "PHARMGKB",
                 "-Oz",
                 "-o",
                 ann_out,
                 normalized_input,
-            ]
+            ],
+            capture_output=True,
         )
+
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"PharmGKB annotation failed: {e}")
@@ -2281,9 +2292,12 @@ def cmd_chain_annotate(args):
                 cmd.extend(["--ref", args.ref])
 
             try:
-                subprocess.run(cmd, check=True)
+                # Capture output to prevent spam during chained annotation
+                res = subprocess.run(cmd, capture_output=True, text=True, check=True)
             except subprocess.CalledProcessError as e:
                 logging.error(f"Annotation step '{ann}' failed. Aborting chain.")
+                if e.stderr:
+                    logging.error(e.stderr)
                 return
 
             # Find the output VCF from this step
