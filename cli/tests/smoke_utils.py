@@ -162,6 +162,8 @@ def ensure_fake_data(fake_dir: str):
             "42",
             "--coverage",
             "0.1",
+            "--type",
+            "all",
         ]
     )
 
