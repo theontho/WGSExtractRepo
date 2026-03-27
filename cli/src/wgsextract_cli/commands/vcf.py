@@ -319,7 +319,7 @@ def get_base_args(args):
     logging.debug(f"Output directory: {os.path.abspath(outdir)}")
 
     md5_sig = calculate_bam_md5(input_file, None)
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
 
     if not hasattr(args, "ploidy") or args.ploidy is None:
         if not hasattr(args, "ploidy_file") or args.ploidy_file is None:
@@ -500,7 +500,7 @@ def cmd_annotate(args):
             if input_file.lower().endswith((".bam", ".cram"))
             else None
         )
-        lib = ReferenceLibrary(args.ref, md5_sig)
+        lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
         if lib.ref_vcf_tab:
             ann_vcf = lib.ref_vcf_tab
             logging.info(f"Auto-resolved annotation file: {ann_vcf}")
@@ -615,7 +615,7 @@ def cmd_filter(args):
 
     # Resolve reference if needed for gap filtering or gene resolution
     md5_sig = calculate_bam_md5(input_file, None)
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     logging.debug(f"Resolved reference: {lib.fasta}")
 
     # Gene-based region resolution
@@ -1081,7 +1081,7 @@ def cmd_clinvar(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     clinvar_vcf = args.clinvar_file if args.clinvar_file else lib.clinvar_vcf
 
     if not clinvar_vcf:
@@ -1171,7 +1171,7 @@ def cmd_revel(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     revel_file = args.revel_file if args.revel_file else lib.revel_file
 
     if not revel_file:
@@ -1340,7 +1340,7 @@ def cmd_phylop(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     phylop_file = args.phylop_file if args.phylop_file else lib.phylop_file
 
     if not phylop_file:
@@ -1510,7 +1510,7 @@ def cmd_gnomad(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     gnomad_file = args.gnomad_file if args.gnomad_file else lib.gnomad_vcf
 
     if not gnomad_file:
@@ -1631,7 +1631,7 @@ def cmd_spliceai(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     spliceai_file = args.spliceai_file if args.spliceai_file else lib.spliceai_vcf
 
     if not spliceai_file:
@@ -1704,7 +1704,7 @@ def cmd_alphamissense(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     am_file = args.am_file if args.am_file else lib.alphamissense_vcf
 
     if not am_file:
@@ -1822,7 +1822,7 @@ def cmd_pharmgkb(args):
         if input_file.lower().endswith((".bam", ".cram"))
         else None
     )
-    lib = ReferenceLibrary(args.ref, md5_sig)
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     pharmgkb_file = args.pharmgkb_file if args.pharmgkb_file else lib.pharmgkb_vcf
 
     if not pharmgkb_file:
@@ -2268,6 +2268,19 @@ def cmd_chain_annotate(args):
 
             # Print status directly to terminal so user sees progress during silenced runs
             print(f"  ➡️  Step [{i + 1}/{len(annotations)}]: Running '{ann}'...")
+
+            # Pre-check tool availability
+            from wgsextract_cli.core.dependencies import get_tool_path
+
+            tool_to_check = (
+                "vep" if ann == "vep" else "bcftools"
+            )  # most others use bcftools
+            if not get_tool_path(tool_to_check):
+                logging.warning(
+                    f"Tool '{tool_to_check}' required for '{ann}' is not installed. Skipping."
+                )
+                continue
+
             logging.info(f"[{i + 1}/{len(annotations)}] Running '{ann}' annotation...")
 
             cmd = ["uv", "run", "wgsextract"]

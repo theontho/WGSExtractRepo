@@ -310,8 +310,8 @@ def run_cli_subcommand(cmd_args, args):
             if input_path and input_path.lower().endswith((".bam", ".cram"))
             else None
         )
-        lib = ReferenceLibrary(None, md5_sig)
-        ref_path = lib.fasta
+        lib = ReferenceLibrary(None, md5_sig, input_path=input_path)
+        ref_path = lib.root
 
     if ref_path:
         cmd.extend(["--ref", ref_path])

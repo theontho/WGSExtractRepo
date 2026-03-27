@@ -578,6 +578,23 @@ class ReferenceLibrary:
                 if os.path.exists(potential):
                     self.clinvar_vcf = potential
                     break
+                # Fallback check for alternate build names (e.g. hg38 vs grch38)
+                alt_names = ["hg38", "hg19", "grch38", "grch37"]
+                for alt in alt_names:
+                    # Only check if it's potentially compatible
+                    is_hg38_alt = self.build == "hg38" and (
+                        alt == "hg38" or alt == "grch38"
+                    )
+                    is_hg19_alt = self.build == "hg19" and (
+                        alt == "hg19" or alt == "grch37"
+                    )
+                    if is_hg38_alt or is_hg19_alt:
+                        potential = os.path.join(search_dir, f"clinvar_{alt}.vcf.gz")
+                        if os.path.exists(potential):
+                            self.clinvar_vcf = potential
+                            break
+                if self.clinvar_vcf:
+                    break
 
         # Look for REVEL data
         if self.build:
@@ -585,12 +602,25 @@ class ReferenceLibrary:
                 if not os.path.isdir(search_dir):
                     continue
                 # Support .tsv.gz or .vcf.gz
-                for ext in [".tsv.gz", ".vcf.gz"]:
-                    potential = os.path.join(search_dir, f"revel_{self.build}{ext}")
-                    if os.path.exists(potential):
-                        self.revel_file = potential
+                found = False
+                for alt in [self.build, "hg38", "hg19", "grch38", "grch37"]:
+                    is_hg38_alt = self.build == "hg38" and (
+                        alt == "hg38" or alt == "grch38"
+                    )
+                    is_hg19_alt = self.build == "hg19" and (
+                        alt == "hg19" or alt == "grch37"
+                    )
+                    if not (is_hg38_alt or is_hg19_alt):
+                        continue
+                    for ext in [".tsv.gz", ".vcf.gz"]:
+                        potential = os.path.join(search_dir, f"revel_{alt}{ext}")
+                        if os.path.exists(potential):
+                            self.revel_file = potential
+                            found = True
+                            break
+                    if found:
                         break
-                if self.revel_file:
+                if found:
                     break
 
         # Look for PhyloP data
@@ -598,13 +628,25 @@ class ReferenceLibrary:
             for search_dir in [self.root, os.path.join(self.root, "ref")]:
                 if not os.path.isdir(search_dir):
                     continue
-                # Support .tsv.gz or .vcf.gz
-                for ext in [".tsv.gz", ".vcf.gz"]:
-                    potential = os.path.join(search_dir, f"phylop_{self.build}{ext}")
-                    if os.path.exists(potential):
-                        self.phylop_file = potential
+                found = False
+                for alt in [self.build, "hg38", "hg19", "grch38", "grch37"]:
+                    is_hg38_alt = self.build == "hg38" and (
+                        alt == "hg38" or alt == "grch38"
+                    )
+                    is_hg19_alt = self.build == "hg19" and (
+                        alt == "hg19" or alt == "grch37"
+                    )
+                    if not (is_hg38_alt or is_hg19_alt):
+                        continue
+                    for ext in [".tsv.gz", ".vcf.gz"]:
+                        potential = os.path.join(search_dir, f"phylop_{alt}{ext}")
+                        if os.path.exists(potential):
+                            self.phylop_file = potential
+                            found = True
+                            break
+                    if found:
                         break
-                if self.phylop_file:
+                if found:
                     break
 
         # Look for gnomAD VCF
@@ -612,13 +654,26 @@ class ReferenceLibrary:
             for search_dir in [self.root, os.path.join(self.root, "ref")]:
                 if not os.path.isdir(search_dir):
                     continue
-                # Support .vcf.bgz or .vcf.gz
-                for ext in [".vcf.bgz", ".vcf.gz"]:
-                    potential = os.path.join(search_dir, f"gnomad_{self.build}{ext}")
-                    if os.path.exists(potential):
-                        self.gnomad_vcf = potential
+                found = False
+                for alt in [self.build, "hg38", "hg19", "grch38", "grch37"]:
+                    is_hg38_alt = self.build == "hg38" and (
+                        alt == "hg38" or alt == "grch38"
+                    )
+                    is_hg19_alt = self.build == "hg19" and (
+                        alt == "hg19" or alt == "grch37"
+                    )
+                    if not (is_hg38_alt or is_hg19_alt):
+                        continue
+                    # Support .vcf.bgz or .vcf.gz
+                    for ext in [".vcf.bgz", ".vcf.gz"]:
+                        potential = os.path.join(search_dir, f"gnomad_{alt}{ext}")
+                        if os.path.exists(potential):
+                            self.gnomad_vcf = potential
+                            found = True
+                            break
+                    if found:
                         break
-                if self.gnomad_vcf:
+                if found:
                     break
 
         # Look for SpliceAI VCF
@@ -626,12 +681,25 @@ class ReferenceLibrary:
             for search_dir in [self.root, os.path.join(self.root, "ref")]:
                 if not os.path.isdir(search_dir):
                     continue
-                for ext in [".vcf.gz", ".vcf.bgz"]:
-                    potential = os.path.join(search_dir, f"spliceai_{self.build}{ext}")
-                    if os.path.exists(potential):
-                        self.spliceai_vcf = potential
+                found = False
+                for alt in [self.build, "hg38", "hg19", "grch38", "grch37"]:
+                    is_hg38_alt = self.build == "hg38" and (
+                        alt == "hg38" or alt == "grch38"
+                    )
+                    is_hg19_alt = self.build == "hg19" and (
+                        alt == "hg19" or alt == "grch37"
+                    )
+                    if not (is_hg38_alt or is_hg19_alt):
+                        continue
+                    for ext in [".vcf.gz", ".vcf.bgz"]:
+                        potential = os.path.join(search_dir, f"spliceai_{alt}{ext}")
+                        if os.path.exists(potential):
+                            self.spliceai_vcf = potential
+                            found = True
+                            break
+                    if found:
                         break
-                if self.spliceai_vcf:
+                if found:
                     break
 
         # Look for AlphaMissense VCF
@@ -639,14 +707,27 @@ class ReferenceLibrary:
             for search_dir in [self.root, os.path.join(self.root, "ref")]:
                 if not os.path.isdir(search_dir):
                     continue
-                for ext in [".vcf.gz", ".vcf.bgz"]:
-                    potential = os.path.join(
-                        search_dir, f"alphamissense_{self.build}{ext}"
+                found = False
+                for alt in [self.build, "hg38", "hg19", "grch38", "grch37"]:
+                    is_hg38_alt = self.build == "hg38" and (
+                        alt == "hg38" or alt == "grch38"
                     )
-                    if os.path.exists(potential):
-                        self.alphamissense_vcf = potential
+                    is_hg19_alt = self.build == "hg19" and (
+                        alt == "hg19" or alt == "grch37"
+                    )
+                    if not (is_hg38_alt or is_hg19_alt):
+                        continue
+                    for ext in [".vcf.gz", ".vcf.bgz"]:
+                        potential = os.path.join(
+                            search_dir, f"alphamissense_{alt}{ext}"
+                        )
+                        if os.path.exists(potential):
+                            self.alphamissense_vcf = potential
+                            found = True
+                            break
+                    if found:
                         break
-                if self.alphamissense_vcf:
+                if found:
                     break
 
         # Look for PharmGKB VCF
@@ -654,12 +735,19 @@ class ReferenceLibrary:
             for search_dir in [self.root, os.path.join(self.root, "ref")]:
                 if not os.path.isdir(search_dir):
                     continue
-                for ext in [".vcf.gz", ".vcf.bgz", ".tsv.gz"]:
-                    potential = os.path.join(search_dir, f"pharmgkb_{self.build}{ext}")
-                    if os.path.exists(potential):
-                        self.pharmgkb_vcf = potential
+                found = False
+                # PharmGKB is often build-independent or named simply pharmgkb.vcf.gz
+                for alt in [self.build, "hg38", "hg19", "grch38", "grch37", ""]:
+                    name = f"pharmgkb_{alt}" if alt else "pharmgkb"
+                    for ext in [".vcf.gz", ".vcf.bgz", ".tsv.gz"]:
+                        potential = os.path.join(search_dir, f"{name}{ext}")
+                        if os.path.exists(potential):
+                            self.pharmgkb_vcf = potential
+                            found = True
+                            break
+                    if found:
                         break
-                if self.pharmgkb_vcf:
+                if found:
                     break
 
         # Look for Liftover Chain (hg38 -> hg19)
