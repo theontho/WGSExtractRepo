@@ -1086,7 +1086,7 @@ def cmd_clinvar(args):
 
     if not clinvar_vcf:
         logging.error(LOG_MESSAGES["vcf_clinvar_missing"])
-        return
+        sys.exit(1)
 
     logging.info(LOG_MESSAGES["vcf_clinvar_resolve"].format(path=clinvar_vcf))
 
@@ -1130,7 +1130,7 @@ def cmd_clinvar(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"ClinVar annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if normalized_input != input_vcf and os.path.exists(normalized_input):
             os.remove(normalized_input)
@@ -1176,7 +1176,7 @@ def cmd_revel(args):
 
     if not revel_file:
         logging.error(LOG_MESSAGES["vcf_revel_missing"])
-        return
+        sys.exit(1)
 
     logging.info(LOG_MESSAGES["vcf_revel_resolve"].format(path=revel_file))
 
@@ -1281,7 +1281,7 @@ def cmd_revel(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"REVEL annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if header_tmp and os.path.exists(header_tmp):
             os.remove(header_tmp)
@@ -1345,7 +1345,7 @@ def cmd_phylop(args):
 
     if not phylop_file:
         logging.error(LOG_MESSAGES["vcf_phylop_missing"])
-        return
+        sys.exit(1)
 
     logging.info(LOG_MESSAGES["vcf_phylop_resolve"].format(path=phylop_file))
 
@@ -1451,7 +1451,7 @@ def cmd_phylop(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"PhyloP annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if header_tmp and os.path.exists(header_tmp):
             os.remove(header_tmp)
@@ -1517,7 +1517,7 @@ def cmd_gnomad(args):
         logging.error(
             "gnomAD data file not found. Please run 'ref gnomad' first or provide with --gnomad-file."
         )
-        return
+        sys.exit(1)
 
     logging.info(f"Using gnomAD file: {gnomad_file}")
 
@@ -1572,7 +1572,7 @@ def cmd_gnomad(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"gnomAD annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if header_tmp and os.path.exists(header_tmp):
             os.remove(header_tmp)
@@ -1638,7 +1638,7 @@ def cmd_spliceai(args):
         logging.error(
             "SpliceAI data file not found. Please run 'ref spliceai' first or provide with --spliceai-file."
         )
-        return
+        sys.exit(1)
 
     # 1. Prepare Inputs
     input_vcf = ensure_vcf_prepared(input_file)
@@ -1677,7 +1677,7 @@ def cmd_spliceai(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"SpliceAI annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if normalized_input != input_vcf and os.path.exists(normalized_input):
             os.remove(normalized_input)
@@ -1711,7 +1711,7 @@ def cmd_alphamissense(args):
         logging.error(
             "AlphaMissense data file not found. Please run 'ref alphamissense' first or provide with --am-file."
         )
-        return
+        sys.exit(1)
 
     # 1. Prepare Inputs
     input_vcf = ensure_vcf_prepared(input_file)
@@ -1772,7 +1772,7 @@ def cmd_alphamissense(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"AlphaMissense annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if header_tmp and os.path.exists(header_tmp):
             os.remove(header_tmp)
@@ -1829,7 +1829,7 @@ def cmd_pharmgkb(args):
         logging.error(
             "PharmGKB data file not found. Please run 'ref pharmgkb' first or provide with --pharmgkb-file."
         )
-        return
+        sys.exit(1)
 
     # 1. Prepare Inputs
     input_vcf = ensure_vcf_prepared(input_file)
@@ -1870,7 +1870,7 @@ def cmd_pharmgkb(args):
         ensure_vcf_indexed(ann_out)
     except Exception as e:
         logging.error(f"PharmGKB annotation failed: {e}")
-        return
+        sys.exit(1)
     finally:
         if normalized_input != input_vcf and os.path.exists(normalized_input):
             os.remove(normalized_input)
@@ -2266,6 +2266,8 @@ def cmd_chain_annotate(args):
             step_outdir = os.path.join(outdir, f"chain_step_{i + 1}_{ann}")
             os.makedirs(step_outdir, exist_ok=True)
 
+            # Print status directly to terminal so user sees progress during silenced runs
+            print(f"  ➡️  Step [{i + 1}/{len(annotations)}]: Running '{ann}'...")
             logging.info(f"[{i + 1}/{len(annotations)}] Running '{ann}' annotation...")
 
             cmd = ["uv", "run", "wgsextract"]
@@ -2295,10 +2297,13 @@ def cmd_chain_annotate(args):
                 # Capture output to prevent spam during chained annotation
                 res = subprocess.run(cmd, capture_output=True, text=True, check=True)
             except subprocess.CalledProcessError as e:
-                logging.error(f"Annotation step '{ann}' failed. Aborting chain.")
+                logging.warning(f"Annotation step '{ann}' failed. Skipping. Error: {e}")
                 if e.stderr:
-                    logging.error(e.stderr)
-                return
+                    logging.debug(e.stderr)
+                # Cleanup step directory if it failed
+                if os.path.exists(step_outdir):
+                    shutil.rmtree(step_outdir, ignore_errors=True)
+                continue
 
             # Find the output VCF from this step
             out_files = [
@@ -2308,11 +2313,12 @@ def cmd_chain_annotate(args):
                 and not f.endswith(".norm.vcf.gz")
                 and "gt_" not in f
             ]
-            # vep might output something like out.vcf.gz, others output clinvar_annotated.vcf.gz etc.
 
             if not out_files:
-                logging.error(f"No VCF output found for step '{ann}'. Aborting chain.")
-                return
+                logging.warning(f"No VCF output found for step '{ann}'. Skipping.")
+                if os.path.exists(step_outdir):
+                    shutil.rmtree(step_outdir, ignore_errors=True)
+                continue
 
             # Assume the newest VCF is the result
             out_files_paths = [os.path.join(step_outdir, f) for f in out_files]
