@@ -88,7 +88,9 @@ def main():
             load_dotenv(dotenv_path=env_std)
 
     handler = logging.StreamHandler()
-    handler.setFormatter(EmojiFormatter("%(levelname)s: %(message)s"))
+    handler.setFormatter(
+        EmojiFormatter("[%(asctime)s] %(levelname)s: %(message)s", datefmt="%H:%M:%S")
+    )
     # Use force=True to ensure our handler replaces any existing ones
     logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
