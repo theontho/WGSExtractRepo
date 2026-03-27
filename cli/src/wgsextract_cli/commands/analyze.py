@@ -178,33 +178,30 @@ def run_discovery_filter(args, ann_vcf, v_type, out_vcf):
     except Exception:
         header = ""
 
-    # Build Logic: (Rare) AND (Pathogenic OR High Impact)
-    rare_filters = []
-    if "ID=GNOMAD_AF," in header:
-        rare_filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
-    elif "ID=AF," in header:
-        rare_filters.append('INFO/AF < 0.01 || INFO/AF == "."')
+    # Build Logic: Rare OR Pathogenic OR High Impact
+    filters = []
 
-    impact_filters = []
+    # Rare
+    if "ID=GNOMAD_AF," in header:
+        filters.append('INFO/GNOMAD_AF < 0.01 || INFO/GNOMAD_AF == "."')
+    elif "ID=AF," in header:
+        filters.append('INFO/AF < 0.01 || INFO/AF == "."')
+
+    # Pathogenic
     if "ID=CLNSIG," in header:
-        impact_filters.append('INFO/CLNSIG ~ "Pathogenic"')
+        filters.append('INFO/CLNSIG ~ "Pathogenic"')
 
     if v_type == "snp-indel":
         if "ID=REVEL," in header:
-            impact_filters.append("INFO/REVEL > 0.7")
+            filters.append("INFO/REVEL > 0.7")
         if "ID=SpliceAI," in header:
-            impact_filters.append('INFO/SpliceAI ~ "|0.[89]"')
+            filters.append('INFO/SpliceAI ~ "|0.[89]"')
         if "ID=am_pathogenicity," in header:
-            impact_filters.append("INFO/am_pathogenicity > 0.7")
+            filters.append("INFO/am_pathogenicity > 0.7")
 
-    # Combine
-    rare_expr = f"({' || '.join(rare_filters)})" if rare_filters else None
-    impact_expr = f"({' || '.join(impact_filters)})" if impact_filters else None
-
-    if rare_expr and impact_expr:
-        filter_expr = f"{rare_expr} && {impact_expr}"
-    elif impact_expr:
-        filter_expr = impact_expr
+    # Combine with OR
+    if filters:
+        filter_expr = " || ".join(filters)
     else:
         filter_expr = "QUAL > 30"
 
