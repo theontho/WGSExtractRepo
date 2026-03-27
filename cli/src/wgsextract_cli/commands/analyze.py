@@ -322,19 +322,18 @@ def run_cli_subcommand(cmd_args, args):
         cmd.append("--debug")
 
     try:
-        # Capture output to prevent spam during comprehensive analysis
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        # We print output for 'info' and 'lineage' to show results to user
-        is_info = (
-            "info" in cmd_args
-            and "--detailed" in cmd_args
-            and "coverage-sample" not in cmd_args
-        )
-        is_lineage = "lineage" in cmd_args
+        # For curated commands, we want real-time output to show progress/results.
+        # For everything else, we capture to keep the UI clean.
+        curated_cmds = ["info", "lineage", "vcf", "vep"]
+        should_stream = any(c in cmd_args for c in curated_cmds)
 
-        if is_info or is_lineage:
-            if res.stdout.strip():
-                print(res.stdout)
+        if should_stream:
+            # Run without capturing to allow real-time progress updates to reach the terminal.
+            # Internal sub-sub-commands (like bcftools) are still captured at their level.
+            subprocess.run(cmd, check=True)
+        else:
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+
     except subprocess.CalledProcessError as e:
         logging.warning(f"Subcommand failed: {' '.join(cmd)}. Error: {e}")
         if e.stderr:
