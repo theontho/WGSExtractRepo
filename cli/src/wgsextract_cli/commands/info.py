@@ -6,6 +6,7 @@ import math
 import os
 import re
 import subprocess
+import sys
 import time
 from typing import Any
 
@@ -55,6 +56,8 @@ def register(subparsers, base_parser):
     )
 
     info_subs = parser.add_subparsers(dest="info_cmd", required=False)
+    # DISCONTINUED: coverage-sample is disabled as it is not working correctly.
+
     calc_cov = info_subs.add_parser(
         "calculate-coverage",
         parents=[base_parser],
@@ -63,11 +66,11 @@ def register(subparsers, base_parser):
     calc_cov.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
     calc_cov.set_defaults(func=run)
 
-    samp_cov = info_subs.add_parser(
-        "coverage-sample", parents=[base_parser], help=CLI_HELP["cmd_coverage-sample"]
-    )
-    samp_cov.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
-    samp_cov.set_defaults(func=run)
+    # samp_cov = info_subs.add_parser(
+    #     "coverage-sample", parents=[base_parser], help=CLI_HELP["cmd_coverage-sample"]
+    # )
+    # samp_cov.add_argument("-r", "--region", help=CLI_HELP["arg_region"])
+    # samp_cov.set_defaults(func=run)
 
     parser.set_defaults(func=run)
 
@@ -659,6 +662,13 @@ def run(args):
     t0 = time.time()
     resolved_ref = resolve_reference(args.ref, md5_sig)
     logging.debug(f"Resolved reference: {resolved_ref} (took {time.time() - t0:.3f}s)")
+
+    if getattr(args, "info_cmd", None) == "coverage-sample":
+        logging.error(
+            "The 'coverage-sample' command is discontinued as it does not work correctly. "
+            "Please use 'wgsextract info --detailed' for general metrics."
+        )
+        sys.exit(1)
 
     if getattr(args, "info_cmd", None) in ["calculate-coverage", "coverage-sample"]:
         args.detailed = True

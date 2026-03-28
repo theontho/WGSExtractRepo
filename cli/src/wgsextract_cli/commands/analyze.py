@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import sys
+from datetime import datetime
 
 from wgsextract_cli.core.dependencies import log_dependency_info, verify_dependencies
 from wgsextract_cli.core.messages import CLI_HELP, LOG_MESSAGES
@@ -69,8 +70,10 @@ def cmd_comprehensive(args):
     outdir = args.outdir if args.outdir else os.getcwd()
     os.makedirs(outdir, exist_ok=True)
 
-    print("\n🚀 STAGE: Starting Comprehensive Analysis")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"\n🚀 STAGE: Starting Comprehensive Analysis ({now})")
     print(f"📂 Output Directory: {outdir}")
+
     print("-" * 60)
 
     # 1. BAM/CRAM Analysis (Info, QC, Lineage)
@@ -248,44 +251,29 @@ def run_bam_chain(args, input_file, outdir):
     """Runs info, qc, and lineage steps. Returns detected gender."""
     print("\n🚀 STAGE: BAM/CRAM Metrics & Lineage")
 
-    # Detect gender and metrics from cache if available to save time
+    # 1. Info (Detailed run to show table and get gender)
+    # We call it even if cached to ensure the table is displayed. It's very fast when cached.
+    run_cli_subcommand(
+        ["info", "--detailed", "--input", input_file, "--outdir", outdir], args
+    )
+
+    # 2. Detect gender from the (newly updated) cache to drive subsequent logic
     gender = "Unknown"
     cache_file = os.path.join(outdir, f"{os.path.basename(input_file)}.wgse_info.json")
-
-    if os.path.exists(cache_file) and not getattr(args, "force", False):
+    if os.path.exists(cache_file):
         try:
             with open(cache_file) as f:
                 data = json.load(f)
                 gender = data.get("gender", "Unknown")
-                logging.info(f"Using cached BAM metrics (Sex: {gender})")
         except Exception:
             pass
 
-    if gender == "Unknown":
-        # Info (Detailed run to get gender)
-        run_cli_subcommand(
-            ["info", "--detailed", "--input", input_file, "--outdir", outdir], args
-        )
-        if os.path.exists(cache_file):
-            try:
-                with open(cache_file) as f:
-                    data = json.load(f)
-                    gender = data.get("gender", "Unknown")
-                    logging.info(f"Detected biological sex: {gender}")
-            except Exception:
-                pass
-
-    # QC (coverage-sample) - Subcommand handles its own internal caching
-    run_cli_subcommand(
-        ["info", "coverage-sample", "--input", input_file, "--outdir", outdir], args
-    )
-
-    # mt-haplogroup (Haplogrep)
+    # 3. mt-haplogroup (Haplogrep)
     run_cli_subcommand(
         ["lineage", "mt-haplogroup", "--input", input_file, "--outdir", outdir], args
     )
 
-    # Y-lineage only if it's NOT female
+    # 4. Y-lineage only if it's NOT female
     if gender != "Female":
         run_cli_subcommand(
             ["lineage", "y-haplogroup", "--input", input_file, "--outdir", outdir], args
@@ -320,6 +308,8 @@ def run_cli_subcommand(cmd_args, args):
         cmd.extend(["--threads", str(args.threads)])
     if args.debug:
         cmd.append("--debug")
+    if getattr(args, "force", False):
+        cmd.append("--force")
 
     try:
         # For curated commands, we want real-time output to show progress/results.

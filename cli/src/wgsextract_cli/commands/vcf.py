@@ -1062,6 +1062,16 @@ def cmd_sv(args):
                 os.remove(temp_bam + ".bai")
 
 
+def _exit_if_missing(file_path, message_key, ann_name=None):
+    if not file_path:
+        msg = LOG_MESSAGES.get(message_key, f"Missing data file for {ann_name}")
+        logging.error(f"REQUIRED DATA MISSING: {msg}")
+        logging.info(
+            f"To fix this, run: wgsextract ref {ann_name or message_key.split('_')[1]}"
+        )
+        sys.exit(2)  # Use exit code 2 to indicate missing data
+
+
 def cmd_clinvar(args):
     verify_dependencies(["bcftools", "tabix"])
     log_dependency_info(["bcftools", "tabix"])
@@ -1084,9 +1094,7 @@ def cmd_clinvar(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     clinvar_vcf = args.clinvar_file if args.clinvar_file else lib.clinvar_vcf
 
-    if not clinvar_vcf:
-        logging.error(LOG_MESSAGES["vcf_clinvar_missing"])
-        sys.exit(1)
+    _exit_if_missing(clinvar_vcf, "vcf_clinvar_missing", "clinvar")
 
     logging.info(LOG_MESSAGES["vcf_clinvar_resolve"].format(path=clinvar_vcf))
 
@@ -1174,9 +1182,7 @@ def cmd_revel(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     revel_file = args.revel_file if args.revel_file else lib.revel_file
 
-    if not revel_file:
-        logging.error(LOG_MESSAGES["vcf_revel_missing"])
-        sys.exit(1)
+    _exit_if_missing(revel_file, "vcf_revel_missing", "revel")
 
     logging.info(LOG_MESSAGES["vcf_revel_resolve"].format(path=revel_file))
 
@@ -1343,9 +1349,7 @@ def cmd_phylop(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     phylop_file = args.phylop_file if args.phylop_file else lib.phylop_file
 
-    if not phylop_file:
-        logging.error(LOG_MESSAGES["vcf_phylop_missing"])
-        sys.exit(1)
+    _exit_if_missing(phylop_file, "vcf_phylop_missing", "phylop")
 
     logging.info(LOG_MESSAGES["vcf_phylop_resolve"].format(path=phylop_file))
 
@@ -1513,11 +1517,7 @@ def cmd_gnomad(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     gnomad_file = args.gnomad_file if args.gnomad_file else lib.gnomad_vcf
 
-    if not gnomad_file:
-        logging.error(
-            "gnomAD data file not found. Please run 'ref gnomad' first or provide with --gnomad-file."
-        )
-        sys.exit(1)
+    _exit_if_missing(gnomad_file, "vcf_gnomad_missing", "gnomad")
 
     logging.info(f"Using gnomAD file: {gnomad_file}")
 
@@ -1634,13 +1634,10 @@ def cmd_spliceai(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     spliceai_file = args.spliceai_file if args.spliceai_file else lib.spliceai_vcf
 
-    if not spliceai_file:
-        logging.error(
-            "SpliceAI data file not found. Please run 'ref spliceai' first or provide with --spliceai-file."
-        )
-        sys.exit(1)
+    _exit_if_missing(spliceai_file, "vcf_spliceai_missing", "spliceai")
 
     # 1. Prepare Inputs
+
     input_vcf = ensure_vcf_prepared(input_file)
     spliceai_vcf = ensure_vcf_prepared(spliceai_file)
 
@@ -1707,13 +1704,10 @@ def cmd_alphamissense(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     am_file = args.am_file if args.am_file else lib.alphamissense_vcf
 
-    if not am_file:
-        logging.error(
-            "AlphaMissense data file not found. Please run 'ref alphamissense' first or provide with --am-file."
-        )
-        sys.exit(1)
+    _exit_if_missing(am_file, "vcf_alphamissense_missing", "alphamissense")
 
     # 1. Prepare Inputs
+
     input_vcf = ensure_vcf_prepared(input_file)
     am_vcf = ensure_vcf_prepared(am_file)
 
@@ -1825,13 +1819,10 @@ def cmd_pharmgkb(args):
     lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
     pharmgkb_file = args.pharmgkb_file if args.pharmgkb_file else lib.pharmgkb_vcf
 
-    if not pharmgkb_file:
-        logging.error(
-            "PharmGKB data file not found. Please run 'ref pharmgkb' first or provide with --pharmgkb-file."
-        )
-        sys.exit(1)
+    _exit_if_missing(pharmgkb_file, "vcf_pharmgkb_missing", "pharmgkb")
 
     # 1. Prepare Inputs
+
     input_vcf = ensure_vcf_prepared(input_file)
     pharmgkb_vcf = ensure_vcf_prepared(pharmgkb_file)
 
@@ -2258,6 +2249,13 @@ def cmd_chain_annotate(args):
 
     logging.info(f"Starting chained annotation with: {', '.join(annotations)}")
 
+    md5_sig = (
+        calculate_bam_md5(input_file, None)
+        if input_file.lower().endswith((".bam", ".cram"))
+        else None
+    )
+    lib = ReferenceLibrary(args.ref, md5_sig, input_path=input_file)
+
     current_input = ensure_vcf_prepared(input_file)
     intermediate_files = []
 
@@ -2277,7 +2275,36 @@ def cmd_chain_annotate(args):
             )  # most others use bcftools
             if not get_tool_path(tool_to_check):
                 logging.warning(
-                    f"Tool '{tool_to_check}' required for '{ann}' is not installed. Skipping."
+                    f"Skipping '{ann}': Tool '{tool_to_check}' not installed."
+                )
+                continue
+
+            # Pre-check data availability
+            missing_data = False
+            if ann == "clinvar" and not lib.clinvar_vcf:
+                missing_data = True
+            elif ann == "revel" and not lib.revel_file:
+                missing_data = True
+            elif ann == "phylop" and not lib.phylop_file:
+                missing_data = True
+            elif ann == "gnomad" and not lib.gnomad_vcf:
+                missing_data = True
+            elif ann == "spliceai" and not lib.spliceai_vcf:
+                missing_data = True
+            elif ann == "alphamissense" and not lib.alphamissense_vcf:
+                missing_data = True
+            elif ann == "pharmgkb" and not lib.pharmgkb_vcf:
+                missing_data = True
+            elif ann == "vep" and not lib.vep_cache:
+                # VEP can run in online mode, but for chain-annotate we generally want the cache
+                # Only skip if offline cache is missing? The user mentioned "haven't downloaded due to size".
+                # Let's just warn if cache is missing but maybe don't skip yet?
+                # Actually, the user wants a clean one-line skipped message.
+                missing_data = True
+
+            if missing_data:
+                logging.warning(
+                    f"Skipping '{ann}': Required reference data not found. Run 'wgsextract ref {ann}' to download."
                 )
                 continue
 
@@ -2310,9 +2337,13 @@ def cmd_chain_annotate(args):
                 # Capture output to prevent spam during chained annotation
                 res = subprocess.run(cmd, capture_output=True, text=True, check=True)
             except subprocess.CalledProcessError as e:
-                logging.warning(f"Annotation step '{ann}' failed. Skipping. Error: {e}")
+                logging.warning(f"Annotation step '{ann}' failed. Skipping.")
                 if e.stderr:
-                    logging.debug(e.stderr)
+                    for line in e.stderr.strip().split("\n"):
+                        logging.error(f"  [{ann} ERROR] {line}")
+                if e.stdout:
+                    for line in e.stdout.strip().split("\n"):
+                        logging.debug(f"  [{ann} STDOUT] {line}")
                 # Cleanup step directory if it failed
                 if os.path.exists(step_outdir):
                     shutil.rmtree(step_outdir, ignore_errors=True)
@@ -2329,6 +2360,9 @@ def cmd_chain_annotate(args):
 
             if not out_files:
                 logging.warning(f"No VCF output found for step '{ann}'. Skipping.")
+                if res.stderr:
+                    for line in res.stderr.strip().split("\n"):
+                        logging.warning(f"  [{ann} STDERR] {line}")
                 if os.path.exists(step_outdir):
                     shutil.rmtree(step_outdir, ignore_errors=True)
                 continue

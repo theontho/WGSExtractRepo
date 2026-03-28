@@ -301,6 +301,22 @@ def cmd_ydna(args):
         run_command(final_cmd)
         logging.debug("Yleaf execution finished successfully")
 
+        # Print results directly to terminal
+        y_out = os.path.join(outdir_abs, "At_level_3.txt")
+        if os.path.exists(y_out):
+            print("\n🧬 Yleaf Lineage Result (At Level 3):")
+            print("-" * 30)
+            try:
+                with open(y_out) as f:
+                    content = f.read().strip()
+                    if content:
+                        print(content)
+                    else:
+                        print("Yleaf output is empty (Level 3).")
+            except Exception as e:
+                logging.debug(f"Failed to print Yleaf results: {e}")
+            print("-" * 30 + "\n")
+
     except Exception as e:
         logging.error(f"Yleaf failed: {e}")
         import sys
@@ -455,6 +471,27 @@ def cmd_mtdna(args):
                 out_file,
             ]
         )
+
+        # Print results directly to terminal
+        if os.path.exists(out_file):
+            print("\n🧬 Haplogrep Lineage Result:")
+            print("-" * 30)
+            try:
+                with open(out_file) as f:
+                    lines = f.readlines()
+                    if len(lines) > 1:
+                        # Skip header if it exists and looks like it
+                        header = lines[0].strip().split("\t")
+                        data = lines[1].strip().split("\t")
+                        for h, d in zip(header, data, strict=False):
+                            if d:
+                                print(f"{h:<15} : {d}")
+                    elif len(lines) == 1:
+                        print(lines[0].strip())
+            except Exception as e:
+                logging.debug(f"Failed to print Haplogrep results: {e}")
+            print("-" * 30 + "\n")
+
     except Exception as e:
         logging.error(f"Haplogrep failed: {e}")
         import sys

@@ -3,6 +3,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from wgsextract_cli.core.dependencies import (
@@ -77,8 +78,11 @@ def register(subparsers, base_parser):
 
     # Main run arguments
     parser.add_argument(
-        "--vep-cache", help="Path to VEP cache directory (e.g., $HOME/.vep)"
+        "--vep-cache",
+        default=os.environ.get("WGSE_VEP_CACHE"),
+        help="Path to VEP cache directory (e.g., $HOME/.vep)",
     )
+
     parser.add_argument(
         "--vep-assembly",
         choices=["GRCh37", "GRCh38"],
@@ -133,8 +137,11 @@ def register(subparsers, base_parser):
         # We need to add the vep-specific ones to both if we want both to work.
         if p == run_parser:
             p.add_argument(
-                "--vep-cache", help="Path to VEP cache directory (e.g., $HOME/.vep)"
+                "--vep-cache",
+                default=os.environ.get("WGSE_VEP_CACHE"),
+                help="Path to VEP cache directory (e.g., $HOME/.vep)",
             )
+
             p.add_argument(
                 "--vep-assembly",
                 choices=["GRCh37", "GRCh38"],
@@ -651,3 +658,10 @@ def cmd_vep(args):
                 )
             )
         print("-" * 60)
+
+    # Exit with error if all failed or if it was a single file and it failed
+    if all(s == "FAILED" for _, s, _ in batch_stats):
+        sys.exit(1)
+    elif any(s == "FAILED" for _, s, _ in batch_stats):
+        # Optional: Exit with 1 if ANY failed? For chain-annotate, yes, probably better.
+        sys.exit(1)

@@ -489,17 +489,21 @@ class ReferenceLibrary:
                     break
 
         # Look for vep cache
-        for search_dir in [self.root, os.path.join(self.root, "vep")]:
-            if os.path.isdir(search_dir) and any(
-                f.endswith("_GRCh38") or f.endswith("_GRCh37")
-                for f in os.listdir(search_dir)
-            ):
-                self.vep_cache = search_dir
-                break
-            vep_sub = os.path.join(search_dir, "vep")
-            if os.path.isdir(vep_sub):
-                self.vep_cache = vep_sub
-                break
+        env_vep_cache = os.environ.get("WGSE_VEP_CACHE")
+        if env_vep_cache and os.path.isdir(env_vep_cache):
+            self.vep_cache = env_vep_cache
+        else:
+            for search_dir in [self.root, os.path.join(self.root, "vep")]:
+                if os.path.isdir(search_dir) and any(
+                    f.endswith("_GRCh38") or f.endswith("_GRCh37")
+                    for f in os.listdir(search_dir)
+                ):
+                    self.vep_cache = search_dir
+                    break
+                vep_sub = os.path.join(search_dir, "vep")
+                if os.path.isdir(vep_sub):
+                    self.vep_cache = vep_sub
+                    break
 
         if skip_full_search:
             return
