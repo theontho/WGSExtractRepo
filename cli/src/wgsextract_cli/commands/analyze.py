@@ -1,3 +1,5 @@
+import copy
+import csv
 import json
 import logging
 import os
@@ -40,12 +42,38 @@ def register(subparsers, base_parser):
         action="store_true",
         help="Skip variant calling if --vcf-inputs is missing (fail instead).",
     )
+    comp_parser.add_argument(
+        "--batch",
+        help=CLI_HELP.get("arg_batch", "Batch file for multiple samples."),
+    )
     comp_parser.set_defaults(func=cmd_comprehensive)
+
+    gen_batch_parser = analyze_subs.add_parser(
+        "batch-gen",
+        parents=[base_parser],
+        help=CLI_HELP.get("cmd_batch_gen", "Generate a batch file from a directory."),
+    )
+    gen_batch_parser.add_argument(
+        "--directory",
+        required=True,
+        help=CLI_HELP.get("arg_directory", "Directory to scan."),
+    )
+    gen_batch_parser.add_argument(
+        "--output",
+        default="batch.csv",
+        help="Output batch file path.",
+    )
+    gen_batch_parser.set_defaults(func=cmd_batch_gen)
 
 
 def cmd_comprehensive(args):
     verify_dependencies(["bcftools", "samtools", "tabix"])
     log_dependency_info(["bcftools", "samtools", "tabix"])
+
+    batch_file = args.batch if args.batch else os.environ.get("WGSE_BATCH")
+    if batch_file:
+        run_batch_comprehensive(args, batch_file)
+        return
 
     input_file = args.input
     vcf_inputs = args.vcf_inputs if args.vcf_inputs else []
@@ -111,6 +139,153 @@ def cmd_comprehensive(args):
 
     # 3. Final Summary Report
     generate_summary_report(results, outdir)
+
+
+def run_batch_comprehensive(args, batch_file):
+    """Runs comprehensive analysis for multiple samples defined in batch_file."""
+
+    if not os.path.exists(batch_file):
+        logging.error(f"Batch file not found: {batch_file}")
+        sys.exit(1)
+
+    with open(batch_file) as f:
+        # Detect delimiter (CSV or TSV)
+        dialect = csv.Sniffer().sniff(f.read(1024))
+        f.seek(0)
+        reader = csv.DictReader(f, dialect=dialect)
+
+        # Map header names flexibly
+        headers = reader.fieldnames or []
+        name_col = next(
+            (c for c in headers if c.lower() in ["name", "sample", "id"]), "name"
+        )
+        input_col = next(
+            (c for c in headers if c.lower() in ["input", "bam", "cram"]), "input"
+        )
+        vcf_col = next((c for c in headers if "vcf" in c.lower()), "vcf")
+
+        for row in reader:
+            name = row.get(name_col, "Unknown")
+            input_path = row.get(input_col)
+            vcf_paths = row.get(vcf_col, "")
+
+            # Clean up vcf_paths - handle comma or space separated
+            vcf_list = []
+            if vcf_paths:
+                vcf_list = [
+                    v.strip()
+                    for v in vcf_paths.replace(",", ";").split(";")
+                    if v.strip()
+                ]
+
+            print("\n" + "#" * 80)
+            print(f"### BATCH PROCESSING: {name}")
+            print("#" * 80)
+
+            # Create sample-specific outdir
+            sample_outdir = os.path.join(
+                args.outdir if args.outdir else os.getcwd(), name
+            )
+            os.makedirs(sample_outdir, exist_ok=True)
+
+            # Build dummy args for this sample
+            sample_args = copy.deepcopy(args)
+            sample_args.input = input_path
+            sample_args.vcf_inputs = vcf_list
+            sample_args.outdir = sample_outdir
+            sample_args.batch = None  # Prevent recursion
+
+            try:
+                cmd_comprehensive(sample_args)
+            except Exception as e:
+                logging.error(f"Failed to process sample {name}: {e}")
+
+
+def cmd_batch_gen(args):
+    """Generates a batch file by scanning a directory."""
+    scan_dir = args.directory
+    if not os.path.exists(scan_dir):
+        logging.error(f"Directory not found: {scan_dir}")
+        sys.exit(1)
+
+    print(f"🔍 Scanning directory: {scan_dir}")
+
+    samples: dict[str, dict] = {}  # name -> {input, vcfs}
+
+    for root, _, files in os.walk(scan_dir):
+        for f in files:
+            full_path = os.path.abspath(os.path.join(root, f))
+            lower_f = f.lower()
+
+            # Heuristic: sample1.bam -> name sample1
+            # sample1.vcf.gz -> name sample1
+            # Strip common suffixes for better grouping
+            def clean_name(n):
+                # Strip all extensions first
+                name = n
+                while "." in name:
+                    base, ext = os.path.splitext(name)
+                    if ext.lower() in [
+                        ".vcf",
+                        ".gz",
+                        ".bam",
+                        ".cram",
+                        ".tbi",
+                        ".csi",
+                        ".bai",
+                        ".crai",
+                    ]:
+                        name = base
+                    else:
+                        break
+
+                # Strip common genomic suffixes
+                for suffix in [
+                    "_snp",
+                    "_sv",
+                    "_indel",
+                    "_cnv",
+                    ".snp",
+                    ".sv",
+                    ".indel",
+                    ".cnv",
+                    "_metrics",
+                    "_info",
+                ]:
+                    if name.lower().endswith(suffix):
+                        name = name[: -len(suffix)]
+
+                return name
+
+            if lower_f.endswith((".bam", ".cram")):
+                name = clean_name(f)
+                if name not in samples:
+                    samples[name] = {"input": None, "vcfs": []}
+                samples[name]["input"] = full_path
+
+            elif lower_f.endswith((".vcf.gz", ".vcf")):
+                # Avoid adding indexes as VCFs
+                if not lower_f.endswith((".tbi", ".csi")):
+                    name = clean_name(f)
+                    if name not in samples:
+                        samples[name] = {"input": None, "vcfs": []}
+                    samples[name]["vcfs"].append(full_path)
+
+    if not samples:
+        logging.warning("No genomic files found in the directory.")
+        return
+
+    output_path = args.output
+    print(f"✍️ Writing batch file to: {output_path}")
+
+    with open(output_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["name", "input", "vcf"])
+        for name, data in sorted(samples.items()):
+            vcf_str = ";".join(data["vcfs"])
+            writer.writerow([name, data["input"] or "", vcf_str])
+
+    print(f"✅ Generated batch file with {len(samples)} samples.")
 
 
 def detect_vcf_type(vcf_path):
