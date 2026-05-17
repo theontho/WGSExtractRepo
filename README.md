@@ -1,3 +1,8 @@
+> [!WARNING]
+> THIS REPO IS GOING AWAY SOON, LOOK AT THE NEW CLI CORE HERE: https://github.com/theontho/wgsextract-cli
+> 
+> AND THE GUI SYSTEM THAT WE WILL USE FOR THE GUI VERSION: https://github.com/theontho/gui-for-cli
+
 # WGS Extract
 
 > ⚠️ **Currently a WIP setup of the git repo for development**
