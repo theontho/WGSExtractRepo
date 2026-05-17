@@ -730,6 +730,7 @@ def init(interactive=False):
         python_executable = "python3"
         python_root = "/usr/bin" # Default
         python_search = [
+            (f'{install_FP}.venv/bin', "python3"),
             ("/usr/local/bin", "python3"),
             ("/opt/homebrew/bin", "python3.11"),
             ("/opt/homebrew/bin", "python3"),
